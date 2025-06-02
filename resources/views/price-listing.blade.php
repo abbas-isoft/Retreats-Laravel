@@ -323,8 +323,11 @@
 <x-app title="Price Listing">
   <h2>
     Price Listing
-    <form method="POST" action="{{ route('price.fetch') }}" style="display: inline;">
+   
+
+<form method="POST" action="{{ route('price.listing.data') }}" style="display: inline;">
   @csrf
+  <input type="hidden" name="property_id" value="{{ $configurations->first()->property_id ?? '' }}">
   <button type="submit" class="btn btn-primary">Fetch & Update Price Listing</button>
 </form>
   </h2>

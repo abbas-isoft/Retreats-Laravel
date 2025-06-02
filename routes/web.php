@@ -48,44 +48,21 @@ Route::get('fetch-single-configuration/{id}', [SinglePropertyListingController::
 
 // Price Listing
 Route::get('price-listing/{property_id}', [PriceListingController::class, 'index'])->name('price.listing');
-Route::get('fetch-price-listing', [PriceListingController::class, 'fetch'])->name('price.listing.data');
-
-
-// content listing
-Route::get('content-listing', [ContentListingController::class, 'index'])->name('content.listing');
-Route::post('content-listing/update/{id}', [ContentListingController::class, 'update'])->name('content.update');
-
-Route::get('/content-listing', [ContentListingController::class, 'index'])->name('content.listing');
-Route::post('/content-listing', [ContentListingController::class, 'fetchAndUpdate']);
-
-
-// Bulk fetch & update all records
-Route::post('/content-listing/fetch-update', [ContentListingController::class, 'fetchAndUpdate'])->name('content.fetchUpdate');
-
-// Update a single record by ID (for the per-row update button)
-Route::post('/content-listing/update/{id}', [ContentListingController::class, 'update'])->name('content.update');
-
-
-// Route::get('/price-listing/fetch', [PriceListingController::class, 'fetch'])->name('price.listing.fetch');
-
-// Route::get('/price-listing', [PriceListingController::class, 'index'])->name('price.listing');
-
-
-// Route::get('/price-listing', [PriceListingController::class, 'index'])->name('price.index');
-// Route::post('/price-listing/fetch', [PriceListingController::class, 'fetch'])->name('price.fetch');
+Route::post('fetch-price-listing', [PriceListingController::class, 'fetch'])->name('price.listing.data');
 
 
 
+// Content Listing
 Route::get('/content-listing/{id}', [ContentListingController::class, 'index'])->name('content.index');
 Route::post('/content-listing/fetch-update/{id}', [ContentListingController::class, 'fetchAndUpdate'])->name('content.fetchUpdate');
 
 
-
+// Price Listing
 Route::get('/price-listing', [PriceListingController::class, 'index'])->name('price.index');
 Route::post('/price-listing/fetch', [PriceListingController::class, 'fetch'])->name('price.fetch');
 
 
-
+// Property Content
 Route::get('/property-content/{id}', [PropertyContentController::class, 'index'])->name('property-content.index');
 
 Route::post('/property-content/fetch-update/{id}', [PropertyContentController::class, 'fetchAndUpdate'])->name('property-content.fetchUpdate');
