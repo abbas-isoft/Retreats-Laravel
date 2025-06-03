@@ -43,7 +43,7 @@ class SinglePropertyListingController extends Controller
             [
                 'property_url' => $data['propertyUrl'] ?? null,
                 'customer_property_id' => $data['customerPropertyId'] ?? null,
-                'card_payment_forms' => $data['configuration']['acceptedPaymentForms']['cardPaymentForms']['cardCode'] ?? null,
+                'card_payment_forms' => $data['configuration']['acceptedPaymentForms']['cardPaymentForms'] ?? null,
                 'cancellation_policy' => $data ['configuration']['cancellationPolicy']['policy'] ?? null,
                 'occupancy' => json_encode($data['occupancy'] ?? []),
                 'merchant_name' => $data['configuration']['merchantName'] ?? null,
@@ -54,10 +54,11 @@ class SinglePropertyListingController extends Controller
                 'allow_enquiries' => $data['configuration']['allowEnquiries'] ?? null,
                 'check_in_time' => $data['configuration']['checkInTime'] ?? null,
                 'check_out_time' => $data['configuration']['checkOutTime'] ?? null,
-                'card_codes' => $data['configuration']['acceptedPaymentForms']['cardPaymentForms']['cardTypes'] ?? null,
+                'card_codes' => $data['configuration']['acceptedPaymentForms']['cardPaymentForms'] ?? null,
                 'max_adults' => $data['configuration']['maximumOccupancy']['adults'] ?? null,
                 'max_guests' => $data['configuration']['maximumOccupancy']['guests'] ?? null,
                 'max_children' => $data['configuration']['maximumOccupancy']['children'] ?? null,
+                
             ]
         );
 

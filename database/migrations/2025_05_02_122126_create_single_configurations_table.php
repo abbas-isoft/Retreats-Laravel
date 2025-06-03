@@ -16,7 +16,9 @@ return new class extends Migration
             $table->bigInteger('property_id')->unique();
             $table->string('property_url')->nullable();
             $table->string('customer_property_id')->nullable();
-            $table->json('card_payment_forms')->nullable();
+            $table->string('card_payment_forms')->nullable();
+             $table->string('card_code')->nullable();
+            $table->string('card_type')->nullable();
             $table->string('cancellation_policy')->nullable();
             $table->string('check_in_time')->nullable();
             $table->string('check_out_time')->nullable();

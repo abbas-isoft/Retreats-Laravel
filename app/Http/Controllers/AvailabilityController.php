@@ -7,17 +7,18 @@ use App\Models\PropertyAvailability;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 class AvailabilityController extends Controller
 {
-    public function index()
+    public function index(): View
     {
         return view('availability', [
-            'availabilities' => PropertyAvailability::get(),
+            'availabilities' => PropertyAvailability::latest()->get(),
         ]);
     }
 
-    public function fetch()
+    public function fetch(): RedirectResponse
     {
         try {
             $accounts = Account::all();

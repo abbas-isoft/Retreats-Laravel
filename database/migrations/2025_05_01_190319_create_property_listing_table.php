@@ -19,7 +19,7 @@ return new class extends Migration
 
             $table->json('card_payment_forms')->nullable(); // Will store array of cards
             $table->string('cancellation_policy')->nullable();
-
+             
             $table->string('check_in_time')->nullable();
             $table->string('check_out_time')->nullable();
             $table->boolean('children_allowed')->default(false);
