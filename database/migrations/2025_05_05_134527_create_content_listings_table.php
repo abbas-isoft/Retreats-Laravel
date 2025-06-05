@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('content_listings', function (Blueprint $table) {
             $table->id();
             $table->integer('property_id');
+            $table->string('property_url')->nullable();
             $table->string('customer_property_id');
             $table->json('accepted_payment_forms');
             $table->string('cancellation_policy');
