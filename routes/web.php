@@ -21,7 +21,7 @@ Route::get('fetch-accounts', [AccountController::class, 'fetch'])->name('fetch.a
 
 // Properties  
 Route::get('properties/{accountid}', [PropertyController::class, 'index'])->name('properties');
-Route::get('fetch-properties/{accountid}', [PropertyController::class, 'fetch'])->name('fetch.properties');
+Route::get('fetch-properties/{account}', [PropertyController::class, 'fetch'])->name('fetch.properties');
 
 
 // Configuration

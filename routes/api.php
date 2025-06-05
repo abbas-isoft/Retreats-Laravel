@@ -12,10 +12,11 @@ use App\Http\Controllers\Api\SinglePropertyListingController;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
-
+Route::post('fetch-accounts', [AccountController::class, 'fetch']);
 
 // availability
 Route::get('availability', [AvailabilityController::class, 'index']);
+Route::post('fetch-availability', [AvailabilityController::class, 'fetch']);
 
 // Properties  
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);
@@ -36,4 +37,5 @@ Route::get('single-property-listing/{id}', [SinglePropertyListingController::cla
 Route::get('content-listing/{id}', [ContentListingController::class, 'index']);
 
 // Property Content
-Route::get('property-content/{id}', [PropertyContentController::class, 'index']);
+Route::get('property-content/{property}', [PropertyContentController::class, 'index']);
+Route::post('fetch-property-content/{property}', [PropertyContentController::class, 'fetch']);

@@ -23,6 +23,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Property;
+use App\Http\Resources\PropertyContentResource;
+
+use App\Models\PropertyContent;
+
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PropertyResource;

@@ -1,34 +1,14 @@
 <?php
 
-// namespace App\Http\Controllers\Api;
-
-// use App\Http\Resources\AccountResource;
-// use Exception;
-// use App\Models\Account;
-// use Illuminate\Http\JsonResponse;
-// use Illuminate\View\View;
-// use App\Http\Controllers\Controller;
-// use Illuminate\Support\Facades\Http;
-// use Illuminate\Http\RedirectResponse;
-
-// class AccountController extends Controller
-// {
-//     public function index(): JsonResponse
-//     {
-//         return response()->json([
-//             'accounts' => AccountResource::collection(Account::latest()->get()),
-//         ]);
-//     }
-// }
-
-
 namespace App\Http\Controllers\Api;
 
-use App\Http\Resources\AccountResource;
+use Exception;
 use App\Models\Account;
+use App\Jobs\FetchAccountJob;
 use Illuminate\Http\JsonResponse;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\AccountResource;
 
 class AccountController extends Controller
 {
@@ -48,7 +28,28 @@ class AccountController extends Controller
                 'status' => true,
                 'data' => AccountResource::collection($accounts)
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
+            Log::error('Account fetch failed: ' . $e->getMessage());
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong while fetching accounts.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function fetch(): JsonResponse
+    {
+        try {
+            FetchAccountJob::dispatch();
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Account data updated successfully from API.',
+            ]);
+
+        } catch (Exception $e) {
             Log::error('Account fetch failed: ' . $e->getMessage());
 
             return response()->json([

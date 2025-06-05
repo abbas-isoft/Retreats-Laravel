@@ -21,40 +21,40 @@ class AvailabilityController extends Controller
     public function fetch(): RedirectResponse
     {
         try {
-            $accounts = Account::all();
+            // $accounts = Account::all();
 
-            if ($accounts->isEmpty()) {
-                return redirect()->back()->with('error', 'No accounts found to fetch availability.');
-            }
+            // if ($accounts->isEmpty()) {
+            //     return redirect()->back()->with('error', 'No accounts found to fetch availability.');
+            // }
 
-            foreach ($accounts as $account) {
-                $response = Http::withHeaders([
-                    'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
-                    'Accept' => 'application/json',
-                ])->get("https://api.supercontrol.co.uk/v3/Properties/AvailabilityIndex/{$account->accountId}");
+            // foreach ($accounts as $account) {
+            //     $response = Http::withHeaders([
+            //         'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
+            //         'Accept' => 'application/json',
+            //     ])->get("https://api.supercontrol.co.uk/v3/Properties/AvailabilityIndex/{$account->accountId}");
 
-                if ($response->failed()) {
-                    Log::error("Failed to fetch availability for account: {$account->accountId}");
-                    continue;
-                }
+            //     if ($response->failed()) {
+            //         Log::error("Failed to fetch availability for account: {$account->accountId}");
+            //         continue;
+            //     }
 
-                $data = $response->json();
+            //     $data = $response->json();
 
-                if (isset($data['properties'])) {
-                    foreach ($data['properties'] as $item) {
-                        $lastUpdated = Carbon::parse($item['lastUpdated'])->toDateTimeString();
+            //     if (isset($data['properties'])) {
+            //         foreach ($data['properties'] as $item) {
+            //             $lastUpdated = Carbon::parse($item['lastUpdated'])->toDateTimeString();
 
-                        PropertyAvailability::updateOrCreate(
-                            ['property_id' => $item['propertyId']],
-                            [
-                                'account_id' => $account->id,
-                                'listing_url' => $item['listingUrl'] ?? null,
-                                'last_updated' => $lastUpdated,
-                            ]    
-                        );
-                    }
-                }
-            }
+            //             PropertyAvailability::updateOrCreate(
+            //                 ['property_id' => $item['propertyId']],
+            //                 [
+            //                     'account_id' => $account->id,
+            //                     'listing_url' => $item['listingUrl'] ?? null,
+            //                     'last_updated' => $lastUpdated,
+            //                 ]    
+            //             );
+            //         }
+            //     }
+            // }
 
             return redirect()->route('availability.index')
                 ->with('success', 'Availability data updated successfully from API.');

@@ -15,7 +15,8 @@ use App\Http\Resources\PropertyContentResource;
 
 class PropertyContentController extends Controller
 {
-    public function index($id): JsonResponse
+
+     public function index($id): JsonResponse
     {
         $property = Property::findOrFail($id);
 
@@ -23,4 +24,31 @@ class PropertyContentController extends Controller
             'property-content' => PropertyContentResource::collection(PropertyContent::latest()->get()),
         ]);
     }
-}
+
+    public function fetch($id): JsonResponse
+    {
+        try {
+            $property = Property::findOrFail($id);
+            $propertyId = $property->propertyId;
+
+
+            return response()->json([
+                'status' => false,
+                'message' => 'PropertyContent data updated successfully from API.',
+            ]);
+
+              } catch (\Exception $e) {
+        Log::error('PropertyContent fetch failed: ' . $e->getMessage());
+
+            return response()->json([
+            'status' => false,
+            'message' => 'Something went wrong while fetching content.',
+            'error' => $e->getMessage()
+        ], 500);
+        }
+    }
+        }
+
+
+
+    

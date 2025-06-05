@@ -26,6 +26,7 @@
         <th>Updated At</th>
         <th>Configurations</th>
         <th>Properties</th>
+        <th>Availability</th>
       </tr>
     </thead>
     <tbody>
@@ -45,6 +46,9 @@
       </td>
       <td>
         <a href="{{ route('properties', $account->id) }}">View</a>
+      </td>
+      <td>
+        <a href="{{ route('availability.index', $account->id) }}">View</a>
       </td>
       </tr>
     @empty
