@@ -14,4 +14,10 @@ class Account extends Model
         'pricesIndexUrl',
         'availabilityIndexUrl',
     ];
+
+public function properties()
+{
+    return $this->hasMany(Property::class, 'account_id', 'id');
+}
+
 }

@@ -39,3 +39,4 @@ Route::get('content-listing/{id}', [ContentListingController::class, 'index']);
 // Property Content
 Route::get('property-content/{property}', [PropertyContentController::class, 'index']);
 Route::post('fetch-property-content/{property}', [PropertyContentController::class, 'fetch']);
+

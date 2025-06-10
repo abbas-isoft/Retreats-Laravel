@@ -20,20 +20,21 @@ class PriceListingController extends Controller
         $configurations = PriceConfiguration::where('property_id', $property_id)->with(['fees', 'losEntries', 'paymentSchedules'])->latest()->get();
         return view('price-listing', compact('configurations'));
     }
-
-    public function fetch(Request $request): RedirectResponse
+public function fetch(Request $request): RedirectResponse
 {
     try {
         $propertyId = $request->input('property_id');
 
-        // Get the existing price configuration for the property
-        $existingConfig = PriceConfiguration::where('property_id', $propertyId)->first();
+        // Optional: check if the property ID exists in your properties table
+        $account = Account::whereHas('properties', function ($query) use ($propertyId) {
+            $query->where('id', $propertyId);
+        })->first();
 
-        if (!$existingConfig) {
-            return redirect()->back()->with('error', 'No configuration found for this Property ID.');
+        if (!$account) {
+            return redirect()->back()->with('error', 'No account found for this Property ID.');
         }
 
-        $accountId = $existingConfig->account_id;
+        $accountId = $account->id;
 
         // Fetch data from API
         $response = Http::withHeaders([
@@ -48,7 +49,7 @@ class PriceListingController extends Controller
 
         $data = $response->json();
 
-        // Delete old config
+        // Delete old config if exists
         PriceConfiguration::where('property_id', $propertyId)->delete();
 
         // Create new price configuration

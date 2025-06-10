@@ -20,7 +20,7 @@ class ContentListingController extends Controller
         return view('content-listing', [
     'contents' => ContentListing::where('property_id', $property->propertyId)->latest()->get(),
     'propertyId' => $id,
-    'accountId' => $property->account_id, // ← this line fixes the error
+    'accountId' => $property->account_id, 
 ]);
     }
 

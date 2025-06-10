@@ -2,16 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\FetchPropertyJob;
-use Carbon\Carbon;
 use App\Models\Account;
 use App\Models\Property;
-use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
+use Carbon\Carbon;
 
 class PropertyController extends Controller
 {
-    public function index($accountid): View
+    public function index($accountid)
     {
         return view('properties', [
             'properties' => Property::where('account_id', $accountid)->get(),
@@ -19,16 +16,19 @@ class PropertyController extends Controller
         ]);
     }
 
-    public function fetch(Account $account): RedirectResponse
+    public function fetch($accountid)
     {
         try {
-            FetchPropertyJob::dispatch($account);
+            $controller = new SuperControlController;
 
-            return to_route('properties', $account->id)
-                ->with('success', 'Properties updated successfully from API.');
+            // Fetch properties for all accounts
+            $account = Account::find($accountid);
+
+            $controller->fetchAccountProperties($account->accountId);
+
+            return redirect()->route('properties', $accountid)->with('success', 'Properties updated successfully from API.');
         } catch (\Exception $e) {
-            return back()
-                ->with('error', 'Error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 }

@@ -25,4 +25,10 @@ class Property extends Model
     public $timestamps = true;
 
     protected $guarded = [];
+
+    public function account()
+{
+    return $this->belongsTo(Account::class, 'account_id', 'id');
+}
+
 }
