@@ -20,6 +20,8 @@ Route::post('fetch-availability', [AvailabilityController::class, 'fetch']);
 
 // Properties  
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);
+Route::post('fetch-properties/{accountId}', [PropertyController::class, 'fetch']);
+
 
 // Configuration
 Route::get('configurations/{id}', [ConfigurationController::class, 'index']);
