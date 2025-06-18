@@ -3,19 +3,18 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PropertyConfiguration extends Model
 {
     protected $fillable = [
         'property_id',
-        'account_id',
-        'card_code',
-        'card_type',
-        'cancellation_policy',
-        'merchant_name',
-        'minimum_age',
-        'rental_agreement_url',
         'last_updated',
         'configurationContentUrl',
     ];
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
 }

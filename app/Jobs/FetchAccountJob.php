@@ -30,7 +30,7 @@ class FetchAccountJob implements ShouldQueue
 
         foreach ($accounts['accounts'] as $account) {
             Account::updateOrCreate(
-                ['accountId' => $account['accountId']],
+                ['id' => $account['accountId']],
                 [
                     'companyName' => $account['companyName'] ?? null,
                     'contentIndexUrl' => $account['contentIndexUrl'] ?? null,

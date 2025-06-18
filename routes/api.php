@@ -23,9 +23,9 @@ Route::get('properties/{accountid}', [PropertyController::class, 'index']);
 Route::post('fetch-properties/{accountId}', [PropertyController::class, 'fetch']);
 
 // Configuration
-Route::get('configurations/{id}', [ConfigurationController::class, 'index']);
+Route::get('configurations/{accountid}', [ConfigurationController::class, 'index']);
 // Route::post('/configurations/fetch', [ConfigurationController::class, 'fetch']);
-Route::get('/configurations/fetch/{accountId}', [ConfigurationController::class, 'fetch']);
+Route::post('/configurations/{accountId}', [ConfigurationController::class, 'fetch']);
 
 // Prices
 Route::get('prices', [PricesController::class, 'index']);

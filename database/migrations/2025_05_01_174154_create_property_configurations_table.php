@@ -13,16 +13,9 @@ return new class extends Migration
     {
         Schema::create('property_configurations', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('property_id');
-            $table->unsignedBigInteger('account_id')->nullable();
-            $table->string('card_code')->nullable();
-            $table->string('card_type')->nullable();
-            $table->string('cancellation_policy')->nullable();
-            $table->string('merchant_name')->nullable();
-            $table->integer('minimum_age')->nullable();
-            $table->string('rental_agreement_url')->nullable();
-            $table->dateTime('last_updated')->nullable();
-            $table->string('configurationContentUrl')->nullable();
+            $table->foreignId('property_id')->constrained()->cascadeOnDelete();
+            $table->string('last_updated');
+            $table->string('configurationContentUrl');
             $table->timestamps();
         });
     }

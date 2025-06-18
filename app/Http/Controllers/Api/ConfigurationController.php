@@ -2,31 +2,33 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Resources\ConfigurationResource;
-use App\Models\PropertyConfiguration;
+use App\Models\Account;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
+use App\Models\PropertyConfiguration;
+use App\Http\Resources\ConfigurationResource;
 
 class ConfigurationController extends Controller
 {
-    public function index($id): JsonResponse
+    public function index($accountid): JsonResponse
     {
         try {
-            $configurations = PropertyConfiguration::where('account_id', $id)->latest()->get();
+            $configurations = PropertyConfiguration::whereHas('property', function ($property) use($accountid): void {
+                $property->where('account_id', $accountid);
+            })->latest()->get();
 
             if ($configurations->isEmpty()) {
                 return response()->json([
                     'status' => false,
                     'message' => 'No configuration found for this Property ID.',
-                    'property_id_checked' => $id,
                 ]);
             }
 
             return response()->json([
                 'status' => true,
-                'data' => ConfigurationResource::collection($configurations),
+                'propertyConfigurations' => ConfigurationResource::collection($configurations),
             ]);
         } catch (\Exception $e) {
             Log::error('Configuration fetch failed: '.$e->getMessage());
@@ -42,9 +44,9 @@ class ConfigurationController extends Controller
     public function fetch($accountId): JsonResponse
     {
         try {
-            $account = \App\Models\Account::find($accountId);
+            $account = Account::find($accountId);
 
-            if (! $account || ! $account->configurationIndexUrl) {
+            if (! $account ) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Configuration URL not found for this account.',
@@ -53,7 +55,7 @@ class ConfigurationController extends Controller
 
             $response = Http::withHeaders([
                 'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
-            ])->get($account->configurationIndexUrl);
+            ])->get('https://api.supercontrol.co.uk/v3/properties/ConfigurationIndex/' . $account->id);
 
             $properties = $response->json();
 
@@ -65,30 +67,18 @@ class ConfigurationController extends Controller
             }
 
             foreach ($properties['properties'] as $property) {
-                if (! isset($property['cardCode'])) {
-                    continue; // Skip if no cardCode
-                }
-
-                // Overwrite DB with live API data
-                \App\Models\PropertyConfiguration::updateOrCreate(
+                PropertyConfiguration::updateOrCreate(
                     [
-                        'account_id' => $account->id,
-                        'property_id' => $property['id'] ?? null,
+                        'property_id' => $property['propertyId'],
                     ],
                     [
-                        'card_code' => $property['cardCode'] ?? null,
-                        'card_type' => $property['cardType'] ?? null,
-                        'cancellation_policy' => $property['cancellationPolicy'] ?? null,
-                        'merchant_name' => $property['merchantName'] ?? null,
-                        'minimum_age' => $property['minimumAge'] ?? null,
-                        'rental_agreement_url' => $property['rentalAgreementUrl'] ?? null,
                         'configurationContentUrl' => $property['configurationContentUrl'] ?? null,
                         'last_updated' => $property['lastUpdated'] ?? null,
                     ]
                 );
             }
 
-            $updatedConfigurations = \App\Models\PropertyConfiguration::where('account_id', $account->id)->latest()->get();
+            $updatedConfigurations = PropertyConfiguration::latest()->get();
 
             return response()->json([
                 'status' => true,
