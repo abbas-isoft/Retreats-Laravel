@@ -11,18 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('properties', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('account_id');
-            $table->unsignedBigInteger('propertyId')->unique();
-            $table->boolean('active')->nullable();
-            $table->timestamp('lastUpdated')->nullable();
-            $table->string('listingUrl')->nullable();
-            $table->timestamps();
+       Schema::create('properties', function (Blueprint $table) {
+    $table->id();
+    $table->unsignedBigInteger('account_id'); // snake_case for foreign key
+    $table->unsignedBigInteger('propertyId')->unique();
+    $table->boolean('active')->nullable();
+    $table->timestamp('lastUpdated')->nullable();
+    $table->string('listingUrl')->nullable();
+    $table->timestamps();
 
-            $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
-        });
-
+    $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
+});
     }
 
     /**
@@ -33,3 +32,4 @@ return new class extends Migration
         Schema::dropIfExists('properties');
     }
 };
+

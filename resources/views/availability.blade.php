@@ -3,6 +3,7 @@
   <h2>
     Availability Table
     <a href="{{ route('fetch.availability') }}">Fetch & Update Availability</a>
+
   </h2>
 
   @if(session('success'))

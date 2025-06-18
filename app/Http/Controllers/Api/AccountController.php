@@ -39,7 +39,7 @@ class AccountController extends Controller
     public function fetch(): JsonResponse
 {
     try {
-        // Step 1: Live API call
+        
         $accountsResponse = \Illuminate\Support\Facades\Http::withHeaders([
             'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99'
         ])->get('https://api.supercontrol.co.uk/v3/properties/index');

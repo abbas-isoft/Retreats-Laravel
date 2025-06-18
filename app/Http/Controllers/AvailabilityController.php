@@ -10,18 +10,20 @@ use Illuminate\Support\Facades\Log;
 
 class AvailabilityController extends Controller
 {
-    public function index()
+    public function index($accountId)
     {
+         $test = Account::where('accountId', $accountId)->first()->id;
         return view('availability', [
             'availabilities' => PropertyAvailability::get(),
+            'accountid' => $accountId,
         ]);
     }
 
-    public function fetch()
+    public function fetch($accountId)
     {
         try {
             $accounts = Account::all();
-
+ $account = Account::where('accountId', $accountId)->first();
             if ($accounts->isEmpty()) {
                 return redirect()->back()->with('error', 'No accounts found to fetch availability.');
             }
@@ -46,7 +48,8 @@ class AvailabilityController extends Controller
                         PropertyAvailability::updateOrCreate(
                             ['property_id' => $item['propertyId']],
                             [
-                                'account_id' => $account->id,
+                                // 'account_id' => $account->id,
+                                'account_id' => $account->accountId,
                                 'listing_url' => $item['listingUrl'] ?? null,
                                 'last_updated' => $lastUpdated,
                             ]    

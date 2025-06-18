@@ -45,10 +45,10 @@
         <a href="{{ route('configurations.index', $account->id) }}">View</a>
       </td>
       <td>
-        <a href="{{ route('properties', $account->id) }}">View</a>
+        <a href="{{ route('properties', $account->accountId) }}">View</a>
       </td>
       <td>
-        <a href="{{ route('availability.index', $account->id) }}">View</a>
+        <a href="{{ route('availability.index', $account->accountId) }}">View</a>
       </td>
       </tr>
     @empty

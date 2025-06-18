@@ -1,16 +1,17 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PricesController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\PriceListingController;
+use App\Http\Controllers\SuperControlController;
 use App\Http\Controllers\ConfigurationController;
 use App\Http\Controllers\ContentListingController;
-use App\Http\Controllers\PriceListingController;
-use App\Http\Controllers\PricesController;
-use App\Http\Controllers\PropertyController;
-use App\Http\Controllers\SinglePropertyListingController;
-use App\Http\Controllers\SuperControlController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PropertyContentController;
+use App\Http\Controllers\SinglePropertyListingController;
+use App\Http\Controllers\PropertyAvailabilityRecordsController;
 
 Route::redirect('/', '/accounts');
 
@@ -20,8 +21,8 @@ Route::get('fetch-accounts', [AccountController::class, 'fetch'])->name('fetch.a
 
 
 // Properties  
-Route::get('properties/{accountid}', [PropertyController::class, 'index'])->name('properties');
-Route::get('fetch-properties/{account}', [PropertyController::class, 'fetch'])->name('fetch.properties');
+Route::get('properties/{accountId}', [PropertyController::class, 'index'])->name('properties');
+Route::get('fetch-properties/{accountId}', [PropertyController::class, 'fetch'])->name('fetch.properties');
 
 
 // Configuration
@@ -35,8 +36,8 @@ Route::post('prices/fetch', [PricesController::class, 'fetch'])->name('prices.fe
 
 
 // availability
-Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
-Route::get('fetch-availability', [AvailabilityController::class, 'fetch'])->name('fetch.availability');
+Route::get('availability/{accountId}', [AvailabilityController::class, 'index'])->name('availability.index');
+Route::get('fetch-availability/{accountId}', [AvailabilityController::class, 'fetch'])->name('fetch.availability');
 
  
 
@@ -66,3 +67,9 @@ Route::post('/price-listing/fetch', [PriceListingController::class, 'fetch'])->n
 Route::get('/property-content/{id}', [PropertyContentController::class, 'index'])->name('property-content.index');
 
 Route::post('/property-content/fetch-update/{id}', [PropertyContentController::class, 'fetchAndUpdate'])->name('property-content.fetchUpdate');
+
+
+
+// web.php
+Route::get('/availability-records', [PropertyAvailabilityRecordsController::class, 'index'])->name('availability-records.index');
+Route::get('/availability-records/fetch', [PropertyAvailabilityRecordsController::class, 'fetch'])->name('availability-records.fetch');

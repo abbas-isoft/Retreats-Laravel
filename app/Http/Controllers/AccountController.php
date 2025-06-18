@@ -14,6 +14,7 @@ class AccountController extends Controller
     {
         return view('accounts', [
             'accounts' => Account::latest()->get(),
+            
         ]);
     }
 
