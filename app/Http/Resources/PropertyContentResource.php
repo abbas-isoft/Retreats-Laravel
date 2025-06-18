@@ -3,7 +3,6 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
-use App\Http\Resources\PropertyRoomResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PropertyContentResource extends JsonResource
@@ -16,35 +15,35 @@ class PropertyContentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
- 
-        'property_id' => $this->property_id,
-        'customer_property_id' => $this->customer_property_id,
-        'active' => $this->active,
-        'property_name' => $this->property_name,
-        'subcaption' => $this->subcaption,
-        'description' => $this->description,
-        'accommodations_summary' => $this->accommodations_summary,
-        'location_description' => $this->location_description,
-        'changeover' => $this->changeover,
-        'second' => $this->second,
-        'address_line' => $this->address_line, 
-        'city' => $this->city,
-        'country' => $this->country,
-        'post_code' => $this->post_code,
-        'latitude' => $this->latitude,
-        'longitude' => $this->longitude,
-        'property_type' => $this->property_type,
-        'registration_number' => $this->registration_number,
-        'epcRating' => $this->epcRating,
-        'bedroom_count' => $this->bedroom_count,
-        'bathroom_count' => $this->bathroom_count,
-        'area' => $this->area,
-        'area_unit' => $this->area_unit,
-        'amenities '=> $this->amenities, 
-        'images' => PropertyContentImageResource::collection($this->images),
-        'rooms' => PropertyRoomResource::collection($this->rooms),
-        'beds' => $this-> beds ? PropertyRoomBedsResource::collection($this->beds) : null,
-        // 'beds' => PropertyRoomBedsResource::collection($this->beds),
+
+            'property_id' => $this->property_id,
+            'customer_property_id' => $this->customer_property_id,
+            'active' => $this->active,
+            'property_name' => $this->property_name,
+            'subcaption' => $this->subcaption,
+            'description' => $this->description,
+            'accommodations_summary' => $this->accommodations_summary,
+            'location_description' => $this->location_description,
+            'changeover' => $this->changeover,
+            'second' => $this->second,
+            'address_line' => $this->address_line,
+            'city' => $this->city,
+            'country' => $this->country,
+            'post_code' => $this->post_code,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'property_type' => $this->property_type,
+            'registration_number' => $this->registration_number,
+            'epcRating' => $this->epcRating,
+            'bedroom_count' => $this->bedroom_count,
+            'bathroom_count' => $this->bathroom_count,
+            'area' => $this->area,
+            'area_unit' => $this->area_unit,
+            'amenities ' => $this->amenities,
+            'images' => PropertyContentImageResource::collection($this->images),
+            'rooms' => PropertyRoomResource::collection($this->rooms),
+            'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,
+            // 'beds' => PropertyRoomBedsResource::collection($this->beds),
         ];
     }
 }

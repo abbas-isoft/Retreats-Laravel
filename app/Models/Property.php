@@ -11,7 +11,7 @@ class Property extends Model
 
     protected $fillable = [
         'id',
-        'account_id',  
+        'account_id',
         'propertyId',
         'active',
         'lastUpdated',

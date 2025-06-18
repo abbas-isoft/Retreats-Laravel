@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +8,7 @@ class PropertyRoom extends Model
 {
     protected $fillable = [
         'property_content_id',
-        'name'
+        'name',
     ];
 
     public function beds()

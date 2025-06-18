@@ -2,16 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use Carbon\Carbon;
-use App\Models\Account;
-use App\Models\Property;
-use Illuminate\Http\Request;
-use App\Models\ContentListing;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Http;
 use App\Http\Resources\ContentListingResource;
+use App\Models\ContentListing;
+use App\Models\Property;
+use Illuminate\Http\JsonResponse;
 
 class ContentListingController extends Controller
 {
@@ -19,9 +14,9 @@ class ContentListingController extends Controller
     {
         $property = Property::find($id);
 
-      return response()->json([ 
+        return response()->json([
             'content-listing' => ContentListingResource::collection(ContentListing::latest()->get()),
         ]);
-    
-}
+
+    }
 }

@@ -17,7 +17,7 @@ class PropertyRoomResource extends JsonResource
         return [
 
             'property_content_id' => $this->property_content_id,
-             'name '=> $this->name,
+            'name ' => $this->name,
         ];
     }
 }

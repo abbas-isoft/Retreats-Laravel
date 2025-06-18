@@ -16,15 +16,15 @@ class PriceConfiguration extends Model
         return $this->hasMany(PriceLosEntry::class);
     }
 
-//     public function paymentSchedule()
-// {
-//     return $this->hasOne(\App\Models\PaymentSchedule::class);
-// }
+    //     public function paymentSchedule()
+    // {
+    //     return $this->hasOne(\App\Models\PaymentSchedule::class);
+    // }
 
-public function paymentSchedules()
-{
-    return $this->hasMany(PaymentSchedule::class);
-}
+    public function paymentSchedules()
+    {
+        return $this->hasMany(PaymentSchedule::class);
+    }
 
     protected $fillable = [
         'property_id',

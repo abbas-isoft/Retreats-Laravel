@@ -15,10 +15,10 @@ class PropertyRoomBedsResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
- 
+
             'property_room_id' => $this->property_room_id,
-        'bed_type' => $this->bed_type,
-        'quantity '=> $this->quantity,
+            'bed_type' => $this->bed_type,
+            'quantity ' => $this->quantity,
         ];
     }
 }

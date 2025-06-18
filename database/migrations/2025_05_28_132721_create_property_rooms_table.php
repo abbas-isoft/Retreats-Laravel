@@ -16,15 +16,15 @@ class CreatePropertyRoomsTable extends Migration
         // });
 
         Schema::create('property_rooms', function (Blueprint $table) {
-    $table->id();
-    // make sure this matches the type of property_contents.id
-    $table->unsignedBigInteger('property_content_id'); 
-    $table->string('name')->nullable();
-    $table->timestamps();
+            $table->id();
+            // make sure this matches the type of property_contents.id
+            $table->unsignedBigInteger('property_content_id');
+            $table->string('name')->nullable();
+            $table->timestamps();
 
-    // then add foreign key
-    $table->foreign('property_content_id')->references('id')->on('property_contents')->onDelete('cascade');
-});
+            // then add foreign key
+            $table->foreign('property_content_id')->references('id')->on('property_contents')->onDelete('cascade');
+        });
     }
 
     public function down(): void

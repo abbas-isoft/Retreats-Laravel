@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('property_url')->nullable();
             $table->string('customer_property_id')->nullable();
             $table->string('card_payment_forms')->nullable();
-             $table->string('card_code')->nullable();
+            $table->string('card_code')->nullable();
             $table->string('card_type')->nullable();
             $table->string('cancellation_policy')->nullable();
             $table->string('check_in_time')->nullable();

@@ -15,9 +15,8 @@ class Account extends Model
         'availabilityIndexUrl',
     ];
 
-public function properties()
-{
-      return $this->hasMany(Property::class, 'account_id', 'accountId');
-}
-
+    public function properties()
+    {
+        return $this->hasMany(Property::class, 'account_id', 'accountId');
+    }
 }

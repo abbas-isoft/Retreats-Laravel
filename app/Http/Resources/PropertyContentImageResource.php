@@ -16,9 +16,9 @@ class PropertyContentImageResource extends JsonResource
     {
         return [
 
-            'property_content_id' =>$this-> property_content_id,
-             'photo_id' =>$this->photo_id, 
-             'url' => $this->url,
+            'property_content_id' => $this->property_content_id,
+            'photo_id' => $this->photo_id,
+            'url' => $this->url,
         ];
     }
 }

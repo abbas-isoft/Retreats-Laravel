@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('property_content_images', function (Blueprint $table) {
-    $table->id();
-    $table->unsignedBigInteger('property_content_id');
-    $table->string('photo_id')->nullable();
-    $table->text('url')->nullable();
-    $table->timestamps();
+        Schema::create('property_content_images', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('property_content_id');
+            $table->string('photo_id')->nullable();
+            $table->text('url')->nullable();
+            $table->timestamps();
 
-    $table->foreign('property_content_id')->references('id')->on('property_contents')->onDelete('cascade');
-});
+            $table->foreign('property_content_id')->references('id')->on('property_contents')->onDelete('cascade');
+        });
     }
 
     /**

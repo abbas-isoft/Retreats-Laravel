@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+
 // use App\Models\PropertyContentImage;
 class PropertyContent extends Model
 {
@@ -31,10 +32,10 @@ class PropertyContent extends Model
         'bathroom_count',
         'area',
         'area_unit',
-        'amenities' // This will be stored as JSON
+        'amenities', // This will be stored as JSON
     ];
 
-     protected $casts = [
+    protected $casts = [
         'amenities' => 'array',
     ];
 
@@ -42,7 +43,9 @@ class PropertyContent extends Model
     {
         return $this->hasMany(PropertyContentImage::class);
     }
-    public function rooms() {
-    return $this->hasMany(PropertyRoom::class);
-}
+
+    public function rooms()
+    {
+        return $this->hasMany(PropertyRoom::class);
+    }
 }
