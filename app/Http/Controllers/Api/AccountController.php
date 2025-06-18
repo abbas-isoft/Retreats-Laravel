@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Jobs\FetchAccountJob;
 use Exception;
+use App\Models\Account;
+use App\Jobs\FetchAccountJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
 
 class AccountController extends Controller
 {
     public function index(): JsonResponse
     {
         try {
-            $accounts = \App\Models\Account::latest()->get();
+            $accounts = Account::latest()->get();
 
             if ($accounts->isEmpty()) {
                 return response()->json([
@@ -41,7 +43,7 @@ class AccountController extends Controller
     {
         try {
 
-            $accountsResponse = \Illuminate\Support\Facades\Http::withHeaders([
+            $accountsResponse = Http::withHeaders([
                 'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
             ])->get('https://api.supercontrol.co.uk/v3/properties/index');
 
@@ -55,8 +57,8 @@ class AccountController extends Controller
             }
 
             foreach ($accounts['accounts'] as $account) {
-                \App\Models\Account::updateOrCreate(
-                    ['accountId' => $account['accountId']],
+                Account::updateOrCreate(
+                    ['id' => $account['accountId']],
                     [
                         'companyName' => $account['companyName'] ?? null,
                         'contentIndexUrl' => $account['contentIndexUrl'] ?? null,
@@ -68,7 +70,7 @@ class AccountController extends Controller
             }
 
             FetchAccountJob::dispatch();
-            $updatedAccounts = \App\Models\Account::latest()->get();
+            $updatedAccounts = Account::latest()->get();
 
             return response()->json([
                 'status' => true,
@@ -77,7 +79,7 @@ class AccountController extends Controller
             ]);
 
         } catch (Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Account fetch failed: '.$e->getMessage());
+            Log::error('Account fetch failed: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,

@@ -16,8 +16,7 @@ class PropertyResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'accountId' => $this->account_id,
-            'propertyId' => $this->propertyId,
+            'account_id' => $this->account_id,
             'active' => $this->active,
             'listingUrl' => url('/property-content/'.$this->id),
             'lastUpdated' => $this->lastUpdated,

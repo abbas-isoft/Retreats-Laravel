@@ -13,14 +13,11 @@ return new class extends Migration
     {
         Schema::create('properties', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('account_id'); // snake_case for foreign key
-            $table->unsignedBigInteger('propertyId')->unique();
+            $table->foreignId('account_id')->constrained()->cascadeOnDelete();
             $table->boolean('active')->nullable();
             $table->timestamp('lastUpdated')->nullable();
             $table->string('listingUrl')->nullable();
             $table->timestamps();
-
-            $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
         });
     }
 

@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Resources\PropertyResource;
-use App\Jobs\FetchPropertyJob;
+use Exception;
 use App\Models\Account;
 use App\Models\Property;
-use Exception;
+use App\Jobs\FetchPropertyJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
+use App\Http\Resources\PropertyResource;
 
 class PropertyController extends Controller
 {
@@ -22,13 +23,12 @@ class PropertyController extends Controller
                 return response()->json([
                     'status' => false,
                     'message' => 'No properties found for this Account ID.',
-                    'account_id_checked' => $accountid,
                 ]);
             }
 
             return response()->json([
                 'status' => true,
-                'Properties' => PropertyResource::collection($properties),
+                'properties' => PropertyResource::collection($properties),
             ]);
         } catch (Exception $e) {
             Log::error('Property fetch failed: '.$e->getMessage());
@@ -54,9 +54,9 @@ class PropertyController extends Controller
                 ], 404);
             }
 
-            $response = \Illuminate\Support\Facades\Http::withHeaders([
+            $response = Http::withHeaders([
                 'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
-            ])->get('https://api.supercontrol.co.uk/v3/properties/ContentIndex/'.$account->accountId);
+            ])->get('https://api.supercontrol.co.uk/v3/properties/ContentIndex/'.$account->id);
 
             $data = $response->json();
 
@@ -69,7 +69,7 @@ class PropertyController extends Controller
 
             foreach ($data['properties'] as $property) {
                 Property::updateOrCreate(
-                    ['propertyId' => $property['propertyId']],
+                    ['id' => $property['propertyId']],
                     [
                         'account_id' => $account->id,
                         'active' => $property['active'] ?? null,
