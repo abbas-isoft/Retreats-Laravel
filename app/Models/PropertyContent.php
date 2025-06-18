@@ -32,7 +32,7 @@ class PropertyContent extends Model
         'bathroom_count',
         'area',
         'area_unit',
-        'amenities', // This will be stored as JSON
+        'amenities',
     ];
 
     protected $casts = [

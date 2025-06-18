@@ -20,4 +20,9 @@ class Account extends Model
     {
         return $this->hasMany(Property::class);
     }
+
+    public function configuration()
+{
+    return $this->hasOne(AccountConfiguration::class);
+}
 }
