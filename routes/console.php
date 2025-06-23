@@ -1,8 +1,11 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+Schedule::command('fetch:accounts')->everyFiveSeconds();
+Schedule::command('fetch:properties')->everyFiveSeconds();
+Schedule::command('fetch:avalibilities')->everyFiveSeconds();
+Schedule::command('fetch:configurations')->everyFiveSeconds();
+Schedule::command('fetch:prices')->everyFiveSeconds();
+Schedule::command('fetch:property-contents')->everyFiveSeconds();
+Schedule::command('fetch:single-property')->everyFiveSeconds();

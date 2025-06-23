@@ -22,7 +22,7 @@ class Account extends Model
     }
 
     public function configuration()
-{
-    return $this->hasOne(AccountConfiguration::class);
-}
+    {
+        return $this->hasOne(AccountConfiguration::class);
+    }
 }

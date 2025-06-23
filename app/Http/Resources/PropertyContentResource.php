@@ -42,8 +42,10 @@ class PropertyContentResource extends JsonResource
             'amenities ' => $this->amenities,
             'images' => PropertyContentImageResource::collection($this->images),
             'rooms' => PropertyRoomResource::collection($this->rooms),
-            'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,
+            // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,
             // 'beds' => PropertyRoomBedsResource::collection($this->beds),
+            'beds' => PropertyRoomBedsResource::collection($this->beds ?? collect()),
+
         ];
     }
 }

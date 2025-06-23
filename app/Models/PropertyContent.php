@@ -48,4 +48,8 @@ class PropertyContent extends Model
     {
         return $this->hasMany(PropertyRoom::class);
     }
+    public function beds()
+    {
+        return $this->hasManyThrough(PropertyRoomBed::class, PropertyRoom::class);
+    }
 }

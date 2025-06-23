@@ -15,7 +15,6 @@ class PriceResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
             'property_id' => $this->property_id,
             'account_id' => $this->account_id,
             'last_updated' => $this->last_updated,

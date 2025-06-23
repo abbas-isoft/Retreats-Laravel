@@ -15,4 +15,8 @@ class PropertyAvailability extends Model
         'listing_url',
         'last_updated',
     ];
+     public function property()
+    {
+        return $this->belongsTo(Property::class, 'property_id');
+    }
 }

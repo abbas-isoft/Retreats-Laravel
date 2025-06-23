@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountConfiguration extends Model
 {
@@ -11,7 +12,7 @@ class AccountConfiguration extends Model
 
     protected $fillable = [
         'account_id',
-        'card_payment_forms', 
+        'card_payment_forms',
         'cancellation_policy',
         'last_updated',
         'merchant_name',
@@ -24,8 +25,8 @@ class AccountConfiguration extends Model
         'last_updated' => 'datetime',
     ];
 
-    public function account()
-{
-    return $this->belongsTo(Account::class);
-}
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
 }
