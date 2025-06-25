@@ -48,9 +48,9 @@ class FetchAvailabilityCalendars extends Command
                 ]
             );
 
-            $this->info("✅ Updated availability for Property ID: {$propertyId}");
+            $this->info(" Updated availability for Property ID: {$propertyId}");
         }
 
-        $this->info("🎉 All availability calendars fetched and saved.");
+        $this->info(" All availability calendars fetched and saved.");
     }
 }

@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\Api\PricesController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\PricesApiController;
 use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\ConfigurationController;
 use App\Http\Controllers\Api\ContentListingController;
@@ -41,3 +43,8 @@ Route::get('property-content/{propertyId}', [PropertyContentController::class, '
 
 // Availability Calendar
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
+
+// PriceListing
+Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);
+
+Route::post('/book-property', [BookingController::class, 'bookProperty']);
