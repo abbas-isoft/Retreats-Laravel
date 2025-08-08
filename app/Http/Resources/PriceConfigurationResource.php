@@ -18,9 +18,9 @@ class PriceConfigurationResource extends JsonResource
             'deposit_value' => $this->deposit_value,
             'security_deposit' => $this->security_deposit,
 
-            'fees' => PriceFeeResource::collection($this->whenLoaded('fees')),
-            'los_entries' => PriceLosEntryResource::collection($this->whenLoaded('losEntries')),
-            'payment_schedules' => PaymentScheduleResource::collection($this->whenLoaded('paymentSchedules')),
+            // 'fees' => PriceFeeResource::collection($this->whenLoaded('fees')),
+            // 'los_entries' => PriceLosEntryResource::collection($this->whenLoaded('losEntries')),
+            // 'payment_schedules' => PaymentScheduleResource::collection($this->whenLoaded('paymentSchedules')),
         ];
     }
 }

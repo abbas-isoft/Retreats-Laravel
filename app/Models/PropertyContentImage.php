@@ -8,8 +8,12 @@ class PropertyContentImage extends Model
 {
     protected $fillable = ['property_content_id', 'photo_id', 'url'];
 
-    public function content()
+    public static function content($id)
     {
-        return $this->belongsTo(PropertyContent::class, 'property_content_id');
+        return self::where('property_content_id', $id)->get();
+    }
+      public function propertyContent()
+    {
+        return $this->belongsTo(PropertyContent::class);
     }
 }

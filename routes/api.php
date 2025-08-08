@@ -12,12 +12,29 @@ use App\Http\Controllers\Api\ContentListingController;
 use App\Http\Controllers\Api\PropertyContentController;
 use App\Http\Controllers\Api\AvailabilityCalendarController;
 use App\Http\Controllers\Api\SinglePropertyListingController;
+use App\Http\Controllers\Api\HomepageContentController;
+use App\Http\Controllers\Api\RetreatSearchController;
+use App\Http\Controllers\Api\CollectionController;
+use App\Http\Controllers\Api\CollectionSectionController;
+use App\Http\Controllers\Api\FeatureBoxController;
+use App\Http\Controllers\Api\HeroSectionController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\LatestArrivalController;
+use App\Http\Controllers\Api\GroupContactFormController;
+use App\Http\Controllers\Api\AboutUsController;
+use App\Http\Controllers\Api\BookingGuideController;
+use App\Http\Controllers\Api\PageSectionController;
+use App\Http\Controllers\Api\TestBookingController;
+use App\Http\Controllers\Api\NavbarController;
+use App\Http\Controllers\AboutSectionController;
+use App\Http\Controllers\FAQSectionController;
+use App\Http\Controllers\Api\PropertyGridController;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
 // availability
-Route::get('availability', [AvailabilityController::class, 'index']);
+// Route::get('availability', [AvailabilityController::class, 'index']);
 
 // Properties
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);
@@ -38,13 +55,83 @@ Route::get('single-property-listing/{propertyId}', [SinglePropertyListingControl
 Route::get('content-listing/{propertyId}', [ContentListingController::class, 'index']);
 
 // Property Content
-Route::get('property-content/{propertyId}', [PropertyContentController::class, 'index']);
+// Route::get('property-content/{propertyId}', [PropertyContentController::class, 'index']);
+Route::get('/property-content/{propertyId}', [PropertyContentController::class, 'index']);
+
+Route::get('/property-grid', [PropertyGridController::class, 'index']);
 
 
+  Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
 // Availability Calendar
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
 
 // PriceListing
 Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);
 
+// Create Booking
 Route::post('/book-property', [BookingController::class, 'bookProperty']);
+
+// Test Booking
+Route::post('/test-book-property', [TestBookingController::class, 'bookTestProperty']);
+
+
+// Cancel Booking
+Route::post('/sync-availability/{propertyId}', [BookingController::class, 'syncAvailability']);
+Route::post('/cancel-booking', [BookingController::class, 'cancelBooking']);
+
+
+Route::get('/homepage-content', [HomepageContentController::class, 'index']);
+Route::post('/homepage', [HomepageContentController::class, 'store']);
+
+
+// Search
+Route::get('/retreats/search', [RetreatSearchController::class, 'index']);
+
+
+Route::get('/homepage', [HomepageContentController::class, 'index']);
+Route::post('/homepage', [HomepageContentController::class, 'store']);
+
+
+Route::get('/collections', [CollectionController::class, 'index']);
+Route::post('/collections', [CollectionController::class, 'store']);
+
+Route::get('/collection-section/{key}', [CollectionSectionController::class, 'show']);
+
+
+Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
+
+
+Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
+
+
+Route::get('/hero-section', [HeroSectionController::class, 'show']);
+
+Route::get('/reviews', [ReviewController::class, 'index']);
+
+
+Route::get('/latest-arrivals', [LatestArrivalController::class, 'index']);
+
+Route::get('/locations', [PropertyContentController::class, 'getLocations']);
+// Navbar with Collection dropdown
+Route::get('/navbar', [NavbarController::class, 'getNavbarData']);
+
+Route::post('/group-contact', [GroupContactFormController::class, 'store']);
+
+
+Route::get('/about-us', [AboutUsController::class, 'show']);
+
+//Building the future of Hospitality
+Route::get('/booking-guide', [BookingGuideController::class, 'index']);
+Route::post('/booking-guide', [BookingGuideController::class, 'store']);
+
+Route::prefix('v1')->group(function () {
+    Route::post('/section', [PageSectionController::class, 'store']);
+    Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
+    Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
+});
+
+Route::post('about-section', [AboutSectionController::class, 'getAboutSection']);
+Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
+
+Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
+Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);

@@ -11,20 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('bookings', function (Blueprint $table) {
-        $table->id();
-        $table->string('property_id');
-        $table->date('start_date');
-        $table->integer('nights');
-        $table->string('guest_firstname');
-        $table->string('guest_lastname');
-        $table->string('email');
-        $table->string('phone');
-        $table->decimal('value');
-        $table->string('booking_reference')->nullable();
-        $table->text('supercontrol_response')->nullable();
-        $table->timestamps();
-    });
+        Schema::create('bookings', function (Blueprint $table) {
+            $table->id();
+            $table->string('property_id');
+            $table->date('start_date');
+            $table->integer('nights');
+            $table->string('guest_firstname');
+            $table->string('guest_lastname');
+            $table->string('email');
+            $table->string('phone');
+            $table->decimal('value');
+            $table->string('booking_reference')->nullable();
+            $table->string('booking_id')->nullable(); // 👈 NEW COLUMN
+            $table->text('supercontrol_response')->nullable();
+            $table->timestamps();
+        });
     }
 
     /**
