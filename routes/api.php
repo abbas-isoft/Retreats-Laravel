@@ -85,8 +85,7 @@ Route::post('/homepage', [HomepageContentController::class, 'store']);
 
 
 // Search
-Route::get('/retreats/search', [RetreatSearchController::class, 'index']);
-
+Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 
 Route::get('/homepage', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
