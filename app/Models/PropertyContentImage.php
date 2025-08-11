@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PropertyContentImage extends Model
 {
+    protected $table = 'property_content_images';
     protected $fillable = ['property_content_id', 'photo_id', 'url'];
 
     public static function content($id)

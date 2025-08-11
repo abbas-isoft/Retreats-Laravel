@@ -44,6 +44,20 @@ class PropertyContent extends Model
         return $this->hasMany(PropertyContentImage::class);
     }
 
+
+    // optional: helper to check amenity key in PHP
+    public function hasAmenityKey($key)
+    {
+        if (is_array($this->amenities)) {
+            return in_array($key, $this->amenities);
+        }
+        if (is_string($this->amenities)) {
+            return stripos($this->amenities, $key) !== false;
+        }
+        return false;
+    }
+
+
     public function rooms()
     {
         return $this->hasMany(PropertyRoom::class);
