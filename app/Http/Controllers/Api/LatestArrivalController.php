@@ -11,23 +11,26 @@ class LatestArrivalController extends Controller
 {
     public function index(Request $request)
 {
+    // Mapping for UI filters to internal DB keys or logic
     $filters = [
         'New Stays' => 'new_stays',
         'Without Hot Tubs' => 'without_hot_tubs',
         'Beach Stays' => 'beach_stays',
         'Luxury Stays' => 'luxury_stays',
-        'Swimming' => 'SPORTS_SWIMMING', 
+        'swimming' => 'SPORTS_SWIMMING',
         'Hot Tub' => 'POOL_SPA_HOT_TUB',
-       
     ];
 
-    $selectedFilter = $request->query('filter');
+    $selectedFilterRaw = $request->query('filter');
+    $selectedFilter = strtolower($selectedFilterRaw);  // normalize input
 
     $query = PropertyContent::with(['images', 'rooms', 'beds', 'amenities'])->latest();
 
     if ($selectedFilter) {
-        
-        switch (strtolower($selectedFilter)) {
+        // Map the UI filter (like 'swimming') to the actual DB key (like 'SPORTS_SWIMMING')
+        $mappedFilter = $filters[$selectedFilter] ?? $selectedFilterRaw;
+
+        switch (strtolower($mappedFilter)) {
             case 'new_stays':
                 $query->whereDate('created_at', '>=', now()->subDays(30));
                 break;
@@ -45,9 +48,9 @@ class LatestArrivalController extends Controller
                 break;
 
             default:
-                // Now check if the filter matches an amenity name
-                $query->whereHas('amenities', function ($q) use ($selectedFilter) {
-                    $q->where('name', strtoupper($selectedFilter));
+                // Handle it as an amenity name
+                $query->whereHas('amenities', function ($q) use ($mappedFilter) {
+                    $q->where('name', strtoupper($mappedFilter));
                 });
                 break;
         }
@@ -59,12 +62,13 @@ class LatestArrivalController extends Controller
         'status' => true,
         'message' => 'Latest arrivals fetched successfully.',
         'filters' => $filters,
-        'selected_filter' => $selectedFilter,
+        'selected_filter' => $selectedFilterRaw,
         'latest_arrivals' => PropertyContentResource::collection($arrivals)->additional([
-    'filter' => $selectedFilter
-]),
+            'filter' => $selectedFilterRaw
+        ]),
     ]);
 }
+
 }
 
 

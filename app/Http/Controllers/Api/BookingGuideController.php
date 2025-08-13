@@ -28,6 +28,7 @@ class BookingGuideController extends Controller
             'title' => 'required|string',
             'subtitle' => 'required|string',
             'video_url' => 'nullable|string',
+             'image' => 'nullable|string',
         ]);
 
        

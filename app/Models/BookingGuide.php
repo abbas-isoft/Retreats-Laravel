@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class BookingGuide extends Model
 {
-    protected $fillable = ['title', 'subtitle', 'video_url'];
+    protected $fillable = ['title', 'subtitle', 'video_url' , 'image' , 'enquire_now_button'];
 }
