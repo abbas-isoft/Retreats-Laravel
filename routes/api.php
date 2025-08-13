@@ -127,14 +127,15 @@ Route::post('/about-us', [AboutUsController::class, 'storeOrUpdate']);
 Route::get('/booking-guide', [BookingGuideController::class, 'index']);
 Route::post('/booking-guide', [BookingGuideController::class, 'store']);
 
-Route::prefix('v1')->group(function () {
-    Route::post('/section', [PageSectionController::class, 'store']);
-    Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
-    Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
-});
+//Route::prefix('v1')->group(function () {
+Route::post('/section', [PageSectionController::class, 'store']);
+Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
+Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
+//});
 
 Route::post('about-section', [AboutSectionController::class, 'getAboutSection']);
-Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
-
 Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
+
+
+Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
 Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
