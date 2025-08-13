@@ -3,55 +3,68 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\PropertyContent;
-use App\Http\Resources\LatestArrivalResource;
-use Illuminate\Support\Facades\DB;
+use App\Http\Resources\PropertyContentResource;
+use Illuminate\Http\Request;
 
 class LatestArrivalController extends Controller
 {
-    /**
-     * GET /api/latest-arrivals?filter=new_stays|without_hot_tub|beach_stays|luxury_stays
-     */
     public function index(Request $request)
 {
-    $filter = $request->query('filter'); // e.g. "swimming"
+    $filters = [
+        'New Stays' => 'new_stays',
+        'Without Hot Tubs' => 'without_hot_tubs',
+        'Beach Stays' => 'beach_stays',
+        'Luxury Stays' => 'luxury_stays',
+        'Swimming' => 'SPORTS_SWIMMING', 
+        'Hot Tub' => 'POOL_SPA_HOT_TUB',
+       
+    ];
 
-    $query = PropertyContent::with('images')->where('active', 1);
+    $selectedFilter = $request->query('filter');
 
-    $properties = $query->orderBy('created_at', 'desc')->get();
+    $query = PropertyContent::with(['images', 'rooms', 'beds', 'amenities'])->latest();
 
-    // Apply partial, case-insensitive filter
-    if ($filter) {
-        $filterLower = strtolower($filter);
+    if ($selectedFilter) {
+        
+        switch (strtolower($selectedFilter)) {
+            case 'new_stays':
+                $query->whereDate('created_at', '>=', now()->subDays(30));
+                break;
 
-        $properties = $properties->filter(function ($property) use ($filterLower) {
-            $amenities = json_decode($property->amenities, true);
+            case 'without_hot_tubs':
+                $query->where('has_hot_tub', 0);
+                break;
 
-            if (is_array($amenities)) {
-                // Check if any amenity contains the filter word (case-insensitive)
-                foreach ($amenities as $amenity) {
-                    if (str_contains(strtolower($amenity), $filterLower)) {
-                        return true;
-                    }
-                }
-            }
+            case 'beach_stays':
+                $query->where('location', 'like', '%beach%');
+                break;
 
-            return false;
-        })->values(); // Reindex
+            case 'luxury_stays':
+                $query->where('property_type', 'luxury');
+                break;
+
+            default:
+                // Now check if the filter matches an amenity name
+                $query->whereHas('amenities', function ($q) use ($selectedFilter) {
+                    $q->where('name', strtoupper($selectedFilter));
+                });
+                break;
+        }
     }
 
-    // Decode for response
-    $properties->transform(function ($property) {
-        $property->amenities = json_decode($property->amenities);
-        return $property;
-    });
+    $arrivals = $query->take(10)->get();
 
     return response()->json([
         'status' => true,
-        'data' => LatestArrivalResource::collection($properties),
-        'checked_amenity' => $filter,
-        'results_count' => $properties->count(),
+        'message' => 'Latest arrivals fetched successfully.',
+        'filters' => $filters,
+        'selected_filter' => $selectedFilter,
+        'latest_arrivals' => PropertyContentResource::collection($arrivals)->additional([
+    'filter' => $selectedFilter
+]),
     ]);
 }
 }
+
+

@@ -44,6 +44,12 @@ class PropertyContent extends Model
         return $this->hasMany(PropertyContentImage::class);
     }
 
+    public function filteredImages($filter)
+{
+    return $this->hasMany(PropertyContentImage::class)
+                ->where('tag', $filter); // assuming 'tag' stores things like 'beach_stays'
+}
+
 
     // optional: helper to check amenity key in PHP
     public function hasAmenityKey($key)
@@ -57,6 +63,19 @@ class PropertyContent extends Model
         return false;
     }
 
+    public function listing() {
+    return $this->hasOne(ContentListing::class, 'property_id');
+}
+
+public function availabilityRecords() {
+    return $this->hasMany(AvailabilityRecord::class, 'property_id');
+}
+
+public function configuration()
+{
+    return $this->hasOne(SingleConfiguration::class, 'property_id', 'id');
+}
+
 
     public function rooms()
     {
@@ -66,4 +85,10 @@ class PropertyContent extends Model
     {
         return $this->hasManyThrough(PropertyRoomBed::class, PropertyRoom::class);
     }
+
+   public function amenities()
+{
+    return $this->belongsToMany(Amenity::class, 'amenity_property', 'property_id', 'amenity_id');
+}
+
 }

@@ -29,6 +29,8 @@ use App\Http\Controllers\Api\NavbarController;
 use App\Http\Controllers\AboutSectionController;
 use App\Http\Controllers\FAQSectionController;
 use App\Http\Controllers\Api\PropertyGridController;
+use App\Http\Controllers\Api\PropertySearchController;
+
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
@@ -90,6 +92,7 @@ Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 Route::get('/homepage', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
 
+Route::get('/search-properties', [PropertySearchController::class, 'search']);
 
 Route::get('/collections', [CollectionController::class, 'index']);
 Route::post('/collections', [CollectionController::class, 'store']);
@@ -118,6 +121,7 @@ Route::post('/group-contact', [GroupContactFormController::class, 'store']);
 
 
 Route::get('/about-us', [AboutUsController::class, 'show']);
+Route::post('/about-us', [AboutUsController::class, 'storeOrUpdate']);
 
 //Building the future of Hospitality
 Route::get('/booking-guide', [BookingGuideController::class, 'index']);

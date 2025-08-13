@@ -39,7 +39,12 @@ class PropertyContentResource extends JsonResource
             'bathroom_count' => $this->bathroom_count,
             'area' => $this->area,
             'area_unit' => $this->area_unit,
-            'amenities ' => $this->amenities,
+            // 'amenities ' => $this->amenities, 
+            'amenities' => $this->when(isset($this->filter), function () {
+    return $this->amenities->filter(function ($amenity) {
+        return $amenity->name === strtoupper($this->filter);
+    })->values();
+}, $this->amenities),
             'images' => PropertyContentImageResource::collection($this->images),
             'rooms' => PropertyRoomResource::collection($this->rooms),
             // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,

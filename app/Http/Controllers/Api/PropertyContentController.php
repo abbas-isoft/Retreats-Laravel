@@ -56,36 +56,82 @@ class PropertyContentController extends Controller
     }
 
     // ✅ New method: Fetch all property locations for map display
+    // public function getLocations(): JsonResponse
+    // {
+    //     try {
+    //         $locations = PropertyContent::whereNotNull('latitude')
+    //             ->whereNotNull('longitude')
+    //             ->get([
+    //                 'id',
+    //                 'property_name',
+    //                 'location_description',
+    //                 'latitude',
+    //                 'longitude',
+    //                 'city',
+    //                 'country'
+                    
+    //             ]);
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Map locations fetched successfully.',
+    //             'data' => $locations,
+    //         ]);
+    //     } catch (Exception $e) {
+    //         Log::error('Location fetch failed: ' . $e->getMessage());
+
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Something went wrong while fetching map locations.',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
+
     public function getLocations(): JsonResponse
-    {
-        try {
-            $locations = PropertyContent::whereNotNull('latitude')
-                ->whereNotNull('longitude')
-                ->get([
-                    'id',
-                    'property_name',
-                    'location_description',
-                    'latitude',
-                    'longitude',
-                    'city',
-                    'country'
-                ]);
+{
+    try {
+        // Get all properties with coordinates
+        $locations = PropertyContent::whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->get();
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Map locations fetched successfully.',
-                'data' => $locations,
-            ]);
-        } catch (Exception $e) {
-            Log::error('Location fetch failed: ' . $e->getMessage());
+        // Map each location and include all its image URLs from the `url` column
+        $data = $locations->map(function ($location) {
+            // Get all images for this property from `property_content_images`
+            $images = PropertyContentImage::where('property_content_id', $location->id)->get();
 
-            return response()->json([
-                'status' => false,
-                'message' => 'Something went wrong while fetching map locations.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+            // Extract just the `url` values
+            $imageUrls = $images->pluck('url');  // pluck returns only the column you need
+
+            return [
+                'id' => $location->id,
+                'property_name' => $location->property_name,
+                'location_description' => $location->location_description,
+                'latitude' => $location->latitude,
+                'longitude' => $location->longitude,
+                'city' => $location->city,
+                'country' => $location->country,
+                'images' => $imageUrls,  // full URLs from DB
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Map locations fetched successfully.',
+            'data' => $data,
+        ]);
+    } catch (Exception $e) {
+        Log::error('Location fetch failed: ' . $e->getMessage());
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Something went wrong while fetching map locations.',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     public function getCollection($id): JsonResponse
     {
