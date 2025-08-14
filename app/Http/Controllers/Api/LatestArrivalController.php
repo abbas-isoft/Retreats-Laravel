@@ -11,44 +11,49 @@ class LatestArrivalController extends Controller
 {
     public function index(Request $request)
 {
-    // Mapping for UI filters to internal DB keys or logic
     $filters = [
         'New Stays' => 'new_stays',
         'Without Hot Tubs' => 'without_hot_tubs',
         'Beach Stays' => 'beach_stays',
         'Luxury Stays' => 'luxury_stays',
         'swimming' => 'SPORTS_SWIMMING',
-        'Hot Tub' => 'POOL_SPA_HOT_TUB',
+        'hot_tub' => 'POOL_SPA_HOT_TUB',
     ];
 
     $selectedFilterRaw = $request->query('filter');
-    $selectedFilter = strtolower($selectedFilterRaw);  // normalize input
+    $selectedFilter = strtolower($selectedFilterRaw);
 
     $query = PropertyContent::with(['images', 'rooms', 'beds', 'amenities'])->latest();
 
     if ($selectedFilter) {
-        // Map the UI filter (like 'swimming') to the actual DB key (like 'SPORTS_SWIMMING')
         $mappedFilter = $filters[$selectedFilter] ?? $selectedFilterRaw;
 
-        switch (strtolower($mappedFilter)) {
+        switch ($mappedFilter) {
             case 'new_stays':
                 $query->whereDate('created_at', '>=', now()->subDays(30));
                 break;
 
             case 'without_hot_tubs':
-                $query->where('has_hot_tub', 0);
+                // ✅ Properties that DO NOT have the amenity 'POOL_SPA_HOT_TUB'
+                $query->whereDoesntHave('amenities', function ($q) {
+                    $q->where('name', 'POOL_SPA_HOT_TUB');
+                });
                 break;
 
             case 'beach_stays':
-                $query->where('location', 'like', '%beach%');
-                break;
+    $query->where(function ($q) {
+        $q->whereRaw('LOWER(location_description) LIKE ?', ['%beach%'])
+          ->orWhereRaw('LOWER(location_description) LIKE ?', ['%seaside%'])
+          ->orWhereRaw('LOWER(location_description) LIKE ?', ['%coast%']);
+    });
+    break;
 
-            case 'luxury_stays':
-                $query->where('property_type', 'luxury');
-                break;
+          case 'luxury_stays':
+    $query->where('property_type', 'LIKE', '%cottage%');
+    break;
 
             default:
-                // Handle it as an amenity name
+                // ✅ Properties that HAVE the specified amenity
                 $query->whereHas('amenities', function ($q) use ($mappedFilter) {
                     $q->where('name', strtoupper($mappedFilter));
                 });
@@ -68,7 +73,4 @@ class LatestArrivalController extends Controller
         ]),
     ]);
 }
-
 }
-
-
