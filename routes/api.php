@@ -30,6 +30,7 @@ use App\Http\Controllers\AboutSectionController;
 use App\Http\Controllers\FAQSectionController;
 use App\Http\Controllers\Api\PropertyGridController;
 use App\Http\Controllers\Api\PropertySearchController;
+use App\Http\Controllers\Api\BookingStepController;
 
 
 // Accounts
@@ -132,6 +133,9 @@ Route::post('/section', [PageSectionController::class, 'store']);
 Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
 Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
 //});
+
+Route::get('/booking-steps', [BookingStepController::class, 'show']);
+Route::post('/booking-steps', [BookingStepController::class, 'store']);
 
 Route::post('about-section', [AboutSectionController::class, 'getAboutSection']);
 Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
