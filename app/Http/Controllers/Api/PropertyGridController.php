@@ -1,29 +1,71 @@
 <?php
 
-// app/Http/Controllers/Api/PropertyGridController.php
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PropertyContent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+
 
 class PropertyGridController extends Controller
 {
-    /**
-     * Get all properties with their images for the property grid.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
+    public function index(Request $request)
     {
-        // Fetch all properties with their images
-        $properties = PropertyContent::with('images')->get();
+        $query = PropertyContent::with(['images', 'listing']);
 
-        // Return the properties in the response
+        
+        if ($request->filled('location_description')) {
+            $query->where('location_description', 'LIKE', '%' . $request->location . '%');
+        }
+
+        
+        if ($request->filled('guest_capacity')) {
+            $query->whereHas('listing', function ($q) use ($request) {
+                $q->where('maximum_guests', '>=', $request->guest_capacity);
+            });
+        }
+
+        
+        if ($request->filled('amenities')) {
+            $amenities = explode(',', $request->amenities);
+            foreach ($amenities as $amenity) {
+                $query->whereHas('amenities', function ($q) use ($amenity) {
+                    $q->where('name', $amenity);
+                });
+            }
+        }
+
+        
+        if ($request->filled('search')) {
+            $query->where('property_name', 'LIKE', '%' . $request->search . '%');
+        }
+
+        
+    if ($request->filled('date_availability')) {
+        $query->whereHas('propertyAvailability', function ($q) use ($request) {
+            $date = Carbon::parse($request->date_availability);
+            $q->where('updated_at', '<=', $date);
+        });
+    }
+
+        
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereDoesntHave('bookings', function ($q) use ($request) {
+                $q->where(function ($query) use ($request) {
+                    $query->whereBetween('start_date', [$request->start_date, $request->end_date])
+                          ->orWhereBetween('end_date', [$request->start_date, $request->end_date]);
+                });
+            });
+        }
+
+        $properties = $query->get();
+
         return response()->json([
             'status' => true,
-            'message' => 'All properties fetched successfully.',
+            'message' => 'Filtered properties fetched successfully.',
             'properties' => $properties,
         ]);
     }
 }
+

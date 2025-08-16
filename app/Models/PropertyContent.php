@@ -63,8 +63,9 @@ class PropertyContent extends Model
         return false;
     }
 
-    public function listing() {
-    return $this->hasOne(ContentListing::class, 'property_id');
+    public function listing()
+{
+    return $this->hasOne(ContentListing::class, 'property_id', 'property_id');
 }
 
 public function availabilityRecords() {
@@ -89,6 +90,11 @@ public function configuration()
    public function amenities()
 {
     return $this->belongsToMany(Amenity::class, 'amenity_property', 'property_id', 'amenity_id');
+}
+
+public function propertyAvailability()
+{
+    return $this->hasOne(PropertyAvailability::class, 'property_id', 'property_id');
 }
 
 }
