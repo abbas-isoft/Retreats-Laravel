@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\PropertyGridController;
 use App\Http\Controllers\Api\PropertySearchController;
 use App\Http\Controllers\Api\BookingStepController;
 use App\Http\Controllers\Api\ListYourPropertyController;
+use App\Http\Controllers\Api\HospitalitySectionController;
 
 
 // Accounts
@@ -107,6 +108,8 @@ Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
 
 Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
 
+Route::get('/hospitality-section', [HospitalitySectionController::class, 'index']);
+Route::post('/hospitality-section/update', [HospitalitySectionController::class, 'update']);
 
 Route::get('/hero-section', [HeroSectionController::class, 'show']);
 
