@@ -31,6 +31,7 @@ use App\Http\Controllers\FAQSectionController;
 use App\Http\Controllers\Api\PropertyGridController;
 use App\Http\Controllers\Api\PropertySearchController;
 use App\Http\Controllers\Api\BookingStepController;
+use App\Http\Controllers\Api\ListYourPropertyController;
 
 
 // Accounts
@@ -110,7 +111,7 @@ Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
 Route::get('/hero-section', [HeroSectionController::class, 'show']);
 
 Route::get('/reviews', [ReviewController::class, 'index']);
-
+Route::post('/reviews', [ReviewController::class, 'store']);
 
 Route::get('/latest-arrivals', [LatestArrivalController::class, 'index']);
 
@@ -143,3 +144,6 @@ Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
 
 Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
 Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
+
+Route::get('/list-your-property-content', [ListYourPropertyController::class, 'index']);
+Route::post('/list-your-property-content', [ListYourPropertyController::class, 'store']);

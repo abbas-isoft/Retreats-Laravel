@@ -39,7 +39,7 @@ class PageSectionController extends Controller
             $section = PageSection::create($validated);
         }
 
-        return response()->json([
+        return response()->json([                              
             'message' => 'Section saved successfully',
             'data' => new PageSectionResource($section),
         ], 200);

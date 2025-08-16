@@ -13,7 +13,7 @@ class FeatureBoxesSeeder extends Seeder
             [
                 'title' => 'Flexible cancellations',
                 'subtitle' => 'We know it’s hard to round everyone up, so guests can hold dates for 24 hours at no cost.',
-                'icon' => 'flexible_cancellations.jpg',  
+                'icon' => 'location.png',  
                 'color' => '#FAF6F1',
             ],
             [
