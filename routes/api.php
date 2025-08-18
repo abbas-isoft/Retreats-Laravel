@@ -33,6 +33,9 @@ use App\Http\Controllers\Api\PropertySearchController;
 use App\Http\Controllers\Api\BookingStepController;
 use App\Http\Controllers\Api\ListYourPropertyController;
 use App\Http\Controllers\Api\HospitalitySectionController;
+use App\Http\Controllers\Api\ListPropertyController;
+use App\Http\Controllers\Api\WhyPartnerBoxController;
+use App\Http\Controllers\Api\OwnerSaySectionController;
 
 
 // Accounts
@@ -148,5 +151,15 @@ Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
 Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
 Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
 
-Route::get('/list-your-property-content', [ListYourPropertyController::class, 'index']);
-Route::post('/list-your-property-content', [ListYourPropertyController::class, 'store']);
+// Route::get('/list-your-property-content', [ListYourPropertyController::class, 'index']);
+// Route::post('/list-your-property-content', [ListYourPropertyController::class, 'store']);
+
+
+Route::get('/list-property', [ListPropertyController::class, 'show']);
+Route::post('/list-property', [ListPropertyController::class, 'store']);
+
+Route::get('/why-partner', [WhyPartnerBoxController::class, 'index']);
+Route::post('/why-partner', [WhyPartnerBoxController::class, 'store']);
+
+Route::get('/owner-say', [OwnerSaySectionController::class, 'index']);
+Route::post('/owner-say', [OwnerSaySectionController::class, 'store']);
