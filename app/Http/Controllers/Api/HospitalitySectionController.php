@@ -10,17 +10,17 @@ use App\Models\HospitalitySection;
 
 class HospitalitySectionController extends Controller
 {
-    // ✅ GET API
+
     public function index()
     {
-        $section = HospitalitySection::first(); // always only one record
+        $section = HospitalitySection::first(); 
         return response()->json([
             'status' => true,
             'data' => $section,
         ]);
     }
 
-    // ✅ POST (Update or Create)
+
     public function update(Request $request)
     {
         $validated = $request->validate([

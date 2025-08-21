@@ -12,13 +12,13 @@ class BookingGuideController extends Controller
 
     public function index()
     {
-        $guide = BookingGuide::first(); 
+        // $guide = BookingGuide::first(); 
         
-        if (!$guide) {
-            return response()->json(['message' => 'No content found'], 404);
-        }
+        // if (!$guide) {
+        //     return response()->json(['message' => 'No content found'], 404);
+        // }
 
-        return new BookingGuideResource($guide);
+        // return new BookingGuideResource($guide);
     }
 
     

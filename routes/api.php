@@ -128,7 +128,7 @@ Route::get('/navbar', [NavbarController::class, 'getNavbarData']);
 Route::post('/group-contact', [GroupContactFormController::class, 'store']);
 
 
-Route::get('/about-us', [AboutUsController::class, 'show']);
+Route::get('/about-us', [AboutUsController::class, 'GetAboutPage']);
 Route::post('/about-us', [AboutUsController::class, 'storeOrUpdate']);
 
 //Building the future of Hospitality
