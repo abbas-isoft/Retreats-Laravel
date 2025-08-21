@@ -93,13 +93,13 @@ class AboutUsController extends Controller
         'status' => true,
         'message' => 'About Us content fetched successfully.',
         'data' => [
-            'about_us' => [
+              
                 'title' => $about->title ?? '',
                 'subtitle' => $about->subtitle ?? '',
                 'video_url' => $guide->video_url ?? '',
                 'section_1' => $section1,
                 'section_2' => $section2,
-            ],
+            
         ],
     ]);
 }
