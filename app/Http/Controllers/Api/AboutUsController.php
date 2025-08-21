@@ -60,35 +60,47 @@ class AboutUsController extends Controller
     }
 
     public function GetAboutPage()
-    {
-        $about = AboutUs::first();
+{
+    $about = AboutUs::first();
+    $guide = BookingGuide::first();
 
-        if (!$about) {
-            return response()->json([
-                'status' => false,
-                'message' => 'About Us content not found.',
-            ], 404);
-        }
-
-        $guide = BookingGuide::first();
-
-        if (!$guide) {
-            return response()->json(['message' => 'No content found'], 404);
-        }
-
-        $section = HospitalitySection::first(); // always only one record
-
+    if (!$about && !$guide) {
         return response()->json([
-            'status' => true,
-            'message' => 'About Us content fetched successfully.',
-            // 'about' => new AboutUsResource($about),
-            // 'guide' => new BookingGuideResource($guide),
-            // 'section' => $section,
-            'data' => [
-                'section-1' => new AboutUsResource($about),
-                'section-2' => new BookingGuideResource($guide),
-                // 'section' => $section,
-            ],
-        ]);
+            'status' => false,
+            'message' => 'About Us content not found.',
+        ], 404);
     }
+
+    // Map AboutUs
+    $section1 = $about ? [
+        'title' => $about->title,
+        'content' => $about->description,
+        'button_title' => $about->button_text ?? 'Enquire Now',
+       'image' => $about->image ? url('images/'.$about->image) : url('images/default-about-us.jpg'),
+    ] : null;
+
+    // Map BookingGuide
+    $section2 = $guide ? [
+        'title' => $guide->title ?? '',
+        'content' => $guide->description ?? $guide->subtitle ?? '',
+        'button_title' => $guide->button_text ?? 'Enquire Now',
+       'image' => $guide->image ? url('images/'.$guide->image) : url('images/image.jpg'),
+
+        // 'video_url' => $guide->video_url ?? '',
+    ] : null;
+
+    return response()->json([
+        'status' => true,
+        'message' => 'About Us content fetched successfully.',
+        'data' => [
+            'about_us' => [
+                'title' => $about->title ?? '',
+                'subtitle' => $about->subtitle ?? '',
+                'video_url' => $guide->video_url ?? '',
+                'section_1' => $section1,
+                'section_2' => $section2,
+            ],
+        ],
+    ]);
+}
 }
