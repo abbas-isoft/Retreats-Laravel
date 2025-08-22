@@ -111,8 +111,8 @@ Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
 
 Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
 
-Route::get('/hospitality-section', [HospitalitySectionController::class, 'index']);
-Route::post('/hospitality-section/update', [HospitalitySectionController::class, 'update']);
+Route::get('/about-detail', [HospitalitySectionController::class, 'index']);
+Route::post('/about-detail/update', [HospitalitySectionController::class, 'update']);
 
 Route::get('/hero-section', [HeroSectionController::class, 'show']);
 

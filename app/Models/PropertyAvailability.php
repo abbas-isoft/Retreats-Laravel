@@ -19,4 +19,9 @@ class PropertyAvailability extends Model
     {
         return $this->belongsTo(Property::class, 'property_id');
     }
+    public function availabilityCalendars()
+    {
+        // Define the relationship with the AvailabilityCalendar model
+        return $this->belongsTo(AvailabilityCalendar::class, 'property_id');
+    }
 }

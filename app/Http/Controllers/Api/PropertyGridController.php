@@ -42,12 +42,26 @@ class PropertyGridController extends Controller
         }
 
         
+    // if ($request->filled('date_availability')) {
+    //     $query->whereHas('propertyAvailability', function ($q) use ($request) {
+    //         $date = Carbon::parse($request->date_availability);
+    //         $q->where('updated_at', '<=', $date);
+    //     });
+    // }
+
     if ($request->filled('date_availability')) {
-        $query->whereHas('propertyAvailability', function ($q) use ($request) {
-            $date = Carbon::parse($request->date_availability);
-            $q->where('updated_at', '<=', $date);
+    $query->whereHas('propertyAvailability', function ($q) use ($request) {
+        $date = Carbon::parse($request->date_availability);
+
+        $q->whereHas('availabilityCalendars', function ($query) use ($date) {
+            // Check if the date is within the start and end date range
+            $query->where('start_date', '<=', $date)
+                  ->where('end_date', '>=', $date)
+                  // Ensure availability contains "Y" for the requested date
+                  ->where('availability', 'like', '%' . $date->format('Y-m-d') . '%');
         });
-    }
+    });
+}
 
         
         if ($request->filled('start_date') && $request->filled('end_date')) {

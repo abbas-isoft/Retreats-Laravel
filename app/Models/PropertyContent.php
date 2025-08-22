@@ -96,5 +96,9 @@ public function propertyAvailability()
 {
     return $this->hasOne(PropertyAvailability::class, 'property_id', 'property_id');
 }
+public function AvailabilityCalendar()
+    {
+        return $this->hasMany(AvailabilityCalendar::class, 'property_id');
+    }
 
 }
