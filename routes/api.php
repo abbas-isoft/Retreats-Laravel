@@ -147,11 +147,11 @@ Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
 Route::get('/how-to-make-booking', [BookingStepController::class, 'getBookingSteps']);
 Route::post('/how-to-make-booking', [BookingStepController::class, 'store']);
 
-Route::post('about-section', [AboutSectionController::class, 'getAboutSection']);
-Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);
+Route::post('about-section', [AboutSectionController::class, 'storeAboutSection']);
+Route::get('about-section', [AboutSectionController::class, 'GetFaqsPage']);
 
 
-Route::post('faq-section', [FAQSectionController::class, 'getFAQSection']);
+Route::post('faq-section', [FAQSectionController::class, 'storeFAQSection']);
 Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
 
 // Route::get('/list-your-property-content', [ListYourPropertyController::class, 'index']);
