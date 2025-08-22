@@ -141,8 +141,11 @@ Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
 Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
 //});
 
-Route::get('/booking-steps', [BookingStepController::class, 'show']);
-Route::post('/booking-steps', [BookingStepController::class, 'store']);
+// Route::get('/booking-steps', [BookingStepController::class, 'show']);
+// Route::post('/booking-steps', [BookingStepController::class, 'store']);
+
+Route::get('/how-to-make-booking', [BookingStepController::class, 'getBookingSteps']);
+Route::post('/how-to-make-booking', [BookingStepController::class, 'store']);
 
 Route::post('about-section', [AboutSectionController::class, 'getAboutSection']);
 Route::get('about-section', [AboutSectionController::class, 'getAboutSection']);

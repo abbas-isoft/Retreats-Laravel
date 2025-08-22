@@ -46,4 +46,10 @@ class AboutSectionController extends Controller
             'data' => $aboutSection
         ], 200);
     }
+
+    public function GoFaqsSection(){
+
+
+        
+    }
 }

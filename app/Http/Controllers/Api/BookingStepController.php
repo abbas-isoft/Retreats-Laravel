@@ -53,4 +53,49 @@ public function store(Request $request)
         'data'    => new BookingStepResource($record),
     ], 201);
 }
+
+public function getBookingSteps()
+{
+    $bookingStep = BookingStep::latest()->first();
+
+    if (!$bookingStep) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Booking Steps content not found.',
+        ], 404);
+    }
+
+    // Section 1
+    $section1 = [
+        'title' => $bookingStep->title ?? '',
+        'content' => $bookingStep->description ?? '',
+        'button_title' => $bookingStep->button_text ?? 'Enquire Now',
+        'image' => $bookingStep->image_url 
+            ? url('images/'.$bookingStep->image_url) 
+            : url('images/image.jpg'),
+    ];
+
+    // Section 2
+    // $section2 = [
+    //     'title' => $bookingStep->subtitle ?? '',
+    //     'content' => $bookingStep->note ?? '',
+    //     'button_title' => $bookingStep->button_text ?? 'Enquire Now',
+    //     'image' => $bookingStep->image_url 
+    //         ? url('images/'.$bookingStep->image_url) 
+    //         : url('images/image.jpg'),
+    // ];
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Booking Steps content fetched successfully.',
+        'data' => [
+            'title' => $bookingStep->title ?? '',
+            'subtitle' => $bookingStep->subtitle ?? '',
+            'video_url' => $bookingStep->video_url ?? '',
+            'section_1' => $section1,
+            // 'section_2' => $section2,
+        ],
+    ]);
+}
+
 }
