@@ -78,7 +78,9 @@ class PropertyGridController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Filtered properties fetched successfully.',
-            'properties' => $properties,
+            'data' => [
+                'properties' => $properties,
+            ],
         ]);
     }
 }

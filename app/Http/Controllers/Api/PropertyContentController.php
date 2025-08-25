@@ -42,7 +42,9 @@ class PropertyContentController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Property content fetched successfully.',
+                'data' => [
                 'property_content' => PropertyContentResource::collection($contents),
+                ],
             ]);
         } catch (Exception $e) {
             Log::error('Property content fetch failed: ' . $e->getMessage());
@@ -111,6 +113,7 @@ class PropertyContentController extends Controller
                 'location_description' => $location->location_description,
                 'latitude' => $location->latitude,
                 'longitude' => $location->longitude,
+                'post_code' => $location->post_code,
                 'city' => $location->city,
                 'country' => $location->country,
                 'images' => $imageUrls,  // full URLs from DB

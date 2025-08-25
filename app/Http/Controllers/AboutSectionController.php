@@ -35,7 +35,7 @@ class AboutSectionController extends Controller
         try {
             $validatedData = $request->validate([
                 'title' => 'required|string',
-                'content' => 'required|string',
+                'subtitle' => 'required|string',
                 'video_url' => 'nullable|string',
             ]);
 
@@ -110,7 +110,7 @@ class AboutSectionController extends Controller
             'message' => 'FAQs page fetched successfully',
             'data' => [
                 'title' => $aboutSection->title,
-                'subtitle' => $aboutSection->content ?? '',
+                'subtitle' => $aboutSection->subtitle ?? '',
                 'video_url' => $aboutSection->video_url ?? '',
                 'faqs' => $faqSection->map(function($faq) {
                     return [
