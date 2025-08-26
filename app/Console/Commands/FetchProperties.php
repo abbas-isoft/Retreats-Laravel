@@ -7,6 +7,7 @@ use App\Models\Property;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use App\Jobs\FetchPropertiesJob;
 
 class FetchProperties extends Command
 {
@@ -27,24 +28,10 @@ class FetchProperties extends Command
     /**
      * Execute the console command.
      */
+   
     public function handle(): void
-    {
-        foreach (Account::all() as $account) {
-            $properties = Http::withHeader('SC-TOKEN', 'cddc35d0-1491-4b04-969c-9f8419ef0e99')
-                ->get('https://api.supercontrol.co.uk/v3/properties/ContentIndex/'.$account->id)
-                ->json();
-
-            foreach ($properties['properties'] as $property) {
-                Property::updateOrCreate(
-                    ['id' => $property['propertyId']],
-                    [
-                        'account_id' => $account->id,
-                        'active' => $property['active'],
-                        'lastUpdated' => Carbon::parse($property['lastUpdated'])->toDateTimeString(),
-                        'listingUrl' => $property['listingUrl'],
-                    ]
-                );
-            }
-        }
-    }
+      {
+          FetchPropertiesJob::dispatch();
+          $this->info('FetchPropertiesJob dispatched.');
+      }
 }
