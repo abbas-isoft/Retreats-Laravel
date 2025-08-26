@@ -158,8 +158,8 @@ Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
 // Route::post('/list-your-property-content', [ListYourPropertyController::class, 'store']);
 
 
-Route::get('/list-property', [ListPropertyController::class, 'show']);
-Route::post('/list-property', [ListPropertyController::class, 'store']);
+Route::get('/list-property', [ListPropertyController::class, 'GetListProperty']);
+Route::post('/list-property', [ListPropertyController::class, 'PostListProperty']);
 
 Route::get('/why-partner', [WhyPartnerBoxController::class, 'index']);
 Route::post('/why-partner', [WhyPartnerBoxController::class, 'store']);

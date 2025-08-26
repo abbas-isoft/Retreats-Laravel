@@ -8,6 +8,7 @@ use App\Http\Resources\ConfigurationResource;
 use App\Models\AccountConfiguration;
 use App\Models\PropertyConfiguration;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class ConfigurationController extends Controller
 {
