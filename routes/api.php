@@ -169,4 +169,4 @@ Route::get('/owner-say', [OwnerSaySectionController::class, 'index']);
 Route::post('/owner-say', [OwnerSaySectionController::class, 'store']);
 
 
-Route::get('/search-dropdown', [SearchDropdownController::class, 'index']);
+Route::get('/search-filters', [SearchDropdownController::class, 'index']);
