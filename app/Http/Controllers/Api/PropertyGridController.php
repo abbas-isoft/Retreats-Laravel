@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PropertyContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 
 class PropertyGridController extends Controller
@@ -102,6 +103,8 @@ if ($request->filled('date_availability.start_date') && $request->filled('date_a
             if (is_string($property->amenities)) {
                 $property->amenities = json_decode($property->amenities, true);
             }
+            // Location description ko limit kar do 50 characters
+            $property->location_description = Str::limit($property->location_description, 50);
             return $property;
         }),
     ],

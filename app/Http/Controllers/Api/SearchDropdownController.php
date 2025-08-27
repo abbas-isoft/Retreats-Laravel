@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PropertyContent;
+use Illuminate\Support\Str;
 
 class SearchDropdownController extends Controller
 {
@@ -16,7 +17,7 @@ class SearchDropdownController extends Controller
             return [
                 'latitude' => $property->latitude,
                 'longitude' => $property->longitude,
-                'location_description' => $property->location_description,
+                'location_description' => Str::limit($property->location_description, 50),
             ];
         })->unique('location_description')->values();
 
