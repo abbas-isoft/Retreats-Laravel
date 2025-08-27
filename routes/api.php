@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\HospitalitySectionController;
 use App\Http\Controllers\Api\ListPropertyController;
 use App\Http\Controllers\Api\WhyPartnerBoxController;
 use App\Http\Controllers\Api\OwnerSaySectionController;
+use App\Http\Controllers\Api\SearchDropdownController;
 
 
 // Accounts
@@ -166,3 +167,6 @@ Route::post('/why-partner', [WhyPartnerBoxController::class, 'store']);
 
 Route::get('/owner-say', [OwnerSaySectionController::class, 'index']);
 Route::post('/owner-say', [OwnerSaySectionController::class, 'store']);
+
+
+Route::get('/search-dropdown', [SearchDropdownController::class, 'index']);
