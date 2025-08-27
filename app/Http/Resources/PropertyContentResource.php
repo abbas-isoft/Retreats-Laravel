@@ -41,10 +41,15 @@ class PropertyContentResource extends JsonResource
             'area_unit' => $this->area_unit,
             // 'amenities ' => $this->amenities, 
             'amenities' => $this->when(isset($this->filter), function () {
-    return $this->amenities->filter(function ($amenity) {
-        return $amenity->name === strtoupper($this->filter);
+    // JSON string ko array/collection me convert karo
+    $amenities = is_string($this->amenities) ? collect(json_decode($this->amenities, true)) : $this->amenities;
+
+    return $amenities->filter(function ($amenity) {
+        return strtoupper($amenity['name'] ?? $amenity) === strtoupper($this->filter);
     })->values();
-}, $this->amenities),
+}, 
+// Agar filter nahi hai, pura amenities array/collection return karo
+is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities),
             'images' => PropertyContentImageResource::collection($this->images),
             'rooms' => PropertyRoomResource::collection($this->rooms),
             // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,

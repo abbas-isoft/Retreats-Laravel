@@ -49,23 +49,35 @@ class PropertyGridController extends Controller
     //     });
     // }
 
-   if ($request->filled(['check_in', 'check_out'])) {
-    $checkIn  = Carbon::parse($request->check_in);
-    $checkOut = Carbon::parse($request->check_out);
+//    if ($request->filled(['check_in', 'check_out'])) {
+//     $checkIn  = Carbon::parse($request->check_in);
+//     $checkOut = Carbon::parse($request->check_out);
+
+//     $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
+//         $q->where('start_date', '<=', $checkIn)
+//           ->where('end_date', '>=', $checkOut)
+//           ->whereRaw("
+//               SUBSTRING(availability, DATEDIFF(?, start_date) + 1, DATEDIFF(?, ?) + 1) 
+//               = REPEAT('Y', DATEDIFF(?, ?) + 1)
+//           ", [
+//               $checkIn->format('Y-m-d'),   // start offset
+//               $checkOut->format('Y-m-d'),  // length till checkout
+//               $checkIn->format('Y-m-d'),   // length calc
+//               $checkOut->format('Y-m-d'), 
+//               $checkIn->format('Y-m-d')
+//           ]);
+//     });
+// }
+
+
+
+if ($request->filled('date_availability.start_date') && $request->filled('date_availability.end_date')) {
+    $checkIn  = Carbon::parse($request->date_availability['start_date']);
+    $checkOut = Carbon::parse($request->date_availability['end_date']);
 
     $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
         $q->where('start_date', '<=', $checkIn)
-          ->where('end_date', '>=', $checkOut)
-          ->whereRaw("
-              SUBSTRING(availability, DATEDIFF(?, start_date) + 1, DATEDIFF(?, ?) + 1) 
-              = REPEAT('Y', DATEDIFF(?, ?) + 1)
-          ", [
-              $checkIn->format('Y-m-d'),   // start offset
-              $checkOut->format('Y-m-d'),  // length till checkout
-              $checkIn->format('Y-m-d'),   // length calc
-              $checkOut->format('Y-m-d'), 
-              $checkIn->format('Y-m-d')
-          ]);
+          ->where('end_date', '>=', $checkOut);
     });
 }
 
@@ -82,12 +94,18 @@ class PropertyGridController extends Controller
         $properties = $query->get();
 
         return response()->json([
-            'status' => true,
-            'message' => 'Filtered properties fetched successfully.',
-            'data' => [
-                'properties' => $properties,
-            ],
-        ]);
+    'status' => true,
+    'message' => 'Filtered properties fetched successfully.',
+    'data' => [
+        'properties' => $properties->map(function ($property) {
+            // agar amenities string hai to array banado
+            if (is_string($property->amenities)) {
+                $property->amenities = json_decode($property->amenities, true);
+            }
+            return $property;
+        }),
+    ],
+]);
     }
 }
 
