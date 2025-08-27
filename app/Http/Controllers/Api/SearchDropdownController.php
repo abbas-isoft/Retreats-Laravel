@@ -11,7 +11,15 @@ class SearchDropdownController extends Controller
     {
         $properties = PropertyContent::all();
 
-        $locations = $properties->pluck('location_description')->unique()->values();
+         // Location Description with latitude and longitude
+        $locations = $properties->map(function ($property) {
+            return [
+                'latitude' => $property->latitude,
+                'longitude' => $property->longitude,
+                'location_description' => $property->location_description,
+            ];
+        })->unique('location_description')->values();
+
 
         $guestCapacities = $properties->map(function ($property) {
     return $property->listing->maximum_guests ?? null;
@@ -48,11 +56,11 @@ class SearchDropdownController extends Controller
             'status' => true,
             'message' => '',
             'data' => [
-                'location_description' => $locations,
+                'locations' => $locations,
                 'dateAvailability' => $dateAvailability,
                 'guest_capacity' => $guestCapacities,
                 'amenities' => $amenities,
-                'property_name' => $propertyNames,
+                // 'property_name' => $propertyNames,
             ]
         ]);
     }
