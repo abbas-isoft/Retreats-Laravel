@@ -49,17 +49,23 @@ class PropertyGridController extends Controller
     //     });
     // }
 
-    if ($request->filled('date_availability')) {
-    $query->whereHas('propertyAvailability', function ($q) use ($request) {
-        $date = Carbon::parse($request->date_availability);
+   if ($request->filled(['check_in', 'check_out'])) {
+    $checkIn  = Carbon::parse($request->check_in);
+    $checkOut = Carbon::parse($request->check_out);
 
-        $q->whereHas('availabilityCalendars', function ($query) use ($date) {
-            // Check if the date is within the start and end date range
-            $query->where('start_date', '<=', $date)
-                  ->where('end_date', '>=', $date)
-                  // Ensure availability contains "Y" for the requested date
-                  ->where('availability', 'like', '%' . $date->format('Y-m-d') . '%');
-        });
+    $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
+        $q->where('start_date', '<=', $checkIn)
+          ->where('end_date', '>=', $checkOut)
+          ->whereRaw("
+              SUBSTRING(availability, DATEDIFF(?, start_date) + 1, DATEDIFF(?, ?) + 1) 
+              = REPEAT('Y', DATEDIFF(?, ?) + 1)
+          ", [
+              $checkIn->format('Y-m-d'),   // start offset
+              $checkOut->format('Y-m-d'),  // length till checkout
+              $checkIn->format('Y-m-d'),   // length calc
+              $checkOut->format('Y-m-d'), 
+              $checkIn->format('Y-m-d')
+          ]);
     });
 }
 
