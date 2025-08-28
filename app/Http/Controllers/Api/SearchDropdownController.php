@@ -21,13 +21,13 @@ class SearchDropdownController extends Controller
 })->unique('address_line')->values();
 
 
-        $guestCapacities = $properties->map(function ($property) {
-            return $property->listing->maximum_guests ?? null;
-        })
-        ->filter()
-        ->unique()
-        ->map(fn($item) => strval($item))
-        ->values();
+        $guest_capacity = $properties->map(function ($property) {
+    return $property->listing ? $property->listing->maximum_guests : null;
+})
+->filter() // remove nulls
+->unique()
+->map(fn($item) => strval($item)) // string conversion
+->values();
 
         $amenities = $properties->pluck('amenities')
             ->map(function ($item) {
@@ -62,7 +62,7 @@ class SearchDropdownController extends Controller
             'data' => [
                 'locations' => $locations,
                 'dateAvailability' => $dateAvailability,
-                'guest_capacity' => $guestCapacities,
+                'guest_capacity' => $guest_capacity,
                 'amenities' => $amenities,
                 // 'property_name' => $propertyNames,
             ]
