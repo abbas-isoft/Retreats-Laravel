@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PropertyContent;
-use Illuminate\Support\Str;
 
 class SearchDropdownController extends Controller
 {
@@ -12,19 +11,23 @@ class SearchDropdownController extends Controller
     {
         $properties = PropertyContent::all();
 
-         // Location Description with latitude and longitude
+         
         $locations = $properties->map(function ($property) {
-            return [
-                'latitude' => $property->latitude,
-                'longitude' => $property->longitude,
-                'location_description' => Str::limit($property->location_description, 50),
-            ];
-        })->unique('location_description')->values();
+    return [
+        'latitude' => $property->latitude,
+        'longitude' => $property->longitude,
+        'address_line' => $property->address_line, 
+    ];
+})->unique('address_line')->values();
 
 
         $guestCapacities = $properties->map(function ($property) {
-    return $property->listing->maximum_guests ?? null;
-})->filter()->unique()->values();
+            return $property->listing->maximum_guests ?? null;
+        })
+        ->filter()
+        ->unique()
+        ->map(fn($item) => strval($item))
+        ->values();
 
         $amenities = $properties->pluck('amenities')
             ->map(function ($item) {
