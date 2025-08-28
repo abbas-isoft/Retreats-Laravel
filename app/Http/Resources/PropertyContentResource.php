@@ -38,6 +38,9 @@ class PropertyContentResource extends JsonResource
             'bedroom_count' => $this->bedroom_count,
             'bathroom_count' => $this->bathroom_count,
             'area' => $this->area,
+            'reviews' => $this->reviews,
+            'content_listings' => $this->content_listings,
+            // 'similar_properties' => $this->similar_properties,
             'area_unit' => $this->area_unit,
             // 'amenities ' => $this->amenities, 
             'amenities' => $this->when(isset($this->filter), function () {

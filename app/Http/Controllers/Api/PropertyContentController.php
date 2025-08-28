@@ -13,6 +13,7 @@ use App\Models\ContentListing;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PropertyContentController extends Controller
 {
@@ -42,6 +43,14 @@ class PropertyContentController extends Controller
             $contentListings = ContentListing::where('property_id', $propertyId)
             ->latest()
             ->get();
+           // Similar Properties
+$similarProperties = DB::table('property_contents')
+    ->where('city', $property->city) // same city
+    ->where('property_type', $property->property_type) // same type
+    ->where('bedroom_count', $property->bedroom_count) // same bedrooms
+    ->where('id', '!=', $property->id) // exclude current property
+    ->limit(5) // top 5 similar
+    ->get();
 
             if ($contents->isEmpty()) {
                 return response()->json([
@@ -55,8 +64,9 @@ class PropertyContentController extends Controller
     'status' => true,
     'message' => 'Property content fetched successfully.',
     'data' => PropertyContentResource::collection($contents)->values(), // flatten numeric keys
-    'reviews' => $reviews,
-    'content_listings' => $contentListings,
+    // 'reviews' => $reviews,
+    // 'content_listings' => $contentListings,
+    // 'similar_properties' => $similarProperties,
 ]);
         } catch (Exception $e) {
             Log::error('Property content fetch failed: ' . $e->getMessage());

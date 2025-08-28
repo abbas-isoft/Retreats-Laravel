@@ -106,4 +106,8 @@ public function AvailabilityCalendar()
         return $this->hasMany(Review::class, 'property_id', 'property_id');
     }
 
+    public function content_listings()
+{
+    return $this->hasMany(ContentListing::class, 'property_id', 'property_id');
+}
 }
