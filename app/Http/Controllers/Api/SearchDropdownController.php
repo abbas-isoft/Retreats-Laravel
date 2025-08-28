@@ -9,7 +9,7 @@ class SearchDropdownController extends Controller
 {
     public function index()
     {
-        $properties = PropertyContent::all();
+        $properties = PropertyContent::with('listing')->get();
 
          
         $locations = $properties->map(function ($property) {
