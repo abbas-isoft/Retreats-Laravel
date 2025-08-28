@@ -8,6 +8,8 @@ use App\Models\Property;
 use App\Models\PropertyContent;
 use App\Models\Collection;
 use App\Models\PropertyContentImage;
+use App\Models\Review;
+use App\Models\ContentListing;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +33,16 @@ class PropertyContentController extends Controller
                 ->latest()
                 ->get();
 
+                // ✅ Reviews
+            $reviews = Review::where('property_id', $propertyId)
+                ->latest()
+                ->get();
+
+            // ✅ Content Listings
+            $contentListings = ContentListing::where('property_id', $propertyId)
+            ->latest()
+            ->get();
+
             if ($contents->isEmpty()) {
                 return response()->json([
                     'status' => true,
@@ -40,12 +52,12 @@ class PropertyContentController extends Controller
             }
 
             return response()->json([
-                'status' => true,
-                'message' => 'Property content fetched successfully.',
-                'data' => [
-                'property_content' => PropertyContentResource::collection($contents),
-                ],
-            ]);
+    'status' => true,
+    'message' => 'Property content fetched successfully.',
+    'data' => PropertyContentResource::collection($contents)->values(), // flatten numeric keys
+    'reviews' => $reviews,
+    'content_listings' => $contentListings,
+]);
         } catch (Exception $e) {
             Log::error('Property content fetch failed: ' . $e->getMessage());
 
