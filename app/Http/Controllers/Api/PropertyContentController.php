@@ -14,7 +14,8 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 class PropertyContentController extends Controller
 {
 
@@ -43,14 +44,13 @@ class PropertyContentController extends Controller
             $contentListings = ContentListing::where('property_id', $propertyId)
             ->latest()
             ->get();
-           // Similar Properties
-$similarProperties = DB::table('property_contents')
-    ->where('city', $property->city) // same city
-    ->where('property_type', $property->property_type) // same type
-    ->where('bedroom_count', $property->bedroom_count) // same bedrooms
-    ->where('id', '!=', $property->id) // exclude current property
-    ->limit(5) // top 5 similar
-    ->get();
+//            // ✅ Similar Properties (same city + same post_code)
+// $similarProperties = DB::table('property_contents')
+//     ->where('city', $property->city) // same city
+//     ->where('post_code', $property->post_code) // same postcode
+//     ->where('id', '!=', $property->id) // exclude current property
+//     ->limit(5) // top 5 similar
+//     ->get();
 
             if ($contents->isEmpty()) {
                 return response()->json([
@@ -64,9 +64,6 @@ $similarProperties = DB::table('property_contents')
     'status' => true,
     'message' => 'Property content fetched successfully.',
     'data' => PropertyContentResource::collection($contents)->values(), // flatten numeric keys
-    // 'reviews' => $reviews,
-    // 'content_listings' => $contentListings,
-    // 'similar_properties' => $similarProperties,
 ]);
         } catch (Exception $e) {
             Log::error('Property content fetch failed: ' . $e->getMessage());
@@ -186,4 +183,55 @@ $similarProperties = DB::table('property_contents')
             'data' => $imagesWithTitle
         ], 200);
     }
+
+
+
+   public function getSimilar(Request $request, $propertyId)
+{
+    try {
+        //  Find main property
+        $property = PropertyContent::where('property_id',$propertyId)->first();
+
+        if (!$property) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Property not found',
+            ], 404);
+        }
+
+        // Query similar properties (same city + post_code, exclude current)
+        $similarProperties = PropertyContent::with(['images', 'listing'])
+            ->where('id', '!=', $property->id)
+            ->where('city', $property->city)
+            ->where('post_code', $property->post_code)
+            ->take(10)
+            ->get();
+
+        //  Format amenities & location description
+        $similarProperties = $similarProperties->map(function ($property) {
+            if (is_string($property->amenities)) {
+                $property->amenities = json_decode($property->amenities, true);
+            }
+            $property->location_description = Str::limit($property->location_description, 50);
+            return $property;
+        });
+
+        //  Return response
+        return response()->json([
+            'status' => true,
+            'message' => 'Similar properties fetched successfully.',
+            'data' => [
+                'properties' => $similarProperties
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Something went wrong while fetching similar properties.',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
 }

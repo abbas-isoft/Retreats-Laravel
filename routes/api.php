@@ -76,6 +76,8 @@ Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarControlle
 
 // PriceListing
 Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);
+Route::get('similar-properties/{id}', [PropertyContentController::class, 'getSimilar']);
+
 
 // Create Booking
 Route::post('/book-property', [BookingController::class, 'bookProperty']);
