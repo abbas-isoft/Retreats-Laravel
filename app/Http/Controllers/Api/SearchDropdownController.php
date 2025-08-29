@@ -42,7 +42,7 @@ class SearchDropdownController extends Controller
 
         $propertyNames = $properties->pluck('property_name')->unique()->values();
 
-       $dateAvailability = $properties->map(function ($property) {
+       $dateAvailability = $properties->flatMap(function ($property) {
     return optional($property->propertyAvailability)
         ->availabilityCalendars
         ? $property->propertyAvailability->availabilityCalendars
@@ -54,7 +54,12 @@ class SearchDropdownController extends Controller
             })
             ->toArray()
         : [];
-})->flatten(1)->values();
+})
+->unique(function ($item) {  // globally unique based on start + end
+    return $item['start_date'] . '|' . $item['end_date'];
+})
+->values();
+
 
         return response()->json([
             'status' => true,
