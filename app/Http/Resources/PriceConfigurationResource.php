@@ -20,6 +20,7 @@ class PriceConfigurationResource extends JsonResource
             'fees' => PriceFeeResource::collection($this->whenLoaded('fees')),
             // 'los_entries' => PriceLosEntryResource::collection($this->whenLoaded('losEntries')),
             // 'payment_schedules' => PaymentScheduleResource::collection($this->whenLoaded('paymentSchedules')),
+            // 'price_los_entries' => PriceLosEntryResource::collection($this->whenLoaded('losEntries')),
         ];
     }
 }

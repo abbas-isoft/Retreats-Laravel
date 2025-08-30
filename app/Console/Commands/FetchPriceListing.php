@@ -52,10 +52,10 @@ class FetchPriceListing extends Command
             [
                 'account_id' => $accountId,  // add account_id here
                 'currency' => $prices['currency'],
-                'balance_due_days' => $prices['balanceDueDays'] ?? null,
-                'deposit_type' => $prices['depositType'] ?? null,
-                'deposit_value' => $prices['depositValue'] ?? null,
-                'security_deposit' => $prices['securityDeposit'] ?? null,
+                'balance_due_days' => $prices['balance_due_days'],
+                'deposit_type' => $prices['deposit_type'] ?? null,
+                'deposit_value' => $prices['deposit_value'] ?? null,
+                'security_deposit' => $prices['security_deposit'] ?? null,
             ]
         );
 

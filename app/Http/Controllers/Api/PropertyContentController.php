@@ -186,11 +186,62 @@ class PropertyContentController extends Controller
 
 
 
-   public function getSimilar(Request $request, $propertyId)
+//    public function getSimilar(Request $request, $propertyId)
+// {
+//     try {
+//         //  Find main property
+//         $property = PropertyContent::where('property_id',$propertyId)->first();
+
+//         if (!$property) {
+//             return response()->json([
+//                 'status' => false,
+//                 'message' => 'Property not found',
+//             ], 404);
+//         }
+
+//         // Query similar properties (same city + post_code, exclude current)
+//         $similarProperties = PropertyContent::with(['images', 'listing'])
+//             ->where('id', '!=', $property->id)
+//             ->where('city', $property->city)
+//             ->where('property_id', '!=', $propertyId)
+//             ->where('post_code', $property->post_code)
+//             ->take(10)
+//             ->get();
+
+//         //  Format amenities & location description
+//         $similarProperties = $similarProperties->map(function ($property) {
+//             if (is_string($property->amenities)) {
+//                 $property->amenities = json_decode($property->amenities, true);
+//             }
+//             $property->location_description = Str::limit($property->location_description, 50);
+//             return $property;
+//         });
+
+//         //  Return response
+//         return response()->json([
+//             'status' => true,
+//             'message' => 'Similar properties fetched successfully.',
+//             'data' => [
+//                 'properties' => $similarProperties
+//             ]
+//         ], 200);
+
+//     } catch (\Exception $e) {
+//         return response()->json([
+//             'status' => false,
+//             'message' => 'Something went wrong while fetching similar properties.',
+//             'error' => $e->getMessage(),
+//         ], 500);
+//     }
+// }
+
+
+
+public function getSimilar(Request $request, $propertyId)
 {
     try {
-        //  Find main property
-        $property = PropertyContent::where('property_id',$propertyId)->first();
+        // Find main property
+        $property = PropertyContent::where('property_id', $propertyId)->first();
 
         if (!$property) {
             return response()->json([
@@ -199,29 +250,41 @@ class PropertyContentController extends Controller
             ], 404);
         }
 
-        // Query similar properties (same city + post_code, exclude current)
+        // Decode amenities JSON for comparison
+        $propertyAmenities = [];
+        if (is_string($property->amenities)) {
+            $propertyAmenities = json_decode($property->amenities, true) ?? [];
+        }
+
+        // Query similar properties based on property_type, bedrooms, bathrooms, and amenities
         $similarProperties = PropertyContent::with(['images', 'listing'])
             ->where('id', '!=', $property->id)
-            ->where('city', $property->city)
-            ->where('post_code', $property->post_code)
+            ->where('property_type', $property->property_type)
+            ->whereBetween('bedroom_count', [$property->bedroom_count - 1, $property->bedroom_count + 1])
+            ->whereBetween('bathroom_count', [$property->bathroom_count - 1, $property->bathroom_count + 1])
             ->take(10)
-            ->get();
+            ->get()
+            ->map(function ($similar) use ($propertyAmenities) {
+                // Decode amenities JSON if needed
+                if (is_string($similar->amenities)) {
+                    $similarAmenities = json_decode($similar->amenities, true) ?? [];
+                    // Optional: keep only common amenities
+                    $similar->amenities = array_intersect($propertyAmenities, $similarAmenities);
+                } else {
+                    $similar->amenities = [];
+                }
 
-        //  Format amenities & location description
-        $similarProperties = $similarProperties->map(function ($property) {
-            if (is_string($property->amenities)) {
-                $property->amenities = json_decode($property->amenities, true);
-            }
-            $property->location_description = Str::limit($property->location_description, 50);
-            return $property;
-        });
+                // Shorten location description
+                $similar->location_description = Str::limit($similar->location_description, 50);
+                return $similar;
+            });
 
-        //  Return response
+        // Return response
         return response()->json([
             'status' => true,
             'message' => 'Similar properties fetched successfully.',
             'data' => [
-                'properties' => $similarProperties
+                'similar-properties' => $similarProperties
             ]
         ], 200);
 

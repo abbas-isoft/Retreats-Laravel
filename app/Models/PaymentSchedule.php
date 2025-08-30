@@ -10,7 +10,7 @@ class PaymentSchedule extends Model
         'price_configuration_id',  // Fix this to match your table's foreign key
         'deposit_type',
         'deposit_value',
-        'security_deposit_value',
+        'security_deposit',
         'balance_due_days',
     ];
 
