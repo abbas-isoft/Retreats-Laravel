@@ -22,5 +22,5 @@ jobs:
           ssh ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }} << 'EOF'
             ls -al
             cd /home/${{ secrets.CPANEL_USER }}/public_html  # or your repo directory
-            git pull origin main
+            git pull
           EOF
