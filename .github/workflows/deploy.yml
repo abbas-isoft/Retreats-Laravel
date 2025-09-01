@@ -3,7 +3,7 @@ name: Deploy via SSH Pull on Server
 on:
   push:
     branches:
-      - main  # Trigger on pushes to main
+      - huzaifa  # Trigger on pushes to main
 
 jobs:
   deploy:
