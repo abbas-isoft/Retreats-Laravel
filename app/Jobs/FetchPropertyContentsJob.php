@@ -83,15 +83,22 @@ class FetchPropertyContentsJob implements ShouldQueue
                 ]
             );
 
-            // Handle images: clear old images and insert fresh ones
-            $propertyContent->images()->delete(); // delete old images
+            //  Handle images only if response has images
+            if (!empty($images)) {
+            // delete old images
+            $propertyContent->images()->delete();
 
-            foreach ($images as $image) {
-                $propertyContent->images()->create([
-                    'photo_id' => $image['photoId'] ?? null,
-                    'url' => $image['url'] ?? null,
-                ]);
-            }
+          // insert fresh ones
+          foreach ($images as $image) {
+          $propertyContent->images()->create([
+            'photo_id' => $image['photoId'] ?? null,
+            'url'      => $image['url'] ?? null,
+        ]);
+    }
+}       else {
+        // No images in response → delete only photo_id (not full record)
+        $propertyContent->images()->update(['photo_id' => null]);
+}
 
             // Handle rooms and beds
             $propertyContent->rooms()->delete(); // delete old rooms (cascade should delete beds if set)

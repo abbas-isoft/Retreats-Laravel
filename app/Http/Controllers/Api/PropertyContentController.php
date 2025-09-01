@@ -285,7 +285,7 @@ public function getSimilar(Request $request, $propertyId)
             'status' => true,
             'message' => 'Similar properties fetched successfully.',
             'data' => [
-                'similar-properties' => $similarProperties
+                'similar_properties' => $similarProperties
             ]
         ], 200);
 

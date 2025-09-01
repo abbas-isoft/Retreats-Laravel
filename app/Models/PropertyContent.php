@@ -45,10 +45,10 @@ class PropertyContent extends Model
     }
 
     public function filteredImages($filter)
-{
-    return $this->hasMany(PropertyContentImage::class)
-                ->where('tag', $filter); // assuming 'tag' stores things like 'beach_stays'
-}
+    {
+        return $this->hasMany(PropertyContentImage::class)
+            ->where('tag', $filter); // assuming 'tag' stores things like 'beach_stays'
+    }
 
 
     // optional: helper to check amenity key in PHP
@@ -64,18 +64,19 @@ class PropertyContent extends Model
     }
 
     public function listing()
-{
-    return $this->hasOne(ContentListing::class, 'property_id', 'property_id');
-}
+    {
+        return $this->hasOne(ContentListing::class, 'property_id', 'property_id');
+    }
 
-public function availabilityRecords() {
-    return $this->hasMany(AvailabilityRecord::class, 'property_id');
-}
+    public function availabilityRecords()
+    {
+        return $this->hasMany(AvailabilityRecord::class, 'property_id');
+    }
 
-public function configuration()
-{
-    return $this->hasOne(SingleConfiguration::class, 'property_id', 'id');
-}
+    public function configuration()
+    {
+        return $this->hasOne(SingleConfiguration::class, 'property_id', 'id');
+    }
 
 
     public function rooms()
@@ -87,27 +88,27 @@ public function configuration()
         return $this->hasManyThrough(PropertyRoomBed::class, PropertyRoom::class);
     }
 
-   public function amenities()
-{
-    return $this->belongsToMany(Amenity::class, 'amenity_property', 'property_id', 'amenity_id');
-}
+    public function amenities()
+    {
+        return $this->belongsToMany(Amenity::class, 'amenity_property', 'property_id', 'amenity_id');
+    }
 
-public function propertyAvailability()
-{
-    return $this->hasOne(PropertyAvailability::class, 'property_id', 'property_id');
-}
-public function AvailabilityCalendar()
+    public function propertyAvailability()
+    {
+        return $this->hasOne(PropertyAvailability::class, 'property_id', 'property_id');
+    }
+    public function AvailabilityCalendar()
     {
         return $this->hasMany(AvailabilityCalendar::class, 'property_id');
     }
 
-     public function reviews()
+    public function reviews()
     {
         return $this->hasMany(Review::class, 'property_id', 'property_id');
     }
 
     public function content_listings()
-{
-    return $this->hasMany(ContentListing::class, 'property_id', 'property_id');
-}
+    {
+        return $this->hasMany(ContentListing::class, 'property_id', 'property_id');
+    }
 }
