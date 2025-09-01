@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 class PropertyContentController extends Controller
 {
 
@@ -295,6 +296,44 @@ public function getSimilar(Request $request, $propertyId)
             'error' => $e->getMessage(),
         ], 500);
     }
+}
+
+
+
+public function getPropertyPrice(Request $request, $propertyId)
+{
+    // Get check-in and check-out from request
+    $checkIn  = Carbon::parse($request->check_in);
+    $checkOut = Carbon::parse($request->check_out);
+
+    // Find property
+    $property = Property::find($propertyId);
+
+    if (!$property) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Property not found',
+        ], 404);
+    }
+
+    // Number of nights (stay duration)
+    $nights = $checkIn->diffInDays($checkOut);
+
+    // Price per night (assume column is price_per_night)
+    $pricePerNight = $property->price_per_night;
+
+    // Total price
+    $totalPrice = $nights * $pricePerNight;
+
+    return response()->json([
+        'status' => true,
+        'property_id' => $property->id,
+        'check_in' => $checkIn->toDateString(),
+        'check_out' => $checkOut->toDateString(),
+        'nights' => $nights,
+        'price_per_night' => $pricePerNight,
+        'total_price' => $totalPrice,
+    ]);
 }
 
 }

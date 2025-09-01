@@ -73,6 +73,7 @@ Route::get('/property-grid', [PropertyGridController::class, 'index']);
   Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
 // Availability Calendar
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
+Route::get('/properties/{id}/price', [PropertyContentController::class, 'getPropertyPrice']);
 
 // PriceListing
 Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);

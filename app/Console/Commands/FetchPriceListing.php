@@ -10,7 +10,7 @@ use App\Models\PriceLosEntry;
 use App\Models\Account;   // Use Account model to loop through accounts
 use App\Models\Property;  // Use Property if needed
 use Carbon\Carbon;
-
+use Illuminate\Support\Arr;
 class FetchPriceListing extends Command
 {
     protected $signature = 'fetch:prices-Listing';
@@ -52,27 +52,29 @@ class FetchPriceListing extends Command
             [
                 'account_id' => $accountId,  // add account_id here
                 'currency' => $prices['currency'],
-                'balance_due_days' => $prices['balance_due_days'],
-                'deposit_type' => $prices['deposit_type'] ?? null,
-                'deposit_value' => $prices['deposit_value'] ?? null,
-                'security_deposit' => $prices['security_deposit'] ?? null,
+                'deposit_type'     => Arr::get($prices, 'paymentSchedule.deposit.depositType'),
+        'deposit_value'    => Arr::get($prices, 'paymentSchedule.deposit.value'),
+        'security_deposit' => Arr::get($prices, 'paymentSchedule.securityDeposit.value'),
+        'balance_due_days' => Arr::get($prices, 'paymentSchedule.balanceDueDays'),
             ]
         );
 
         // Save Fees
-        PriceFee::where('price_configuration_id', $config->id)->delete();
-        foreach ($prices['fees'] ?? [] as $fee) {
-            PriceFee::create([
-                'price_configuration_id' => $config->id,
-                'name' => $fee['name'],
-                'type' => $fee['type'],
-                'price' => $fee['price'],
-                'vat' => $fee['vat'],
-                'refundable' => $fee['refundable'],
-                'hidden' => $fee['hidden'],
-                'fee_payable_with' => $fee['feePayableWith'],
-            ]);
-        }
+// PriceFee::where('price_configuration_id', $config->id)->delete();
+
+foreach ($prices['fees'] ?? [] as $fee) {
+    PriceFee::UpdateOrcreate([
+        'price_configuration_id' => $config->id,
+        'name' => $fee['name'],
+        'type' => $fee['type'],
+        'price' => $fee['price'],
+        'vat' => $fee['vat'],
+        'refundable' => $fee['refundable'],
+        'hidden' => $fee['hidden'],
+        'fee_payable_with' => $fee['feePayableWith'],
+    ]);
+}
+
 
         // Save LOS Entries
         PriceLosEntry::where('price_configuration_id', $config->id)->delete();
