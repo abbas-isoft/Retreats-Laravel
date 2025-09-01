@@ -270,7 +270,7 @@ public function getSimilar(Request $request, $propertyId)
                 if (is_string($similar->amenities)) {
                     $similarAmenities = json_decode($similar->amenities, true) ?? [];
                     // Optional: keep only common amenities
-                    $similar->amenities = array_intersect($propertyAmenities, $similarAmenities);
+                    $similar->amenities = array_values(array_intersect($propertyAmenities, $similarAmenities));
                 } else {
                     $similar->amenities = [];
                 }
