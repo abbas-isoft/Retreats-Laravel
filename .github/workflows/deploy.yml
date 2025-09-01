@@ -1,0 +1,26 @@
+name: Deploy via SSH Pull on Server
+
+on:
+  push:
+    branches:
+      - huzaifa  # Trigger on pushes to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.CPANEL_HOST }} >> ~/.ssh/known_hosts
+
+      - name: SSH into server and pull latest code
+        run: |
+          ssh ${{ secrets.CPANEL_USER }}@${{ secrets.CPANEL_HOST }} << 'EOF'
+            ls -al
+            cd /home/${{ secrets.CPANEL_USER }}/public_html  # or your repo directory
+            git pull
+          EOF
