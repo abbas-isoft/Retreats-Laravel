@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\WhyPartnerBoxController;
 use App\Http\Controllers\Api\OwnerSaySectionController;
 use App\Http\Controllers\Api\SearchDropdownController;
 use App\Http\Controllers\Api\PropertyPriceController;
+use App\Http\Controllers\Api\PropertyApiController;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
@@ -97,7 +98,7 @@ Route::post('/cancel-booking', [BookingController::class, 'cancelBooking']);
 Route::get('/homepage-content', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
 
-
+Route::get('/properties', [PropertyApiController::class, 'getProperties']);
 // Search
 Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 

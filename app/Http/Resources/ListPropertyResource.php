@@ -26,7 +26,12 @@ class ListPropertyResource extends JsonResource
        $section2 = [
       'title'   => $ownerSay->title ?? '',
       'content' => $ownerSay->description ?? '',
-      'image'   => $ownerSay->image ? url('images/' . $ownerSay->image) : '',
+       'image'              => $ownerSay && $ownerSay->image 
+                                        ? url('images/' . $ownerSay->image) 
+                                        : '',
+            'owner_name'         => $ownerSay->owner_name ?? '',
+            'secondary_title'        => $ownerSay->secondary_title ?? '',
+            'secondary_description'  => $ownerSay->secondary_description ?? '',
 ];
 
         // Why Partner Boxes

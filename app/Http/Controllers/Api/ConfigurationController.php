@@ -37,7 +37,7 @@ class ConfigurationController extends Controller
                 'properties' => ConfigurationResource::collection($configurations),
             ]);
         } catch (\Exception $e) {
-            \Log::error('Configuration fetch failed: '.$e->getMessage());
+            Log::error('Configuration fetch failed: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
