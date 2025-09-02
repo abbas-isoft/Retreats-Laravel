@@ -37,13 +37,15 @@ use App\Http\Controllers\Api\ListPropertyController;
 use App\Http\Controllers\Api\WhyPartnerBoxController;
 use App\Http\Controllers\Api\OwnerSaySectionController;
 use App\Http\Controllers\Api\SearchDropdownController;
-
+use App\Http\Controllers\Api\PropertyPriceController;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
 // availability
 // Route::get('availability', [AvailabilityController::class, 'index']);
+// routes/api.php
+Route::get('/property/{propertyId}/total-price', [PropertyPriceController::class, 'getTotalPrice']);
 
 // Properties
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);

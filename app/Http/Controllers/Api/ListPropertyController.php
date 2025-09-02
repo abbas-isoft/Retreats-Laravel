@@ -60,19 +60,23 @@ class ListPropertyController extends Controller
         ]);
     }
 
-    public function GetListProperty()
-    {
-         $page = ListProperty::firstOrCreate([]);
-         $boxes = WhyPartnerBox::all();
-          $section = OwnerSaySection::firstOrCreate([]);
-        return response()->json([
-            'status' => true,
-            'data'   => new ListPropertyResource($page),
-            'boxes'  => WhyPartnerBoxResource::collection($boxes),
-            'owner_say' => new OwnerSaySectionResource($section),
-        
-        ]);
-    }
+   public function GetListProperty()
+{
+    $page    = ListProperty::firstOrCreate([]);
+    $boxes   = WhyPartnerBox::all();
+    $section = OwnerSaySection::firstOrCreate([]);
+
+    // Attach relations so resource can access them
+    $page->setRelation('whyPartnerBoxes', $boxes);
+    $page->setRelation('ownerSay', $section);
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'List Property data fetched successfully',
+        'data'    => new ListPropertyResource($page),
+    ]);
+}
+
 
 
 
