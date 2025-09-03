@@ -77,15 +77,24 @@ foreach ($prices['fees'] ?? [] as $fee) {
 
 
         // Save LOS Entries
-        PriceLosEntry::where('price_configuration_id', $config->id)->delete();
-        foreach ($prices['priceLos'] ?? [] as $entry) {
-            $parts = explode(',', $entry);
-            $date = $parts[0];
-            PriceLosEntry::create([
-                'price_configuration_id' => $config->id,
-                'date' => $date,
-                'length_of_stay_prices' => json_encode($prices),
-            ]);
-        }
+// Save LOS Entries
+PriceLosEntry::where('price_configuration_id', $config->id)->delete();
+
+foreach ($prices['priceLos'] ?? [] as $entry) {
+    $parts = explode(',', $entry);
+
+    // first element is date
+    $date = $parts[0];
+
+    // remove first element (date) and rejoin
+    $losValues = implode(',', array_slice($parts, 1));
+
+    PriceLosEntry::create([
+        'price_configuration_id' => $config->id,
+        'date' => $date,
+        'length_of_stay_prices' => json_encode([$losValues]), // ✅ save without date
+    ]);
+}
+
     }
 }
