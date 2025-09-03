@@ -26,4 +26,23 @@ class AvailabilityCalendarController extends Controller
             'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
         ]);
     }
+
+    public function allProperties(): JsonResponse
+{
+    // Fetch all availability calendars
+    $calendars = AvailabilityCalendar::all();
+
+    if ($calendars->isEmpty()) {
+        return response()->json([
+            'status' => false,
+            'message' => 'No availability calendar data found for any property.',
+        ]);
+    }
+
+    return response()->json([
+        'status' => true,
+        'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
+    ]);
+}
+
 }
