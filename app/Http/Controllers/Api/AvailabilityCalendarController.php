@@ -23,7 +23,7 @@ class AvailabilityCalendarController extends Controller
 
         return response()->json([
             'status' => true,
-            'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
+            'data' => AvailabilityCalendar::where('property_id', $propertyId)->first(),
         ]);
     }
 
