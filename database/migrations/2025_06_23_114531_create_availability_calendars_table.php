@@ -11,8 +11,8 @@ class CreateAvailabilityCalendarsTable extends Migration
         Schema::create('availability_calendars', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('property_id');
-            $table->date('start_date');
-            $table->date('end_date');
+            $table->timestamp('start_date');
+            $table->timestamp('end_date');
             $table->text('availability');
             $table->text('change_over'); 
             $table->text('max_stay');    

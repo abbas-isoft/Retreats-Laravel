@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class FetchAvailabilityCalendarsJob implements ShouldQueue
 {
@@ -62,8 +63,8 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
                 AvailabilityCalendar::updateOrCreate(
                     ['property_id' => $propertyId],
                     [
-                        'start_date' => substr($availability['startDate'], 0, 10),
-                        'end_date' => substr($availability['endDate'], 0, 10),
+                        'start_date' => Carbon::parse($availability['startDate'])->timezone('UTC')->toDateString(),
+                        'end_date'   => Carbon::parse($availability['endDate'])->timezone('UTC')->toDateString(),
                         'availability' => $availability['availability'],
                         'change_over' => $availability['changeOver'],
                         'max_stay' => $availability['maxStay'],

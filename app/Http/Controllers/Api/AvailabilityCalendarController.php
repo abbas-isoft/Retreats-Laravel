@@ -41,7 +41,10 @@ class AvailabilityCalendarController extends Controller
 
     return response()->json([
         'status' => true,
+        'message' => 'Availability calendars fetched successfully for all properties.',
+        'data'=>[
         'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
+        ]
     ]);
 }
 

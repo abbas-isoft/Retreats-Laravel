@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\OwnerSaySectionController;
 use App\Http\Controllers\Api\SearchDropdownController;
 use App\Http\Controllers\Api\PropertyPriceController;
 use App\Http\Controllers\Api\PropertyApiController;
+use App\Http\Controllers\Api\PriceCalculationController;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
@@ -47,6 +48,7 @@ Route::get('accounts', [AccountController::class, 'index']);
 // Route::get('availability', [AvailabilityController::class, 'index']);
 // routes/api.php
 Route::get('/property/{propertyId}/total-price', [PropertyPriceController::class, 'getTotalPrice']);
+Route::post('/calculate-price', [PriceCalculationController::class, 'calculatePrice']);
 
 // Properties
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);

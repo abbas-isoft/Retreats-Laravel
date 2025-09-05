@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('price_configuration_id');
             $table->date('date');
-            $table->json('length_of_stay_prices'); // Store array as JSON
+            $table->json('length_of_stay_prices');
             $table->timestamps();
         });
     }
