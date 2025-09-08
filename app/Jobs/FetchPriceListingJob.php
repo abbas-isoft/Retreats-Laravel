@@ -14,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Arr;
 
 class FetchPriceListingJob implements ShouldQueue
 {
@@ -26,77 +27,100 @@ class FetchPriceListingJob implements ShouldQueue
 
     public function handle()
     {
+        // Loop through all accounts
         foreach (Account::all() as $account) {
             $properties = Property::where('account_id', $account->id)->get();
 
             foreach ($properties as $property) {
-                try {
-                    $this->fetchAndSavePrice($property->id, $account->id);
-                } catch (\Exception $e) {
-                    Log::error("❌ Error processing property {$property->id}: " . $e->getMessage());
-                }
+                $this->fetchAndSavePrice($property->id, $account->id);
             }
         }
 
+        // Replace $this->info with Log::info
         Log::info('✅ Price configurations saved for all properties across all accounts.');
     }
 
     private function fetchAndSavePrice($propertyId, $accountId)
-    {
-        $response = Http::withHeaders([
+{
+    try {
+        $response = Http::timeout(60)->withHeaders([
             'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
         ])->get("https://api.supercontrol.co.uk/v3/properties/prices/{$propertyId}");
 
         if ($response->failed()) {
-            Log::error("❌ Failed to fetch price data for property ID: {$propertyId}");
+            Log::error("Failed to fetch price data for property ID: {$propertyId}");
             return;
         }
 
         $data = $response->json();
+        $prices = $data['prices'] ?? null;
 
-        if (!isset($data['prices'])) {
-            Log::warning("⚠️ No prices found for property ID: {$propertyId}");
+        if (!$prices) {
+            Log::warning("No price data returned for property ID: {$propertyId}");
             return;
         }
 
-        $prices = $data['prices'];
-
-        // Save Price Configuration
+        // Save Price Configuration with account_id
         $config = PriceConfiguration::updateOrCreate(
             ['property_id' => $propertyId],
             [
                 'account_id' => $accountId,
                 'currency' => $prices['currency'] ?? null,
-                'balance_due_days' => $prices['balanceDueDays'] ?? null,
-                'deposit_type' => $prices['depositType'] ?? null,
-                'deposit_value' => $prices['depositValue'] ?? null,
-                'security_deposit' => $prices['securityDeposit'] ?? null,
+                'deposit_type' => Arr::get($prices, 'paymentSchedule.deposit.depositType', null),
+                'deposit_value' => Arr::get($prices, 'paymentSchedule.deposit.value', 0),
+                'security_deposit' => Arr::get($prices, 'paymentSchedule.securityDeposit.value', 0),
+                'balance_due_days' => Arr::get($prices, 'paymentSchedule.balanceDueDays', 0),
             ]
         );
 
-        // Save Fees
-        PriceFee::where('price_configuration_id', $config->id)->delete();
+        // Save Fees safely
         foreach ($prices['fees'] ?? [] as $fee) {
-            PriceFee::create([
+            PriceFee::updateOrCreate(
+                [
+                    'price_configuration_id' => $config->id,
+                    'name' => $fee['name'] ?? 'Unknown Fee',
+                ],
+                [
+                    'type' => $fee['type'] ?? 'unknown',
+                    'price' => $fee['price'] ?? 0,
+                    'vat' => $fee['vat'] ?? 0,
+                    'refundable' => $fee['refundable'] ?? false,
+                    'hidden' => $fee['hidden'] ?? false,
+                    'fee_payable_with' => $fee['feePayableWith'] ?? null,
+                ]
+            );
+        }
+
+        // Save LOS Entries safely
+        PriceLosEntry::where('price_configuration_id', $config->id)->delete();
+
+        foreach ($prices['priceLos'] ?? [] as $entry) {
+            if (!is_string($entry)) {
+                Log::warning("Skipping invalid LOS entry for property ID {$propertyId}");
+                continue;
+            }
+
+            $parts = explode(',', $entry);
+            $date = $parts[0] ?? null;
+
+            if (!$date) {
+                Log::warning("Skipping LOS entry with missing date for property ID {$propertyId}");
+                continue;
+            }
+
+            PriceLosEntry::create([
                 'price_configuration_id' => $config->id,
-                'name' => $fee['name'] ?? null,
-                'type' => $fee['type'] ?? null,
-                'price' => $fee['price'] ?? null,
-                'vat' => $fee['vat'] ?? null,
-                'refundable' => $fee['refundable'] ?? null,
-                'hidden' => $fee['hidden'] ?? null,
-                'fee_payable_with' => $fee['feePayableWith'] ?? null,
+                'date' => $date,
+                'length_of_stay_prices' => json_encode($entry),
             ]);
         }
 
-        // Save LOS Entries
-        PriceLosEntry::where('price_configuration_id', $config->id)->delete();
-        foreach ($prices['priceLos'] ?? [] as $entry) {
-            PriceLosEntry::create([
-                'price_configuration_id' => $config->id,
-                'date' => $entry['date'] ?? null,
-                'length_of_stay_prices' => json_encode($entry['lengthOfStayPrices'] ?? []),
-            ]);
-        }
+        Log::info("✅ Price data saved for property ID: {$propertyId}");
+
+    } catch (\Exception $e) {
+        Log::error("Exception saving price for property ID {$propertyId}: " . $e->getMessage());
+        // Do not re-throw, just skip to next property
     }
+}
+
 }
