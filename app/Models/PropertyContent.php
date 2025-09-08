@@ -43,6 +43,10 @@ class PropertyContent extends Model
     {
         return $this->hasMany(PropertyContentImage::class);
     }
+    public function propertyContents()
+{
+    return $this->hasMany(PropertyContent::class);
+}
 
     public function filteredImages($filter)
 {

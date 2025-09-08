@@ -23,6 +23,10 @@ class Property extends Model
     {
         return $this->belongsTo(Account::class);
     }
+     public function propertyContents()
+    {
+        return $this->hasMany(PropertyContent::class, 'property_id', 'id');
+    }
 
     // 🔹 NEW: Property can belong to many collections
     public function collections(): BelongsToMany
