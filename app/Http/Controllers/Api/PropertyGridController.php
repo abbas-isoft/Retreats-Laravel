@@ -13,16 +13,16 @@ class PropertyGridController extends Controller
 {
     public function index(Request $request)
     {
-        $query = PropertyContent::with(['images', 'listing']);
+        $query = PropertyContent::with(['images', 'content_listings']);
 
         
-        if ($request->filled('location_description')) {
-            $query->where('location_description', 'LIKE', '%' . $request->location . '%');
-        }
+        if ($request->filled('address_line')) {
+    $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
+}
 
         
         if ($request->filled('guest_capacity')) {
-            $query->whereHas('listing', function ($q) use ($request) {
+            $query->whereHas('content_listings', function ($q) use ($request) {
                 $q->where('maximum_guests', '>=', $request->guest_capacity);
             });
         }
