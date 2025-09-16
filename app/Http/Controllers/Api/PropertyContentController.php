@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\AvailabilityCalendar;
+use App\Http\Resources\PropertyRoomBedsResource;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PropertyContentResource;
 use App\Models\Property;
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\PriceConfiguration;
+use App\Models\PriceLosEntry;
 class PropertyContentController extends Controller
 {
 
@@ -336,4 +340,300 @@ public function getPropertyPrice(Request $request, $propertyId)
     ]);
 }
 
+public function GetBookingInfo(Request $request, $propertyId)
+{
+    //  Property record
+    $property = Property::findOrFail($propertyId);
+
+    $contentListing = \App\Models\ContentListing::where('property_id', $propertyId)->first();
+
+    if (!$contentListing) {
+        $extras = collect(); // empty collection
+    } else {
+        // Step 2: get all property_rooms for this content listing
+        $roomIds = \App\Models\PropertyRoom::where('property_content_id', $contentListing->id)
+            ->pluck('id');
+
+        // Step 3: get all beds for those rooms
+        $extras = \App\Models\PropertyRoomBed::whereIn('property_room_id', $roomIds)->get();
+    }
+
+    // Step 4: map to resource
+    $extras = PropertyRoomBedsResource::collection($extras);
+
+    //  Settings (from contents_listing)
+    $settings = [
+        'pets_allowed'    => $contentListing->pets_allowed ?? null,
+        'smoking_allowed' => $contentListing->smoking_allowed ?? null,
+        'allow_bookings'  => $contentListing->allow_bookings ?? null,
+        'allow_enquiries' => $contentListing->allow_enquiries ?? null,
+    ];
+
+    //  Billing (from price_configurations)
+    $priceConfig = \App\Models\PriceConfiguration::where('property_id', $propertyId)->first();
+
+    $balanceDueDays  = $priceConfig->balance_due_days ?? 0;
+    $depositType     = $priceConfig->deposit_type ?? null;
+    $depositValue    = $priceConfig->deposit_value ?? 0;
+    $securityDeposit = $priceConfig->security_deposit ?? 0;
+
+    //  Booking Inputs (from frontend)
+    $checkIn  = Carbon::parse(trim($request->check_in))->startOfDay();
+    $checkOut = Carbon::parse(trim($request->check_out))->startOfDay();
+    $nights   = $checkIn->diffInDays($checkOut);
+
+    if ($nights < 1) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Check-out must be after Check-in.',
+        ]);
+    }
+
+    //  Calculate price (same logic as calculatePrice)
+    $entry = PriceLosEntry::where('price_configuration_id', $priceConfig->id)
+        ->where('date', $checkIn->toDateString())
+        ->first();
+
+    if (!$entry) {
+        return response()->json([
+            'status' => false,
+            'message' => 'No pricing data found for this date'
+        ]);
+    }
+
+    // Availability check
+    $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
+    if (!$calendar) {
+        return response()->json([
+            'status' => false,
+            'message' => 'No availability calendar found.'
+        ]);
+    }
+
+    $availability = $calendar->availability; // "NYYNNYY..." string
+    $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
+    $calendarEnd   = Carbon::parse($calendar->end_date)->startOfDay();
+
+    if ($checkIn < $calendarStart || $checkOut > $calendarEnd) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Selected dates are outside availability calendar.'
+        ]);
+    }
+
+    $currentDate = $checkIn->copy();
+    $available = true;
+    while ($currentDate < $checkOut) {
+        $dayIndex = $calendarStart->diffInDays($currentDate);
+        $status   = $availability[$dayIndex - 1] ?? 'N';
+        if ($status === 'N') {
+            $available = false;
+            break;
+        }
+        $currentDate->addDay();
+    }
+
+    if (!$available) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Property Not Available for the selected dates',
+        ]);
+    }
+
+    // Price extraction
+    $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
+    $guests = $prices[1] ?? 0;
+    $prices = array_slice($prices, 2);
+    $totalPrice = $prices[$nights - 1] ?? 0;
+
+    if ($totalPrice == 0) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Property Not Available for ' . $nights . ' nights',
+        ]);
+    }
+
+    //  Balance Due Date
+    $balanceDueDate = $checkIn->copy()->subDays($balanceDueDays)->format('Y-m-d');
+
+    //  Days until arrival
+    $daysUntilArrival = now()->diffInDays($checkIn, false);
+
+    //  Deposit & Balance Calculation
+    $depositAmount = 0;
+    $balanceAmount = 0;
+    $depositLabel  = "Due Now";
+    $balanceLabel  = null;
+
+    if ($daysUntilArrival > 62) {
+        if ($depositType === 'Percentage') {
+            $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
+        } else {
+            $depositAmount = $depositValue;
+        }
+
+        if ($depositAmount <= 0) {
+            $depositAmount = round(0.25 * $totalPrice, 2);
+        }
+
+        $balanceAmount = $totalPrice - $depositAmount;
+
+        $depositLabel = "Due Now";
+        $balanceLabel = "Charged on " . $balanceDueDate;
+    } else {
+        $depositAmount = $totalPrice;
+        $balanceAmount = 0;
+
+        $depositLabel = "Due Now";
+        $balanceLabel = null;
+    }
+
+    //  Final Response
+    return response()->json([
+        'status'      => true,
+        'message'     => 'Booking info fetched successfully',
+        'data'        => [
+        'property_id' => $propertyId,
+        'extras'      => $extras,
+        'settings'    => $settings,
+        'billing'     => [
+            'deposit_type'     => $depositType,
+            'deposit_value'    => $depositValue,
+            'security_deposit' => $securityDeposit,
+            'total_price'      => $totalPrice,
+            'deposit' => [
+                'label'  => $depositLabel,
+                'amount' => $depositAmount
+            ],                             
+            'balance' => [
+                'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
+                'label'    => $balanceLabel,
+                'amount'   => $balanceAmount
+            ]
+        ]
+        ]
+    ]);
 }
+
+
+
+public function getOtherProperties(Request $request)
+{
+    $request->validate([
+        'property_id' => 'required|integer|exists:properties,id',
+        'check_in'    => 'required|date',
+        'check_out'   => 'required|date|after:check_in',
+    ]);
+
+    $propertyId = $request->property_id;
+    $checkIn = Carbon::parse($request->check_in)->startOfDay();
+    $checkOut = Carbon::parse($request->check_out)->startOfDay();
+    $nights = $checkIn->diffInDays($checkOut);
+
+    // Check availability for the requested property first
+    $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
+    if (!$calendar) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Property Not Available for the selected dates',
+            'unavailable_date' => $checkIn->toDateString()
+        ]);
+    }
+
+    $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
+    $calendarEnd = Carbon::parse($calendar->end_date)->startOfDay();
+    $availability = $calendar->availability;
+
+    if ($checkIn < $calendarStart || $checkOut > $calendarEnd) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Property Not Available for the selected dates',
+            'unavailable_date' => $checkIn->toDateString()
+        ]);
+    }
+
+    // Check day-by-day availability
+    $currentDate = $checkIn->copy();
+    while ($currentDate < $checkOut) {
+        $dayIndex = $calendarStart->diffInDays($currentDate);
+        $status = $availability[$dayIndex - 1] ?? 'N';
+        if ($status === 'N') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Property Not Available for the selected dates',
+                'unavailable_date' => $currentDate->toDateString()
+            ]);
+        }
+        $currentDate->addDay();
+    }
+
+    // If available, fetch other properties
+    $otherProperties = Property::where('id', '!=', $propertyId)->get();
+    $availableProperties = [];
+
+    foreach ($otherProperties as $property) {
+        $calendar = AvailabilityCalendar::where('property_id', $property->id)->first();
+        if (!$calendar) continue;
+
+        $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
+        $calendarEnd = Carbon::parse($calendar->end_date)->startOfDay();
+        $availability = $calendar->availability;
+
+        if ($checkIn < $calendarStart || $checkOut > $calendarEnd) continue;
+
+        $currentDate = $checkIn->copy();
+        $isAvailable = true;
+        while ($currentDate < $checkOut) {
+            $dayIndex = $calendarStart->diffInDays($currentDate);
+            $status = $availability[$dayIndex - 1] ?? 'N';
+            if ($status === 'N') {
+                $isAvailable = false;
+                break;
+            }
+            $currentDate->addDay();
+        }
+
+        if ($isAvailable) {
+            $content = PropertyContent::where('property_id', $property->id)->first();
+            $propertyName = $content ? $content->property_name : null;
+
+            $images = $content
+                ? PropertyContentImage::where('property_content_id', $content->id)
+                    ->pluck('url')
+                    ->toArray()
+                : [];
+
+            $config = PriceConfiguration::where('property_id', $property->id)->first();
+            $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
+                ->where('date', $checkIn->toDateString())
+                ->first() : null;
+
+            $totalPrice = 0;
+            if ($entry) {
+                $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
+                $price = array_slice($prices, 2)[$nights - 1] ?? 0;
+                $totalPrice = $price;
+            }
+
+            $availableProperties[] = [
+                'id' => $property->id,
+                'name' => $propertyName,
+                'total_price' => $totalPrice,
+                'nights' => $nights,
+                'check_in' => $checkIn->toDateString(),
+                'check_out' => $checkOut->toDateString(),
+                'images' => $images,
+            ];
+        }
+    }
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Available properties fetched successfully',
+        'data' => $availableProperties
+    ]);
+}
+
+}
+
+

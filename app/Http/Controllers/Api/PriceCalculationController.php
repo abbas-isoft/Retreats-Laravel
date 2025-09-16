@@ -111,11 +111,14 @@ class PriceCalculationController extends Controller
 
     return response()->json([
         'status' => true,
+        'message' => 'Price calculated successfully',
+        'data' => [
         'total_price' => $price,
         'per_day' => round($price / $nights, 2),
         'nights' => $nights,
         'guest' => $guests,
         'dates' => $allDates,
+        ],
     ]);
 }
 

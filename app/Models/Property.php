@@ -38,4 +38,8 @@ class Property extends Model
 {
     return $this->hasMany(PropertyContentImage::class, 'property_content_id', 'id');
 }
+public function contents()
+{
+    return $this->hasMany(PropertyContent::class, 'property_id');
+}
 }

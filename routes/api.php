@@ -40,7 +40,7 @@ use App\Http\Controllers\Api\SearchDropdownController;
 use App\Http\Controllers\Api\PropertyPriceController;
 use App\Http\Controllers\Api\PropertyApiController;
 use App\Http\Controllers\Api\PriceCalculationController;
-
+use App\Http\Controllers\Api\StripeWebhookController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -49,6 +49,7 @@ Route::get('accounts', [AccountController::class, 'index']);
 // routes/api.php
 Route::get('/property/{propertyId}/total-price', [PropertyPriceController::class, 'getTotalPrice']);
 Route::post('/calculate-price', [PriceCalculationController::class, 'calculatePrice']);
+Route::get('/other-properties', [PropertyContentController::class, 'getOtherProperties']);
 
 // Properties
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);
@@ -60,6 +61,7 @@ Route::get('availabilities/{accountid}', [AvailabilityController::class, 'index'
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 // single property listing
 Route::get('single-property-listing/{propertyId}', [SinglePropertyListingController::class, 'index']);
@@ -67,6 +69,7 @@ Route::get('single-property-listing/{propertyId}', [SinglePropertyListingControl
 // Content Listing
 // Route::get('content-listing/{id}', [ContentListingController::class, 'index']);
 Route::get('content-listing/{propertyId}', [ContentListingController::class, 'index']);
+Route::get('/properties/{propertyId}/booking-info', [PropertyContentController::class, 'GetBookingInfo']);
 
 // Property Content
 // Route::get('property-content/{propertyId}', [PropertyContentController::class, 'index']);

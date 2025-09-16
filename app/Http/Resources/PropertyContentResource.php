@@ -39,7 +39,7 @@ class PropertyContentResource extends JsonResource
             'bathroom_count' => $this->bathroom_count,
             'area' => $this->area,
             'reviews' => $this->reviews,
-            'content_listings' => $this->content_listings,
+            'content_listings' => ContentListingResource::collection($this->content_listings),
             // 'similar_properties' => $this->similar_properties,
             'area_unit' => $this->area_unit,
             // 'amenities ' => $this->amenities, 

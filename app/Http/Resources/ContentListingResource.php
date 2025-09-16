@@ -27,6 +27,7 @@ class ContentListingResource extends JsonResource
             'maximum_adults' => $this->maximum_adults,
             'maximum_guests' => $this->maximum_guests,
             'maximum_children' => $this->maximum_children,
+            'maximum_infants' => $this->maximum_children,
             'merchant_name' => $this->merchant_name,
             'pets_allowed' => $this->pets_allowed,
             'smoking_allowed' => $this->smoking_allowed,

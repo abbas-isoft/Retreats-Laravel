@@ -1,0 +1,87 @@
+<?php
+namespace App\Http\Controllers\Api;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Stripe\Webhook;
+use Stripe\Stripe;
+use App\Models\TestBooking;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
+class StripeWebhookController extends Controller
+{
+    public function handle(Request $request)
+    {
+        $payload = $request->getContent();
+        $sigHeader = $request->header('Stripe-Signature');
+        $secret = env('STRIPE_WEBHOOK_SECRET');
+
+        try {
+            Stripe::setApiKey(config('services.stripe.secret'));
+            $event = Webhook::constructEvent($payload, $sigHeader, $secret);
+        } catch (\UnexpectedValueException $e) {
+            return response('Invalid payload', 400);
+        } catch (\Stripe\Exception\SignatureVerificationException $e) {
+            return response('Invalid signature', 400);
+        }
+
+        $type = $event->type;
+        $obj = $event->data->object;
+
+        if ($type === 'payment_intent.succeeded') {
+            $pi = $obj;
+            $bookingId = $pi->metadata->local_booking_id ?? null;
+            $typeMeta = $pi->metadata->type ?? null;
+
+            if ($bookingId) {
+                $booking = TestBooking::find($bookingId);
+                if ($booking) {
+                    // save payment method for off-session
+                    if (!empty($pi->payment_method)) {
+                        $booking->stripe_payment_method_id = $pi->payment_method;
+                    }
+
+                    if ($typeMeta === 'upfront') {
+                        $booking->payment_status = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
+                        $booking->upfront_payment_intent_id = $pi->id;
+                        // schedule remaining payment (already stored in DB)
+                    } elseif ($typeMeta === 'remaining') {
+                        $booking->remaining_payment_intent_id = $pi->id;
+                        $booking->payment_status = 'fully_paid';
+                    } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
+                        $booking->damage_deposit_intent_id = $pi->id;
+                    }
+
+                    $booking->save();
+
+                    // send confirmation email to guest + enquiries email
+                    try {
+                        Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
+                        Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+                    } catch (\Exception $e) {
+                        Log::error("Mail send failed for booking {$booking->id}: {$e->getMessage()}");
+                    }
+
+                    // OPTIONAL: send to HubSpot (call a helper or job)
+                }
+            }
+        }
+
+        if ($type === 'payment_intent.payment_failed') {
+            $pi = $obj;
+            $bookingId = $pi->metadata->local_booking_id ?? null;
+            if ($bookingId) {
+                $booking = TestBooking::find($bookingId);
+                if ($booking) {
+                    $booking->payment_status = 'failed';
+                    $booking->save();
+                    // send failure email, instructions to pay manually
+                }
+            }
+        }
+
+        // Always return 200 for success handling
+        return response('OK', 200);
+    }
+}
