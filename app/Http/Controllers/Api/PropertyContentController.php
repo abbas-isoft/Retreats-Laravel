@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\PriceConfiguration;
 use App\Models\PriceLosEntry;
+use App\Models\PropertyExtra;
 class PropertyContentController extends Controller
 {
 
@@ -487,14 +488,15 @@ public function GetBookingInfo(Request $request, $propertyId)
         $depositLabel = "Due Now";
         $balanceLabel = null;
     }
+$extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
 
     //  Final Response
     return response()->json([
-        'status'      => true,
-        'message'     => 'Booking info fetched successfully',
-        'data'        => [
+    'status'  => true,
+    'message' => 'Booking info fetched successfully',
+    'data'    => [
         'property_id' => $propertyId,
-        'extras'      => $extras,
+        'extras'      => PropertyExtra::where('property_id', $propertyId)->get(),
         'settings'    => $settings,
         'billing'     => [
             'deposit_type'     => $depositType,
@@ -504,15 +506,15 @@ public function GetBookingInfo(Request $request, $propertyId)
             'deposit' => [
                 'label'  => $depositLabel,
                 'amount' => $depositAmount
-            ],                             
+            ],
             'balance' => [
                 'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
                 'label'    => $balanceLabel,
                 'amount'   => $balanceAmount
             ]
         ]
-        ]
-    ]);
+    ]
+]);
 }
 
 

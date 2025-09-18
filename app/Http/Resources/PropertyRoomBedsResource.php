@@ -18,7 +18,7 @@ class PropertyRoomBedsResource extends JsonResource
 
             'property_room_id' => $this->property_room_id,
             'bed_type' => $this->bed_type,
-            'quantity ' => $this->quantity,
+            'quantity' => $this->quantity,
         ];
     }
 }

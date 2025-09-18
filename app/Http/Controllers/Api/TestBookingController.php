@@ -172,7 +172,8 @@ $remaining_cents = $total_cents - $upfront_cents;
                 'security_deposit' => $damage_deposit_cents / 100
             ],
             'stripe_client_secret' => $clientSecret,
-            'payment_status' => $booking->payment_status
+            'payment_status' => $booking->payment_status,
+            'payment_url' => $payment_url ?? null,
         ];
 
         return response()->json([

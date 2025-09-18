@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\PropertyPriceController;
 use App\Http\Controllers\Api\PropertyApiController;
 use App\Http\Controllers\Api\PriceCalculationController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\PropertyExtraController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -65,6 +66,7 @@ Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 // single property listing
 Route::get('single-property-listing/{propertyId}', [SinglePropertyListingController::class, 'index']);
+Route::get('/properties/{propertyId}/extras', [PropertyExtraController::class, 'index']);
 
 // Content Listing
 // Route::get('content-listing/{id}', [ContentListingController::class, 'index']);
