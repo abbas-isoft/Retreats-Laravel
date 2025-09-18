@@ -51,54 +51,40 @@ XML;
             // Parse XML
             $xml = simplexml_load_string($response->body(), "SimpleXMLElement", LIBXML_NOCDATA);
 
-            // Loop through all <category>
-            $categories = $xml->xpath('//category');
+            // Find all <option_db>
+            $extras = $xml->xpath('//option_db');
 
-            if (empty($categories)) {
+            if (empty($extras)) {
                 Log::warning("⚠️ No extras found for property_id: {$property->id}");
                 continue;
             }
 
-            // Track API extra_ids for cleanup
-            $apiExtraIds = [];
+            foreach ($extras as $extra) {
+                $extraArray = (array) $extra;
 
-            foreach ($categories as $category) {
-                $categoryName = isset($category->name) ? (string)$category->name : null;
-
-                foreach ($category->option_db as $extra) {
-                    $extraId = (string)($extra->id ?? null);
-                    $apiExtraIds[] = $extraId;
-
-                    PropertyExtra::updateOrCreate(
-                        [
-                            'property_id' => $property->id,
-                            'extra_id'    => $extraId,
-                        ],
-                        [
-                            'category'        => $categoryName,
-                            'name'            => (string)($extra->name ?? null),
-                            'description'     => (string)($extra->description ?? null),
-                            'price_rate'      => (float)($extra->price ?? 0),
-                            'price_total'     => (float)($extra->price ?? 0),
-                            'price_unit'      => (string)($extra->pricetype ?? null),
-                            'price_unit_label'=> (string)($extra->pricetype ?? null),
-                            'currency_symbol' => '£',
-                            'qty'             => (int)($extra->maxQty ?? 0),
-                            'is_default'      => (int)($extra->defaultQty ?? 0),
-                            'img'             => (string)($extra->img ?? null),
-                            'option_payment'  => (string)($extra->optionPayment ?? null),
-                            'available'       => 1,
-                        ]
-                    );
-                }
+               PropertyExtra::updateOrCreate(
+    [
+        'property_id' => $property->id,
+        'extra_id'    => (string)($extra->id ?? null),
+    ],
+    [
+        'name'            => (string)($extra->name ?? null),
+        'description'     => (string)($extra->description ?? null),
+        'price_rate'      => (float)($extra->price ?? 0),
+        'price_total'     => (float)($extra->price ?? 0),
+        'price_unit'      => (string)($extra->pricetype ?? null),
+        'price_unit_label'=> (string)($extra->pricetype ?? null),
+        'currency_symbol' => '£',
+        'qty'             => (int)($extra->maxQty ?? 0),
+        'is_default'      => (int)($extra->defaultQty ?? 0),
+        'img'             => (string)($extra->img ?? null),
+        'option_payment'  => (string)($extra->optionPayment ?? null),
+        'available'       => 1,
+    ]
+);
             }
 
-            // 🧹 Remove extras that no longer exist in API
-            PropertyExtra::where('property_id', $property->id)
-                ->whereNotIn('extra_id', $apiExtraIds)
-                ->delete();
-
-            Log::info("✅ Extras synced for property_id: {$property->id}");
+            Log::info("✅ Extras updated for property_id: {$property->id}");
         }
     }
 }
