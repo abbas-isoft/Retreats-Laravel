@@ -68,18 +68,22 @@ XML;
         'extra_id'    => (string)($extra->id ?? null),
     ],
     [
-        'name'            => (string)($extra->name ?? null),
-        'description'     => (string)($extra->description ?? null),
-        'price_rate'      => (float)($extra->price ?? 0),
-        'price_total'     => (float)($extra->price ?? 0),
-        'price_unit'      => (string)($extra->pricetype ?? null),
-        'price_unit_label'=> (string)($extra->pricetype ?? null),
-        'currency_symbol' => '£',
-        'qty'             => (int)($extra->maxQty ?? 0),
-        'is_default'      => (int)($extra->defaultQty ?? 0),
-        'img'             => (string)($extra->img ?? null),
-        'option_payment'  => (string)($extra->optionPayment ?? null),
-        'available'       => 1,
+       'name'             => (string)($extra->name ?? null),
+       'description'      => (string)($extra->description ?? null),
+       'price_rate'       => (float)($extra->price ?? 0),
+       'price_total'      => (float)($extra->price ?? 0),
+       'price_unit'       => (string)($extra->pricetype ?? null),
+       'price_unit_label' => (string)($extra->pricetype ?? null),
+       'currency_symbol'  => isset($extra->currency) 
+                        ? (string)$extra->currency 
+                        : '£',
+       'qty'              => (int)($extra->maxQty ?? 0),
+       'is_default'       => (int)($extra->defaultQty ?? 0),
+       'img'              => (string)($extra->img ?? null),
+       'option_payment'   => (string)($extra->optionPayment ?? null),
+       'available'        => isset($extra->available) 
+                        ? (string)$extra->available 
+                        : null,
     ]
 );
             }
