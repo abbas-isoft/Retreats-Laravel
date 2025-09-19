@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -8,73 +9,44 @@ use Carbon\Carbon;
 use Stripe\Stripe;
 use Stripe\Customer;
 use Stripe\PaymentIntent;
+use Stripe\SetupIntent;
 
 class TestBookingController extends Controller
 {
     public function bookTestProperty(Request $request)
     {
+        //  Validate request
         $data = $request->validate([
-            'start_date'        => 'required|date',
-            'nights'            => 'required|integer',
-            'guest_firstname'   => 'required|string',
-            'guest_lastname'    => 'required|string',
-            'email'             => 'required|email',
-            'phone'             => 'required|string',
-            'value'             => 'required|numeric', // base property price
-
-            'adults'            => 'nullable|integer',
-            'children'          => 'nullable|integer',
-            'infants'           => 'nullable|integer',
-
-            'dog_selected'      => 'required|boolean',
-            'dog_count'         => 'nullable|integer',
-
-            'hamper'            => 'nullable|boolean',
-            'firewood'          => 'nullable|boolean',
-            'decoration'        => 'nullable|boolean',
-
-            'special_requests'  => 'nullable|string',
-
-            'accepted_terms'    => 'required|boolean|in:1',
-            'accepted_rules'    => 'required|boolean|in:1',
+            'start_date' => 'required|date',
+            'nights' => 'required|integer',
+            'guest_firstname' => 'required|string',
+            'guest_lastname' => 'required|string',
+            'email' => 'required|email',
+            'phone' => 'required|string',
+            'total_price' => 'required|numeric',
+            'accepted_terms' => 'required|boolean',
+            'accepted_rules' => 'required|boolean',
         ]);
 
-        // Test property
+        // --- Test property setup ---
         $testPropertyId = 659508;
         $bookingRef = strtoupper(uniqid('TEST-'));
         $bookingID = rand(100000, 999999);
 
         // --- Cost calculations ---
-        $base_cents = (int) round($data['value'] * 100);
+        $totalCents = (int) round($data['total_price'] * 100);
 
-        // Dog fee calculation
-        $dog_fee_cents_per = intval(env('DOG_FEE_CENTS', 5000)); // £50 default per dog
-        $dog_fee_cents = ($data['dog_selected'] ? ($data['dog_count'] ?? 0) * $dog_fee_cents_per : 0);
+        //  Force 25% upfront + 75% final (for testing)
+        $upfrontCents = (int) floor($totalCents * 0.25);
+        $remainingCents = $totalCents - $upfrontCents;
 
-        // Extras
-        $extras_cents = 0;
-        if (!empty($data['hamper'])) $extras_cents += 2000;      // £20
-        if (!empty($data['firewood'])) $extras_cents += 1500;    // £15
-        if (!empty($data['decoration'])) $extras_cents += 3000;  // £30
+        $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
 
-        $total_cents = $dog_fee_cents;
+        //  Damage deposit (hold 7 days before check-in)
+        $damageDepositCents = intval(env('PAYMENTS_DAMAGE_DEPOSIT_CENTS', 5000)); // £50 default
+        $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
 
-        $damage_deposit_cents = intval(env('PAYMENTS_DAMAGE_DEPOSIT_CENTS', 0));
-
-        // --- Payment split ---
-        $daysUntil = Carbon::parse($data['start_date'])->diffInDays(Carbon::now());
-        if ($daysUntil < 60) {
-            $upfront_cents = $total_cents; // full upfront
-            $remaining_cents = 0;
-        } else {
-           $upfront_cents = (int) floor($total_cents * 0.25); // exact 25% without rounding up
-$remaining_cents = $total_cents - $upfront_cents;
-        }
-
-        $remaining_payment_scheduled_at = $remaining_cents > 0 ? Carbon::parse($data['start_date'])->subDays(60) : null;
-        $deposit_hold_scheduled_at = Carbon::parse($data['start_date'])->subDays(7);
-
-        // --- Create local booking ---
+        // --- Save local booking ---
         $booking = TestBooking::create([
             'property_id' => $testPropertyId,
             'start_date' => $data['start_date'],
@@ -83,37 +55,25 @@ $remaining_cents = $total_cents - $upfront_cents;
             'guest_lastname' => $data['guest_lastname'],
             'email' => $data['email'],
             'phone' => $data['phone'],
-            'value' => $data['value'],
+            'value' => $data['total_price'],
             'booking_reference' => $bookingRef,
             'booking_id' => $bookingID,
             'supercontrol_response' => json_encode(['dummy' => 'Test booking created (no real API hit)']),
-
-            'adults' => $data['adults'] ?? 0,
-            'children' => $data['children'] ?? 0,
-            'infants' => $data['infants'] ?? 0,
-            'special_requests' => $data['special_requests'] ?? null,
-
-            'dog_selected' => $data['dog_selected'],
-            'dog_count' => $data['dog_count'] ?? 0,
-            'hamper' => $data['hamper'] ?? false,
-            'firewood' => $data['firewood'] ?? false,
-            'decoration' => $data['decoration'] ?? false,
-
             'accepted_terms' => $data['accepted_terms'],
             'accepted_rules' => $data['accepted_rules'],
-
-            'amount_cents' => $total_cents,
-            'upfront_cents' => $upfront_cents,
-            'remaining_cents' => $remaining_cents,
-            'damage_deposit_cents' => $damage_deposit_cents,
-            'remaining_payment_scheduled_at' => $remaining_payment_scheduled_at,
-            'deposit_hold_scheduled_at' => $deposit_hold_scheduled_at,
+            'amount_cents' => $totalCents,
+            'upfront_cents' => $upfrontCents,
+            'remaining_cents' => $remainingCents,
+            'damage_deposit_cents' => $damageDepositCents,
+            'remaining_payment_scheduled_at' => $remainingPaymentScheduledAt,
+            'deposit_hold_scheduled_at' => $depositHoldScheduledAt,
             'payment_status' => 'pending',
         ]);
 
-        // --- Stripe upfront payment ---
+        // --- Stripe Integration ---
         Stripe::setApiKey(config('services.stripe.secret'));
 
+        //  Create customer
         $stripeCustomer = Customer::create([
             'name' => $data['guest_firstname'] . ' ' . $data['guest_lastname'],
             'email' => $data['email'],
@@ -123,63 +83,50 @@ $remaining_cents = $total_cents - $upfront_cents;
             ],
         ]);
 
-        $clientSecret = null;
-        if ($upfront_cents > 0) {
-            $pi = PaymentIntent::create([
-                'amount' => $upfront_cents,
-                'currency' => 'gbp',
-                'customer' => $stripeCustomer->id,
-                'payment_method' => 'pm_card_visa', // frontend will provide actual PM
-                'confirm' => true,
-                'automatic_payment_methods' => ['enabled' => true, 'allow_redirects' => 'never'],
-                'metadata' => [
-                    'local_booking_id' => $booking->id,
-                    'type' => 'upfront',
-                ],
-                'description' => "Upfront payment for booking {$booking->id}",
-            ]);
-
-            $clientSecret = $pi->client_secret;
-            $booking->upfront_payment_intent_id = $pi->id;
-            $booking->stripe_customer_id = $stripeCustomer->id;
-            $booking->payment_status = $pi->status === 'succeeded' ? 'upfront_paid' : 'pending';
-            $booking->save();
-        }
-
-        // --- Response for frontend ---
-        $responseData = [
-            'property_id' => $testPropertyId,
-            'booking_ref' => $bookingRef,
-            'booking_id' => $bookingID,
-            'start_date' => $data['start_date'],
-            'nights' => $data['nights'],
-            'guests' => [
-                'adults' => $data['adults'] ?? 0,
-                'children' => $data['children'] ?? 0,
-                'infants' => $data['infants'] ?? 0,
+        //  PaymentIntent for upfront payment
+        $paymentIntent = PaymentIntent::create([
+            'amount' => $upfrontCents,
+            'currency' => 'gbp',
+            'customer' => $stripeCustomer->id,
+            'automatic_payment_methods' => ['enabled' => true],
+            'metadata' => [
+                'local_booking_id' => $booking->id,
+                'type' => 'upfront',
             ],
-            'extras' => [
-                'hamper' => !empty($data['hamper']),
-                'firewood' => !empty($data['firewood']),
-                'decoration' => !empty($data['decoration']),
-                'dogs' => $data['dog_count'] ?? 0
-            ],
-            'special_requests' => $data['special_requests'] ?? null,
-            'billing' => [
-                'deposit_due_now' => $upfront_cents / 100,
-                'balance_due' => $remaining_cents / 100,
-                'balance_due_date' => $remaining_cents > 0 ? Carbon::parse($data['start_date'])->subDays(60)->toDateString() : null,
-                'security_deposit' => $damage_deposit_cents / 100
-            ],
-            'stripe_client_secret' => $clientSecret,
-            'payment_status' => $booking->payment_status,
-            'payment_url' => $payment_url ?? null,
-        ];
+            'description' => "Initial payment for booking {$booking->id}",
+            'setup_future_usage' => 'off_session',
+        ]);
 
+        $booking->upfront_payment_intent_id = $paymentIntent->id;
+        $booking->stripe_customer_id = $stripeCustomer->id;
+        $booking->payment_status = 'pending';
+        $booking->save();
+
+        //  SetupIntent to save card for remaining 75% + damage deposit
+        $setupIntent = SetupIntent::create([
+            'customer' => $stripeCustomer->id,
+            'metadata' => [
+                'local_booking_id' => $booking->id,
+            ],
+        ]);
+
+        // --- Response ---
         return response()->json([
-            'status' => 'success',
-            'message' => 'Test property booking created (only upfront charged).',
-            'data' => $responseData
+            'status' => true,
+            'message' => 'Booking payment created successfully',
+            'data' => [
+            'booking_reference' => $bookingRef,
+            'property_id' => $testPropertyId,
+            'booking_id' => $bookingID,
+            'initial_payment' => $upfrontCents / 100,
+            'final_payment' => $remainingCents / 100,
+            'final_payment_due_date' => $remainingPaymentScheduledAt->toDateString(),
+            'damage_deposit' => $damageDepositCents / 100,
+            'damage_deposit_hold_date' => $depositHoldScheduledAt->toDateString(),
+            'client_secret' => $paymentIntent->client_secret,
+            'setup_client_secret' => $setupIntent->client_secret,
+            'payment_status' => $booking->payment_status,
+            ]
         ]);
     }
 }

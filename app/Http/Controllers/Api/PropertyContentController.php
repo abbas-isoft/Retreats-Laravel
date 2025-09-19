@@ -503,6 +503,7 @@ $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
             'deposit_value'    => $depositValue,
             'security_deposit' => $securityDeposit,
             'total_price'      => $totalPrice,
+            'nights'          => $nights,
             'deposit' => [
                 'label'  => $depositLabel,
                 'amount' => $depositAmount
