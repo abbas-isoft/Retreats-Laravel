@@ -137,7 +137,7 @@ class TestBookingController extends Controller
             'automatic_payment_methods' => ['enabled' => true],
             'metadata' => [
                 'local_booking_id' => $booking->id,
-                'type'             => 'upfront(25%)',
+                'type'             => 'upfront',
             ],
             'description' => "Initial payment for booking {$booking->id}",
             'setup_future_usage' => 'off_session',
@@ -150,6 +150,7 @@ class TestBookingController extends Controller
             'usage' => 'off_session',
             'metadata' => [
                 'local_booking_id' => $booking->id,
+                'type'         => 'remaining',
             ],
         ]);
 
