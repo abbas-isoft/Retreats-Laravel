@@ -206,7 +206,7 @@ class TestBookingController extends Controller
                 'client_secret'            => $paymentIntent->client_secret,
                 'setup_client_secret'      => $setupIntent->client_secret,
                 'payment_status'           => $booking->payment_status,
-                'checkout_url'             => $checkoutSession->url,
+                // 'checkout_url'             => $checkoutSession->url,
             ]
         ]);
     }
