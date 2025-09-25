@@ -37,7 +37,7 @@ class FetchPriceListingJob implements ShouldQueue
         }
 
         // Replace $this->info with Log::info
-        Log::info('✅ Price configurations saved for all properties across all accounts.');
+        Log::info(' Price configurations saved for all properties across all accounts.');
     }
 
     private function fetchAndSavePrice($propertyId, $accountId)

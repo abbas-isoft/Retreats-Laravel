@@ -51,7 +51,7 @@ Route::get('accounts', [AccountController::class, 'index']);
 Route::get('/property/{propertyId}/total-price', [PropertyPriceController::class, 'getTotalPrice']);
 Route::post('/calculate-price', [PriceCalculationController::class, 'calculatePrice']);
 Route::get('/other-properties', [PropertyContentController::class, 'getOtherProperties']);
-
+Route::post('/create-payment-intent', [TestBookingController::class, 'getClientSecret']);
 // Properties
 Route::get('properties/{accountid}', [PropertyController::class, 'index']);
 Route::post('/save-payment-method', [TestBookingController::class, 'savePaymentMethod']);

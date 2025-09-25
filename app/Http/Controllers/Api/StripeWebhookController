@@ -29,7 +29,7 @@ class StripeWebhookController extends Controller
         $obj  = $event->data->object;
 
         /**
-         * ✅ Checkout Session Completed
+         *  Checkout Session Completed
          */
         if ($type === 'checkout.session.completed') {
             $session   = $obj;
@@ -56,7 +56,7 @@ class StripeWebhookController extends Controller
         }
 
         /**
-         * ✅ Payment Intent Succeeded
+         *  Payment Intent Succeeded
          */
         if ($type === 'payment_intent.succeeded') {
             $pi        = $obj;
@@ -93,7 +93,7 @@ class StripeWebhookController extends Controller
         }
 
         /**
-         * ❌ Payment Failed
+         *  Payment Failed
          */
         if ($type === 'payment_intent.payment_failed') {
             $pi        = $obj;
@@ -109,7 +109,7 @@ class StripeWebhookController extends Controller
         }
 
         /**
-         * 🟢 Deposit Released
+         *  Deposit Released
          */
         if ($type === 'payment_intent.canceled') {
             $intent  = $obj;
@@ -120,7 +120,7 @@ class StripeWebhookController extends Controller
         }
 
         /**
-         * 🟠 Deposit Hold Update
+         *  Deposit Hold Update
          */
         if ($type === 'payment_intent.amount_capturable_updated') {
             $intent  = $obj;

@@ -137,7 +137,7 @@ class TestBookingController extends Controller
             'automatic_payment_methods' => ['enabled' => true],
             'metadata' => [
                 'local_booking_id' => $booking->id,
-                'type'             => 'upfront',
+                'type'             => 'upfront(25%)',
             ],
             'description' => "Initial payment for booking {$booking->id}",
             'setup_future_usage' => 'off_session',
@@ -352,5 +352,45 @@ public function handleStripeWebhook(Request $request)
     }
 
     return response()->json(['status' => 'success']);
+}
+
+public function getClientSecret(Request $request)
+{
+    $request->validate([
+        'booking_id' => 'required|integer',
+    ]);
+
+    // yaha custom booking_id se search karo
+    $booking = TestBooking::where('booking_id', $request->booking_id)->first();
+
+    if (!$booking) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Booking not found',
+        ], 404);
+    }
+
+    if (!$booking->upfront_payment_intent_id) {
+        return response()->json([
+            'status' => false,
+            'message' => 'No upfront payment intent found for this booking',
+        ], 400);
+    }
+
+    \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+
+    try {
+        $paymentIntent = \Stripe\PaymentIntent::retrieve($booking->upfront_payment_intent_id);
+
+        return response()->json([
+            'status' => true,
+            'client_secret' => $paymentIntent->client_secret,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Error fetching client_secret: ' . $e->getMessage(),
+        ], 500);
+    }
 }
 }
