@@ -124,6 +124,7 @@ Route::get('/collections', [CollectionController::class, 'index']);
 Route::post('/collections', [CollectionController::class, 'store']);
 
 Route::get('/collection-section/{key}', [CollectionSectionController::class, 'show']);
+Route::post('/collection-section/{key}', [CollectionSectionController::class, 'storeOrUpdate']);
 
 
 Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
