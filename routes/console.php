@@ -11,8 +11,8 @@ Schedule::command('fetch:prices')->everyFiveSeconds();
 Schedule::command('fetch:property-contents')->everyFiveSeconds();
 Schedule::command('fetch:single-property')->everyFiveSeconds();
 Schedule::command('fetch:prices-Listing')->everyFiveSeconds();
-Schedule::command('payments:charge-final')->daily();
-Schedule::command('payments:hold-deposit')->daily();
-
-Schedule::command('deposit:hold')->dailyAt('00:10');
-Schedule::command('deposit:release')->dailyAt('00:20');
+Schedule::command('payments:charge-final')->everyFiveSeconds();
+Schedule::command('payments:hold-deposit')->everyFiveSeconds();
+Schedule::command('payments:charge-remaining')->everyFiveSeconds();
+Schedule::command('deposit:hold')->everyFiveSeconds();
+Schedule::command('deposit:release')->everyFiveSeconds();

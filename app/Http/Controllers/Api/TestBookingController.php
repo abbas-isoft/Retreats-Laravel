@@ -39,8 +39,28 @@ class TestBookingController extends Controller
         $bookingRef = strtoupper(uniqid('TEST-'));
         $bookingID  = rand(100000, 999999);
 
+
         // --- Cost calculations ---
         $totalCents = (int) round($data['total_price'] * 100);
+
+        // Check if within 60 days from start_date
+        $daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
+
+        if ($daysUntilStart <= 60) {
+
+            // 🔴 Case 1: Start date is within 60 days → charge full upfront
+            $upfrontCents   = $totalCents;
+            $remainingCents = 0;
+            $remainingPaymentScheduledAt = null; // no scheduled payment
+            $isFullPayment = true;
+        } else {
+
+            // 🟢 Case 2: More than 60 days → split into 25% + 75%
+            $upfrontCents   = (int) floor($totalCents * 0.25);
+            $remainingCents = $totalCents - $upfrontCents;
+            $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
+            $isFullPayment = false;
+        }
         $upfrontCents   = (int) floor($totalCents * 0.25);
         $remainingCents = $totalCents - $upfrontCents;
 
@@ -83,7 +103,7 @@ class TestBookingController extends Controller
             'upfront_cents'                 => $upfrontCents,
             'remaining_cents'               => $remainingCents,
             'damage_deposit_cents'          => $damageDepositCents,
-            'remaining_payment_scheduled_at'=> $remainingPaymentScheduledAt,
+            'remaining_payment_scheduled_at' => $remainingPaymentScheduledAt,
             'deposit_hold_scheduled_at'     => $depositHoldScheduledAt,
             'payment_status'                => 'pending',
             'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
@@ -119,9 +139,9 @@ class TestBookingController extends Controller
             'stripe_checkout_session_id' => $checkoutSession->id,
         ]);
 
-        // Create customer
+        // Create Stripe Customer
         $stripeCustomer = Customer::create([
-            'name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
+            'name'  => $data['guest_firstname'] . ' ' . $data['guest_lastname'],
             'email' => $data['email'],
             'metadata' => [
                 'local_booking_id' => $booking->id,
@@ -129,36 +149,57 @@ class TestBookingController extends Controller
             ],
         ]);
 
-        // Upfront payment intent (25%)
-        $paymentIntent = PaymentIntent::create([
-            'amount'   => $upfrontCents,
-            'currency' => 'gbp',
-            'customer' => $stripeCustomer->id,
-            'automatic_payment_methods' => ['enabled' => true],
-            'metadata' => [
-                'local_booking_id' => $booking->id,
-                'type'             => 'upfront',
-            ],
-            'description' => "Initial payment for booking {$booking->id}",
-            'setup_future_usage' => 'off_session',
-        ]);
+        if ($isFullPayment) {
+            
+            // 🔴 One-shot 100% PaymentIntent
+            $paymentIntent = PaymentIntent::create([
+                'amount'   => $totalCents,
+                'currency' => 'gbp',
+                'customer' => $stripeCustomer->id,
+                'automatic_payment_methods' => ['enabled' => true],
+                'metadata' => [
+                    'local_booking_id' => $booking->id,
+                    'type'             => 'full',
+                ],
+                'description' => "Full upfront payment for booking {$booking->id}",
+            ]);
 
-        // SetupIntent (save card for remaining 75% & deposit)
-        $setupIntent = SetupIntent::create([
-            'customer' => $stripeCustomer->id,
-            'payment_method_types' => ['card'],
-            'usage' => 'off_session',
-            'metadata' => [
-                'local_booking_id' => $booking->id,
-                'type'         => 'remaining',
-            ],
-        ]);
+            $setupIntent = null; // no need to save card for later
+        } else {
+            // 🟢 Split Payment: First 25% now, rest scheduled
+            $paymentIntent = PaymentIntent::create([
+                'amount'   => $upfrontCents,
+                'currency' => 'gbp',
+                'customer' => $stripeCustomer->id,
+                'automatic_payment_methods' => ['enabled' => true],
+                'metadata' => [
+                    'local_booking_id' => $booking->id,
+                    'type'             => 'upfront',
+                ],
+                'description' => "Upfront 25% for booking {$booking->id}",
+                'setup_future_usage' => 'off_session',
+            ]);
+
+            // Save card for remaining 75%
+            $setupIntent = SetupIntent::create([
+                'customer' => $stripeCustomer->id,
+                'payment_method_types' => ['card'],
+                'usage' => 'off_session',
+                'metadata' => [
+                    'local_booking_id' => $booking->id,
+                    'type'         => 'remaining',
+                ],
+            ]);
+        }
 
         $booking->update([
             'stripe_customer_id'        => $stripeCustomer->id,
             'upfront_payment_intent_id' => $paymentIntent->id,
-            'setup_intent_id'           => $setupIntent->id,
+            'setup_intent_id'           => $setupIntent ? $setupIntent->id : null,
             'payment_status'            => 'pending',
+            'upfront_cents'             => $upfrontCents,
+            'remaining_cents'           => $remainingCents,
+            'remaining_payment_scheduled_at' => $remainingPaymentScheduledAt,
         ]);
 
         //  Schedule Remaining 75% after 3 minutes
@@ -201,13 +242,12 @@ class TestBookingController extends Controller
                 'booking_id'               => $bookingID,
                 'initial_payment'          => $upfrontCents / 100,
                 'final_payment'            => $remainingCents / 100,
-                'final_payment_due_date'   => $remainingPaymentScheduledAt->toDateString(),
+                'final_payment_due_date'   => $remainingPaymentScheduledAt ? $remainingPaymentScheduledAt->toDateString() : null,
                 'damage_deposit'           => $damageDepositCents / 100,
                 'damage_deposit_hold_date' => $depositHoldScheduledAt->toDateString(),
                 'client_secret'            => $paymentIntent->client_secret,
-                'setup_client_secret'      => $setupIntent->client_secret,
+                'setup_client_secret'      => $setupIntent?->client_secret,
                 'payment_status'           => $booking->payment_status,
-                // 'checkout_url'             => $checkoutSession->url,
             ]
         ]);
     }
@@ -251,7 +291,6 @@ class TestBookingController extends Controller
                 'status' => true,
                 'message' => 'Deposit released successfully',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error releasing deposit: ' . $e->getMessage());
             return response()->json([
@@ -300,7 +339,6 @@ class TestBookingController extends Controller
                 'status' => true,
                 'message' => 'Deposit captured successfully',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error capturing deposit: ' . $e->getMessage());
             return response()->json([
@@ -310,88 +348,88 @@ class TestBookingController extends Controller
         }
     }
     public function checkoutSuccess($bookingId)
-{
-    $booking = TestBooking::findOrFail($bookingId);
-    $booking->update(['payment_status' => 'paid']); //  fix quotes
+    {
+        $booking = TestBooking::findOrFail($bookingId);
+        $booking->update(['payment_status' => 'paid']); //  fix quotes
 
-    return redirect('http://192.168.0.134:3000/home');
-}
-
-public function checkoutCancel($bookingId)
-{
-    $booking = TestBooking::findOrFail($bookingId);
-
-    return redirect('http://192.168.0.134:3000/home?payment=cancelled');
-}
-
-public function handleStripeWebhook(Request $request)
-{
-    $payload = $request->getContent();
-    $sigHeader = $request->header('Stripe-Signature');
-    $endpointSecret = env('STRIPE_WEBHOOK_SECRET'); // from Stripe dashboard
-
-    try {
-        $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
-    } catch(\UnexpectedValueException $e) {
-        return response()->json(['error' => 'Invalid payload'], 400);
-    } catch(\Stripe\Exception\SignatureVerificationException $e) {
-        return response()->json(['error' => 'Invalid signature'], 400);
+        return redirect('http://192.168.0.134:3000/home');
     }
 
-    // Handle the event
-    if ($event->type === 'checkout.session.completed') {
-        $session = $event->data->object;
+    public function checkoutCancel($bookingId)
+    {
+        $booking = TestBooking::findOrFail($bookingId);
 
-        // Update booking status
-        $bookingId = $session->metadata->local_booking_id ?? null;
-        if ($bookingId) {
-            $booking = TestBooking::find($bookingId);
-            if ($booking) {
-                $booking->update(['payment_status' => 'paid']);
+        return redirect('http://192.168.0.134:3000/home?payment=cancelled');
+    }
+
+    public function handleStripeWebhook(Request $request)
+    {
+        $payload = $request->getContent();
+        $sigHeader = $request->header('Stripe-Signature');
+        $endpointSecret = env('STRIPE_WEBHOOK_SECRET'); // from Stripe dashboard
+
+        try {
+            $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
+        } catch (\UnexpectedValueException $e) {
+            return response()->json(['error' => 'Invalid payload'], 400);
+        } catch (\Stripe\Exception\SignatureVerificationException $e) {
+            return response()->json(['error' => 'Invalid signature'], 400);
+        }
+
+        // Handle the event
+        if ($event->type === 'checkout.session.completed') {
+            $session = $event->data->object;
+
+            // Update booking status
+            $bookingId = $session->metadata->local_booking_id ?? null;
+            if ($bookingId) {
+                $booking = TestBooking::find($bookingId);
+                if ($booking) {
+                    $booking->update(['payment_status' => 'paid']);
+                }
             }
         }
+
+        return response()->json(['status' => 'success']);
     }
 
-    return response()->json(['status' => 'success']);
-}
-
-public function getClientSecret(Request $request)
-{
-    $request->validate([
-        'booking_id' => 'required|integer',
-    ]);
-
-    // yaha custom booking_id se search karo
-    $booking = TestBooking::where('booking_id', $request->booking_id)->first();
-
-    if (!$booking) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Booking not found',
-        ], 404);
-    }
-
-    if (!$booking->upfront_payment_intent_id) {
-        return response()->json([
-            'status' => false,
-            'message' => 'No upfront payment intent found for this booking',
-        ], 400);
-    }
-
-    \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-
-    try {
-        $paymentIntent = \Stripe\PaymentIntent::retrieve($booking->upfront_payment_intent_id);
-
-        return response()->json([
-            'status' => true,
-            'client_secret' => $paymentIntent->client_secret,
+    public function getClientSecret(Request $request)
+    {
+        $request->validate([
+            'booking_id' => 'required|integer',
         ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Error fetching client_secret: ' . $e->getMessage(),
-        ], 500);
+
+        // yaha custom booking_id se search karo
+        $booking = TestBooking::where('booking_id', $request->booking_id)->first();
+
+        if (!$booking) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Booking not found',
+            ], 404);
+        }
+
+        if (!$booking->upfront_payment_intent_id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No upfront payment intent found for this booking',
+            ], 400);
+        }
+
+        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+
+        try {
+            $paymentIntent = \Stripe\PaymentIntent::retrieve($booking->upfront_payment_intent_id);
+
+            return response()->json([
+                'status' => true,
+                'client_secret' => $paymentIntent->client_secret,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Error fetching client_secret: ' . $e->getMessage(),
+            ], 500);
+        }
     }
-}
 }
