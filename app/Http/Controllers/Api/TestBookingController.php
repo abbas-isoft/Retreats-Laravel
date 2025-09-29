@@ -180,15 +180,15 @@ if ($daysUntilStart <= 60) {
             ]);
 
             // Save card for remaining 75%
-            $setupIntent = SetupIntent::create([
-                'customer' => $stripeCustomer->id,
-                'payment_method_types' => ['card'],
-                'usage' => 'off_session',
-                'metadata' => [
-                    'local_booking_id' => $booking->id,
-                    'type'         => 'remaining',
-                ],
-            ]);
+            // $setupIntent = SetupIntent::create([
+            //     'customer' => $stripeCustomer->id,
+            //     'payment_method_types' => ['card'],
+            //     'usage' => 'off_session',
+            //     'metadata' => [
+            //         'local_booking_id' => $booking->id,
+            //         'type'         => 'remaining',
+            //     ],
+            // ]);
         }
 
         $booking->update([
@@ -202,34 +202,34 @@ if ($daysUntilStart <= 60) {
         ]);
 
         //  Schedule Remaining 75% after 3 minutes
-        if ($booking->stripe_customer_id && $booking->stripe_payment_method_id) {
-            Queue::later(now()->addMinutes(3), function () use ($booking) {
-                \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-                try {
-                    $intent = PaymentIntent::create([
-                        'amount'   => $booking->remaining_cents,
-                        'currency' => 'gbp',
-                        'customer' => $booking->stripe_customer_id,
-                        'payment_method' => $booking->stripe_payment_method_id,
-                        'off_session' => true,
-                        // 'confirm' => true,
-                        'metadata' => [
-                            'local_booking_id' => $booking->id,
-                            'type' => 'remaining',
-                        ],
-                    ]);
+        // if ($booking->stripe_customer_id && $booking->stripe_payment_method_id) {
+        //     Queue::later(now()->addMinutes(3), function () use ($booking) {
+        //         \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        //         try {
+        //             $intent = PaymentIntent::create([
+        //                 'amount'   => $booking->remaining_cents,
+        //                 'currency' => 'gbp',
+        //                 'customer' => $booking->stripe_customer_id,
+        //                 'payment_method' => $booking->stripe_payment_method_id,
+        //                 'off_session' => true,
+        //                 // 'confirm' => true,
+        //                 'metadata' => [
+        //                     'local_booking_id' => $booking->id,
+        //                     'type' => 'remaining',
+        //                 ],
+        //             ]);
 
-                    $booking->update([
-                        'remaining_payment_intent_id' => $intent->id,
-                        'payment_status' => 'fully_paid',
-                    ]);
+        //             $booking->update([
+        //                 'remaining_payment_intent_id' => $intent->id,
+        //                 'payment_status' => 'fully_paid',
+        //             ]);
 
-                    Log::info("Remaining payment auto-charged for booking {$booking->id}");
-                } catch (\Exception $e) {
-                    Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
-                }
-            });
-        }
+        //             Log::info("Remaining payment auto-charged for booking {$booking->id}");
+        //         } catch (\Exception $e) {
+        //             Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
+        //         }
+        //     });
+        // }
 
         // 4. Response
         return response()->json([

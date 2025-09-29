@@ -39,10 +39,10 @@ class PropertyContent extends Model
         'amenities' => 'array',
     ];
 
-    public function images()
-    {
-        return $this->hasMany(PropertyContentImage::class);
-    }
+   public function images()
+{
+    return $this->hasMany(\App\Models\PropertyContentImage::class, 'property_content_id', 'id');
+}
     public function propertyContents()
 {
     return $this->hasMany(PropertyContent::class);
@@ -114,5 +114,14 @@ public function AvailabilityCalendar()
     public function content_listings()
 {
     return $this->hasMany(ContentListing::class, 'property_id', 'property_id');
+}
+public function collections()
+{
+    return $this->belongsToMany(
+        \App\Models\Collection::class,
+        'collection_property',   // pivot table
+        'property_id',           // property_contents wali ID
+        'collection_id'          // collections wali ID
+    );
 }
 }
