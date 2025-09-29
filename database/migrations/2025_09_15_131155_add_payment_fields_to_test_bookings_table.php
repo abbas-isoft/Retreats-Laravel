@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('remaining_payment_intent_id')->nullable()->after('upfront_payment_intent_id');
             $table->string('damage_deposit_intent_id')->nullable()->after('remaining_payment_intent_id');
 
-            $table->integer('amount_cents')->default(0)->after('value'); // total
+            $table->integer('amount_cents')->default(0)->after('value');
             $table->integer('upfront_cents')->default(0)->after('amount_cents');
             $table->integer('remaining_cents')->default(0)->after('upfront_cents');
             $table->integer('damage_deposit_cents')->default(0)->after('remaining_cents');

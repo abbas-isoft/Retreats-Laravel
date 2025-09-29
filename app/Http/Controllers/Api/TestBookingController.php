@@ -41,26 +41,25 @@ class TestBookingController extends Controller
 
 
         // --- Cost calculations ---
-        $totalCents = (int) round($data['total_price'] * 100);
+        // --- Cost calculations ---
+$totalCents = (int) round($data['total_price'] * 100);
 
-        // Check if within 60 days from start_date
-        $daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
+// Check if within 60 days from start_date
+$daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
 
-        if ($daysUntilStart <= 60) {
-
-            // 🔴 Case 1: Start date is within 60 days → charge full upfront
-            $upfrontCents   = $totalCents;
-            $remainingCents = 0;
-            $remainingPaymentScheduledAt = null; // no scheduled payment
-            $isFullPayment = true;
-        } else {
-
-            // 🟢 Case 2: More than 60 days → split into 25% + 75%
-            $upfrontCents   = (int) floor($totalCents * 0.25);
-            $remainingCents = $totalCents - $upfrontCents;
-            $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
-            $isFullPayment = false;
-        }
+if ($daysUntilStart <= 60) {
+    // Case 1: Start date is within 60 days → charge full upfront
+    $upfrontCents   = $totalCents;
+    $remainingCents = 0;
+    $remainingPaymentScheduledAt = null; // no scheduled payment
+    $isFullPayment = true;
+} else {
+    // Case 2: More than 60 days → split into 25% + 75%
+    $upfrontCents   = (int) floor($totalCents * 0.25);
+    $remainingCents = $totalCents - $upfrontCents;
+    $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
+    $isFullPayment = false;
+}
         $upfrontCents   = (int) floor($totalCents * 0.25);
         $remainingCents = $totalCents - $upfrontCents;
 
@@ -79,7 +78,7 @@ class TestBookingController extends Controller
         $securityDeposit = $property['security_deposit'] ?? 0;
         $damageDepositCents = intval($securityDeposit * 100);
         if ($damageDepositCents < 50) {
-            $damageDepositCents = 5000; // default £50
+            $damageDepositCents = 5000;
         }
 
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
@@ -151,7 +150,7 @@ class TestBookingController extends Controller
 
         if ($isFullPayment) {
             
-            // 🔴 One-shot 100% PaymentIntent
+            //  One-shot 100% PaymentIntent
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $totalCents,
                 'currency' => 'gbp',
@@ -166,7 +165,7 @@ class TestBookingController extends Controller
 
             $setupIntent = null; // no need to save card for later
         } else {
-            // 🟢 Split Payment: First 25% now, rest scheduled
+            //  Split Payment: First 25% now, rest scheduled
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $upfrontCents,
                 'currency' => 'gbp',
@@ -213,7 +212,7 @@ class TestBookingController extends Controller
                         'customer' => $booking->stripe_customer_id,
                         'payment_method' => $booking->stripe_payment_method_id,
                         'off_session' => true,
-                        'confirm' => true,
+                        // 'confirm' => true,
                         'metadata' => [
                             'local_booking_id' => $booking->id,
                             'type' => 'remaining',

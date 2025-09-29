@@ -128,14 +128,20 @@ Route::post('/collection-section/{key}', [CollectionSectionController::class, 's
 
 
 Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
+Route::post('/sections/{key}', [CollectionSectionController::class, 'storeOrUpdate']);
 
 
 Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
+Route::post('/feature-boxes', [FeatureBoxController::class, 'storeOrUpdate']); // create
+Route::put('/feature-boxes/{id}', [FeatureBoxController::class, 'storeOrUpdate']); // update
+Route::delete('/feature-boxes/{id}', [FeatureBoxController::class, 'destroy']);   // delete
+
 
 Route::get('/about-detail', [HospitalitySectionController::class, 'index']);
 Route::post('/about-detail/update', [HospitalitySectionController::class, 'update']);
 
 Route::get('/hero-section', [HeroSectionController::class, 'show']);
+Route::post('/hero-section', [HeroSectionController::class, 'storeOrUpdate']);
 
 Route::get('/reviews', [ReviewController::class, 'index']);
 Route::post('/reviews', [ReviewController::class, 'store']);
