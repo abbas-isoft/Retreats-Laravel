@@ -18,25 +18,28 @@ class ReleaseDepositHold extends Command
         Stripe::setApiKey(config('services.stripe.secret'));
 
         $today = Carbon::today();
-        $targetDate = $today->copy()->subDays(7); 
-        // Matlab jinki departure date se 7 din beet gaye
 
-        // Sirf un bookings ko uthao jinke paas damage deposit intent bana tha
-        $bookings = TestBooking::whereDate('start_date', $targetDate)
-            ->whereNotNull('damage_deposit_intent_id')
-            ->get();
+        // Sirf un bookings ko uthao jinki departure date ke 7 din beet gaye
+        $bookings = TestBooking::whereNotNull('damage_deposit_intent_id')
+            ->get()
+            ->filter(function ($booking) use ($today) {
+                $departureDate = Carbon::parse($booking->start_date)->addDays($booking->nights);
+                return $today->greaterThanOrEqualTo($departureDate->copy()->addDays(7));
+            });
 
         foreach ($bookings as $booking) {
             try {
-                $intent = PaymentIntent::retrieve($booking->stripe_payment_method_id);
+                $intent = PaymentIntent::retrieve($booking->damage_deposit_intent_id);
 
-                if ($intent->status === 'requires_capture' || $intent->status === 'requires_payment_method' || $intent->status === 'processing') {
+                // Agar abhi bhi hold hai to cancel kardo
+                if (in_array($intent->status, ['requires_capture', 'requires_payment_method', 'processing'])) {
                     $intent->cancel();
                 }
 
                 $booking->update([
-                    'stripe_payment_method_id' => null, // clear hold intent
-                    'deposit_hold_scheduled_at' => null, // reset field
+                    'damage_deposit_intent_id'  => null,
+                    'deposit_status'            => 'released',
+                    'deposit_hold_scheduled_at' => null,
                 ]);
 
                 $this->info("✅ Deposit released for booking {$booking->id}");

@@ -13,17 +13,19 @@ class PropertyGridController extends Controller
 {
     public function index(Request $request)
     {
-       $query = \App\Models\PropertyContent::query()
-    ->with('images'); // 👈 add this
+      $query = \App\Models\PropertyContent::query()
+    ->with('images'); // 👈 add this only once
 
 if ($request->filled('collection_id')) {
     $query->join('collection_property', 'property_contents.property_id', '=', 'collection_property.property_id')
-          ->where('collection_property.collection_id', $request->collection_id);
+          ->where('collection_property.collection_id', $request->collection_id)
+          ->select('property_contents.*')
+          ->take(5); // sirf collection case me limit lagani hai
 }
 
-$properties = $query->select('property_contents.*')
-                    ->take(4) // sirf 4 dikhane hain
-                    ->get();
+// $properties = $query->select('property_contents.*')
+//                     ->take(5) // sirf 4 dikhane hain
+//                     ->get();
 
         
         if ($request->filled('address_line')) {

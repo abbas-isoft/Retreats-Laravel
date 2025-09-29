@@ -180,15 +180,15 @@ if ($daysUntilStart <= 60) {
             ]);
 
             // Save card for remaining 75%
-            // $setupIntent = SetupIntent::create([
-            //     'customer' => $stripeCustomer->id,
-            //     'payment_method_types' => ['card'],
-            //     'usage' => 'off_session',
-            //     'metadata' => [
-            //         'local_booking_id' => $booking->id,
-            //         'type'         => 'remaining',
-            //     ],
-            // ]);
+            $setupIntent = SetupIntent::create([
+                'customer' => $stripeCustomer->id,
+                'payment_method_types' => ['card'],
+                'usage' => 'off_session',
+                'metadata' => [
+                    'local_booking_id' => $booking->id,
+                    'type'         => 'remaining',
+                ],
+            ]);
         }
 
         $booking->update([
