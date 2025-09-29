@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\PropertyApiController;
 use App\Http\Controllers\Api\PriceCalculationController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\PropertyExtraController;
+use App\Http\Controllers\Api\AdminCollectionController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -106,6 +107,7 @@ Route::post('/test-book-property', [TestBookingController::class, 'bookTestPrope
 // Cancel Booking
 Route::post('/sync-availability/{propertyId}', [BookingController::class, 'syncAvailability']);
 Route::post('/cancel-booking', [BookingController::class, 'cancelBooking']);
+Route::get('/collections', [CollectionController::class, 'getAllCollections']);
 
 
 Route::get('/homepage-content', [HomepageContentController::class, 'index']);
@@ -117,6 +119,9 @@ Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 
 Route::get('/homepage', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
+Route::post('/admin/collections', [AdminCollectionController::class, 'createCollection']);
+Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
+Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
 
 Route::get('/search-properties', [PropertySearchController::class, 'search']);
 
