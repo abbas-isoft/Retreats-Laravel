@@ -505,13 +505,15 @@ $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
             'total_price'      => $totalPrice,
             'nights'          => $nights,
             'deposit' => [
-                'label'  => $depositLabel,
-                'amount' => $depositAmount
-            ],
-            'balance' => [
-                'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
+                // 'label'  => $depositLabel,
+                // 'amount' => $depositAmount
+                   'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
                 'label'    => $balanceLabel,
                 'amount'   => $balanceAmount
+            ],
+            'balance' => [
+                 'label'  => $depositLabel,
+                'amount' => $depositAmount
             ]
         ]
     ]
