@@ -170,7 +170,8 @@ if ($daysUntilStart <= 60) {
                 'amount'   => $upfrontCents,
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
-                'automatic_payment_methods' => ['enabled' => true],
+                // 'automatic_payment_methods' => ['enabled' => true],
+                'payment_method_types' => ["card"],
                 'metadata' => [
                     'local_booking_id' => $booking->id,
                     'type'             => 'upfront',
