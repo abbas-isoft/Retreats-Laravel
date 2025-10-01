@@ -25,3 +25,18 @@ jobs:
             git stash
             git pull
           EOF
+      
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_PASS }}
+          port: 22
+          script: | 
+            set -e
+            cd /var/www/html/
+            sudo git stash
+            sudo git pull
+            sudo composer install --no-interaction
+            sudo chown -R www-data:www-data *
