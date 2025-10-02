@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\PriceCalculationController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\PropertyExtraController;
 use App\Http\Controllers\Api\AdminCollectionController;
+use App\Http\Controllers\Api\NewsletterController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -91,7 +92,8 @@ Route::get('/property-grid', [PropertyGridController::class, 'index']);
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
 Route::get('/properties/{id}/price', [PropertyContentController::class, 'getPropertyPrice']);
 Route::get('/availability-calendars', [AvailabilityCalendarController::class, 'allProperties']);
-
+Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe']);
+Route::get('/newsletter/index', [NewsletterController::class, 'index']);
 // PriceListing
 Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);
 Route::get('similar_properties/{id}', [PropertyContentController::class, 'getSimilar']);
