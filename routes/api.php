@@ -123,7 +123,7 @@ Route::post('/admin/collections', [AdminCollectionController::class, 'createColl
 Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
 Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
 
-Route::get('/search-properties', [PropertySearchController::class, 'search']);
+Route::get('/search-properties', [PropertySearchController::class, 'GetPropertiessearch']);
 
 Route::get('/collections', [CollectionController::class, 'index']);
 Route::post('/collections', [CollectionController::class, 'store']);

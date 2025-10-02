@@ -513,6 +513,7 @@ $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
             ],
             'balance' => [
                  'label'  => $depositLabel,
+                 'label'  => 'Due Now',
                 'amount' => $depositAmount
             ]
         ]

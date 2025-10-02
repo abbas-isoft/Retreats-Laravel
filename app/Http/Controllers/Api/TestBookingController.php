@@ -75,11 +75,14 @@ if ($daysUntilStart <= 60) {
         $property = $response->ok() ? $response->json() : [];
 
         //  Damage/Security deposit
-        $securityDeposit = $property['security_deposit'] ?? 0;
-        $damageDepositCents = intval($securityDeposit * 100);
-        if ($damageDepositCents < 50) {
-            $damageDepositCents = 5000;
-        }
+        // Damage/Security deposit
+$securityDeposit = $property['security_deposit'] ?? 0;
+$damageDepositCents = intval($securityDeposit * 100);
+
+// Agar API se kuch bhi na aaye ya chhota amount aaye to fallback
+if ($damageDepositCents < 5000) { // < £50
+    $damageDepositCents = 5000; // default £50
+}
 
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
 

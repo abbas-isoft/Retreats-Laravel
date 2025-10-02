@@ -60,4 +60,33 @@ class PropertySearchController extends Controller
             'properties' => $properties
         ]);
     }
+
+    public function GetPropertiessearch(Request $request)
+    {
+        $query = $request->input('q');
+
+        if (!$query) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Please provide a search keyword (q).',
+                'data' => []
+            ]);
+        }
+
+        $properties = PropertyContent::where('property_name', 'LIKE', "%{$query}%")
+            ->get(['property_id', 'property_name']);
+
+        if ($properties->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No matching properties found.',
+                'data' => []
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => $properties
+        ]);
+    }
 }
