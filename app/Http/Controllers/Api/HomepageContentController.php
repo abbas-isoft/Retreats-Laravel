@@ -28,17 +28,20 @@ class HomepageContentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string',
-            'subtitle' => 'required|string',
-            'background_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
+       $validated = $request->validate([
+    'title' => 'required|string',
+    'subtitle' => 'required|string',
+    'background_image' => 'nullable', // 👈 remove "string" or "image"
+]);
 
-        if ($request->hasFile('background_image')) {
-            $imagePath = $request->file('background_image')->store('images', 'public');
-            $validated['background_image'] = '/storage/' . $imagePath;
-        }
-
+if ($request->hasFile('background_image')) {
+    // Agar file upload ho rahi hai to yeh chalega
+    $imagePath = $request->file('background_image')->store('images', 'public');
+    $validated['background_image'] = '/storage/' . $imagePath;
+} elseif ($request->background_image) {
+    // Agar sirf string path aayi hai to direct use kar lo
+    $validated['background_image'] = $request->background_image;
+}
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
 
         return response()->json([
