@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\PropertyExtraController;
 use App\Http\Controllers\Api\AdminCollectionController;
 use App\Http\Controllers\Api\NewsletterController;
+use App\Http\Controllers\Api\ImageUploadController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -124,6 +125,7 @@ Route::post('/homepage', [HomepageContentController::class, 'store']);
 Route::post('/admin/collections', [AdminCollectionController::class, 'createCollection']);
 Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
 Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
+Route::post('/upload-image', [ImageUploadController::class, 'upload']);
 
 Route::get('/search-properties', [PropertySearchController::class, 'GetPropertiessearch']);
 
