@@ -45,6 +45,9 @@ use App\Http\Controllers\Api\PropertyExtraController;
 use App\Http\Controllers\Api\AdminCollectionController;
 use App\Http\Controllers\Api\NewsletterController;
 use App\Http\Controllers\Api\ImageUploadController;
+use App\Http\Controllers\Api\AdminRegionController;
+use App\Http\Controllers\Api\VideoUploadController;
+use App\Http\Controllers\Api\IconUploadController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -126,6 +129,29 @@ Route::post('/admin/collections', [AdminCollectionController::class, 'createColl
 Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
 Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
 Route::post('/upload-image', [ImageUploadController::class, 'upload']);
+Route::post('/upload-video', [VideoUploadController::class, 'upload']);
+Route::post('/upload-icon', [IconUploadController::class, 'upload']);
+
+// Route::post('/admin/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
+// ✅ REGION MANAGEMENT (Admin)
+Route::prefix('admin')->group(function () {
+    // Create new region
+    Route::post('/region', [AdminCollectionController::class, 'createRegion']);
+    
+    // Update existing region
+    Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
+    
+    // List all regions
+    Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
+
+    //For Delete Region
+    Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']); // ✅ ADD THIS LINE
+
+});
+
+// ✅ FETCH PROPERTIES FOR A REGION
+Route::post('/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
+
 
 Route::get('/search-properties', [PropertySearchController::class, 'GetPropertiessearch']);
 
