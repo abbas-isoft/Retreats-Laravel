@@ -4,25 +4,38 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class IconUploadController extends Controller
 {
     /**
-     * Upload an image and return its public URL.
+     * Upload an icon and return its public URL (prevent overwriting if exists).
      */
     public function upload(Request $request)
     {
-        // Validate file input
+        // ✅ Validate file input
         $request->validate([
             'image' => 'required|image|mimes:jpg,jpeg,png',
         ]);
 
-        // Store the file in "public/images" directory
-        $path = $request->file('image')->store('images', 'public');
+        // ✅ Get file info
+        $file = $request->file('image');
+        $fileName = $file->getClientOriginalName();
+        $uploadPath = public_path('images/' . $fileName);
 
-        // Generate full public URL
-        $url = asset('/' . $path);
+        // ✅ Check if file already exists
+        if (file_exists($uploadPath)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Icon already exists',
+                'image_url' => asset('images/' . $fileName),
+            ], 409); // 409 = Conflict
+        }
+
+        // ✅ Move file into "public/images"
+        $file->move(public_path('images'), $fileName);
+
+        // ✅ Generate full public URL
+        $url = asset('images/' . $fileName);
 
         return response()->json([
             'status' => true,
