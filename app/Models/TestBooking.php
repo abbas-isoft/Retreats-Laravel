@@ -53,6 +53,8 @@ class TestBooking extends Model
     'upfront_payment_intent_id',
     'remaining_payment_intent_id',
     'damage_deposit_intent_id',
+    'stripe_transaction_id',
+    'receipt_url',
 
     'amount_cents',
     'upfront_cents',

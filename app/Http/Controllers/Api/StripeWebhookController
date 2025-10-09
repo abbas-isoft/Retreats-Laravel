@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TestBooking;
 use Stripe\Webhook;
+use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 
 class StripeWebhookController extends Controller
@@ -29,7 +31,7 @@ class StripeWebhookController extends Controller
         $obj  = $event->data->object;
 
         /**
-         *  Checkout Session Completed
+         * ✅ CHECKOUT SESSION COMPLETED
          */
         if ($type === 'checkout.session.completed') {
             $session   = $obj;
@@ -39,61 +41,82 @@ class StripeWebhookController extends Controller
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
                     if (!empty($session->payment_intent)) {
-                        $paymentIntent = \Stripe\PaymentIntent::retrieve($session->payment_intent);
+                        $paymentIntent = PaymentIntent::retrieve($session->payment_intent);
 
                         $booking->update([
                             'payment_status'            => 'paid',
                             'stripe_payment_method_id'  => $paymentIntent->payment_method,
                             'upfront_payment_intent_id' => $paymentIntent->id,
+                            'stripe_transaction_id'     => $paymentIntent->id,
+                            'receipt_url'               => $paymentIntent->charges->data[0]->receipt_url ?? null,
                         ]);
                     } else {
-                        $booking->update([
-                            'payment_status' => 'paid',
-                        ]);
+                        $booking->update(['payment_status' => 'paid']);
                     }
                 }
             }
         }
 
         /**
-         *  Payment Intent Succeeded
+         * ✅ PAYMENT INTENT SUCCEEDED
          */
         if ($type === 'payment_intent.succeeded') {
-            $pi        = $obj;
+            $pi = $obj;
             $bookingId = $pi->metadata->local_booking_id ?? null;
             $typeMeta  = $pi->metadata->type ?? null;
 
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
-                    if (!empty($pi->payment_method)) {
-                        $booking->stripe_payment_method_id = $pi->payment_method;
-                    }
-
-                    if ($typeMeta === 'upfront') {
-                        $booking->payment_status = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
-                        $booking->upfront_payment_intent_id = $pi->id;
-                    } elseif ($typeMeta === 'remaining') {
-                        $booking->remaining_payment_intent_id = $pi->id;
-                        $booking->payment_status = 'fully_paid';
-                    } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
-                        $booking->damage_deposit_intent_id = $pi->id;
-                    }
-
-                    $booking->save();
-
                     try {
-                        Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
-                        Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+                        $intent = PaymentIntent::retrieve($pi->id);
+
+                        // Update local DB
+                        $updateData = [
+                            'stripe_payment_method_id' => $intent->payment_method,
+                            'stripe_transaction_id'    => $intent->id,
+                            'receipt_url'              => $intent->charges->data[0]->receipt_url ?? null,
+                        ];
+
+                        if ($typeMeta === 'upfront') {
+                            $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
+                            $updateData['upfront_payment_intent_id'] = $intent->id;
+                        } elseif ($typeMeta === 'remaining') {
+                            $updateData['remaining_payment_intent_id'] = $intent->id;
+                            $updateData['payment_status'] = 'fully_paid';
+                        } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
+                            $updateData['damage_deposit_intent_id'] = $intent->id;
+                        }
+
+                        $booking->update($updateData);
+
+                        // ✅ Optional: Sync transaction with SuperControl
+                        Http::post('https://secure.supercontrol.co.uk/api/update-transaction', [
+                            'booking_reference' => $booking->booking_reference,
+                            'transaction_id'    => $intent->id,
+                            'amount'            => $intent->amount_received / 100,
+                            'currency'          => $intent->currency,
+                        ]);
+
+                        Log::info("✅ Payment synced for booking {$booking->id}");
+
+                        // ✅ Send receipt email
+                        try {
+                            Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
+                            Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+                        } catch (\Exception $e) {
+                            Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
+                        }
+
                     } catch (\Exception $e) {
-                        Log::error("Mail send failed for booking {$booking->id}: {$e->getMessage()}");
+                        Log::error("⚠️ StripeWebhook Error (PI succeeded): {$e->getMessage()}");
                     }
                 }
             }
         }
 
         /**
-         *  Payment Failed
+         * ❌ PAYMENT FAILED
          */
         if ($type === 'payment_intent.payment_failed') {
             $pi        = $obj;
@@ -102,31 +125,32 @@ class StripeWebhookController extends Controller
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
-                    $booking->payment_status = 'failed';
-                    $booking->save();
+                    $booking->update(['payment_status' => 'failed']);
+                    Log::warning("⚠️ Payment failed for booking {$booking->id}");
                 }
             }
         }
 
         /**
-         *  Deposit Released
+         * 🔓 DEPOSIT RELEASED
          */
         if ($type === 'payment_intent.canceled') {
             $intent  = $obj;
             $booking = TestBooking::where('damage_deposit_intent_id', $intent->id)->first();
             if ($booking) {
                 $booking->update(['damage_deposit_intent_id' => null]);
+                Log::info("💸 Deposit released for booking {$booking->id}");
             }
         }
 
         /**
-         *  Deposit Hold Update
+         * 💰 DEPOSIT HOLD UPDATED
          */
         if ($type === 'payment_intent.amount_capturable_updated') {
             $intent  = $obj;
             $booking = TestBooking::where('damage_deposit_intent_id', $intent->id)->first();
             if ($booking) {
-                Log::info("Deposit hold active for booking {$booking->id}");
+                Log::info("🔒 Deposit hold active for booking {$booking->id}");
             }
         }
 

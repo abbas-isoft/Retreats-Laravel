@@ -20,7 +20,6 @@ class TestBookingController extends Controller
 {
     public function bookTestProperty(Request $request)
     {
-        // 1. Validate request
         $data = $request->validate([
             'start_date'       => 'required|date',
             'nights'           => 'required|integer',
@@ -34,38 +33,25 @@ class TestBookingController extends Controller
             'stripe_payment_method_id' => 'nullable|string',
         ]);
 
-        // --- Test property setup (static for now) ---
         $testPropertyId = 659508;
         $bookingRef = strtoupper(uniqid('TEST-'));
         $bookingID  = rand(100000, 999999);
 
+        $totalCents = (int) round($data['total_price'] * 100);
+        $daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
 
-        // --- Cost calculations ---
-        // --- Cost calculations ---
-$totalCents = (int) round($data['total_price'] * 100);
+        if ($daysUntilStart <= 60) {
+            $upfrontCents   = $totalCents;
+            $remainingCents = 0;
+            $remainingPaymentScheduledAt = null;
+            $isFullPayment = true;
+        } else {
+            $upfrontCents   = (int) floor($totalCents * 0.25);
+            $remainingCents = $totalCents - $upfrontCents;
+            $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
+            $isFullPayment = false;
+        }
 
-// Check if within 60 days from start_date
-$daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
-
-if ($daysUntilStart <= 60) {
-    // Case 1: Start date is within 60 days → charge full upfront
-    $upfrontCents   = $totalCents;
-    $remainingCents = 0;
-    $remainingPaymentScheduledAt = null; // no scheduled payment
-    $isFullPayment = true;
-} else {
-    // Case 2: More than 60 days → split into 25% + 75%
-    $upfrontCents   = (int) floor($totalCents * 0.25);
-    $remainingCents = $totalCents - $upfrontCents;
-    $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
-    $isFullPayment = false;
-}
-        $upfrontCents   = (int) floor($totalCents * 0.25);
-        $remainingCents = $totalCents - $upfrontCents;
-
-        $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
-
-        //  Fetch property details from SuperControl API
         $supercontrolUrl = "https://secure.supercontrol.co.uk/api/property/{$testPropertyId}";
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('SUPERCONTROL_API_KEY'),
@@ -74,19 +60,14 @@ if ($daysUntilStart <= 60) {
 
         $property = $response->ok() ? $response->json() : [];
 
-        //  Damage/Security deposit
-        // Damage/Security deposit
-$securityDeposit = $property['security_deposit'] ?? 0;
-$damageDepositCents = intval($securityDeposit * 100);
-
-// Agar API se kuch bhi na aaye ya chhota amount aaye to fallback
-if ($damageDepositCents < 5000) { // < £50
-    $damageDepositCents = 5000; // default £50
-}
+        $securityDeposit = $property['security_deposit'] ?? 0;
+        $damageDepositCents = intval($securityDeposit * 100);
+        if ($damageDepositCents < 5000) {
+            $damageDepositCents = 5000; // default £50
+        }
 
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
 
-        // 2. Save local booking
         $booking = TestBooking::create([
             'property_id'                   => $testPropertyId,
             'start_date'                    => $data['start_date'],
@@ -111,85 +92,65 @@ if ($damageDepositCents < 5000) { // < £50
             'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
         ]);
 
-        // 3. Stripe Integration
         Stripe::setApiKey(config('services.stripe.secret'));
 
-        $checkoutSession = CheckoutSession::create([
-            'payment_method_types' => ['card'],
-            'mode' => 'payment',
-            'line_items' => [[
-                'price_data' => [
-                    'currency' => 'gbp',
-                    'unit_amount' => $upfrontCents,
-                    'product_data' => [
-                        'name' => "Booking #{$bookingID} - {$data['guest_firstname']} {$data['guest_lastname']}",
-                        'description' => "Booking reference: {$bookingRef}",
-                    ],
-                ],
-                'quantity' => 1,
-            ]],
-            'customer_email' => $data['email'],
-            'metadata' => [
-                'local_booking_id' => $booking->id,
-                'property_id'      => $testPropertyId,
-            ],
-            'success_url' => 'http://192.168.0.134:3000/success',
-            'cancel_url'  => 'http://192.168.0.134:3000/error',
-        ]);
-
-        $booking->update([
-            'stripe_checkout_session_id' => $checkoutSession->id,
-        ]);
-
-        // Create Stripe Customer
         $stripeCustomer = Customer::create([
             'name'  => $data['guest_firstname'] . ' ' . $data['guest_lastname'],
             'email' => $data['email'],
+            'phone' => $data['phone'],
             'metadata' => [
                 'local_booking_id' => $booking->id,
                 'property_id'      => $testPropertyId,
+                'booking_ref'      => $bookingRef,
             ],
         ]);
 
         if ($isFullPayment) {
-            
-            //  One-shot 100% PaymentIntent
+            // 💳 One-shot full payment
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $totalCents,
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
+                'receipt_email' => $data['email'], // ✅ sends receipt to customer
                 'automatic_payment_methods' => ['enabled' => true],
+                'description' => "Full payment for Booking {$bookingRef}",
                 'metadata' => [
-                    'local_booking_id' => $booking->id,
-                    'type'             => 'full',
+                    'booking_id'      => $booking->id,
+                    'booking_ref'     => $bookingRef,
+                    'guest_name'      => $data['guest_firstname'].' '.$data['guest_lastname'],
+                    'property_id'     => $testPropertyId,
+                    'type'            => 'full',
                 ],
-                'description' => "Full upfront payment for booking {$booking->id}",
+                'statement_descriptor_suffix' => 'GR BOOKING',
             ]);
-
-            $setupIntent = null; // no need to save card for later
+            $setupIntent = null;
         } else {
-            //  Split Payment: First 25% now, rest scheduled
+            // 💰 Split payment: 25% now, 75% later
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $upfrontCents,
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
+                'receipt_email' => $data['email'],
                 'automatic_payment_methods' => ['enabled' => true],
+                'description' => "25% Deposit for Booking {$bookingRef}",
                 'metadata' => [
-                    'local_booking_id' => $booking->id,
-                    'type'             => 'upfront',
+                    'booking_id'  => $booking->id,
+                    'booking_ref' => $bookingRef,
+                    'guest_name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
+                    'property_id' => $testPropertyId,
+                    'type'        => 'upfront',
                 ],
-                'description' => "Upfront 25% for booking {$booking->id}",
+                'statement_descriptor_suffix' => 'GR DEPOSIT',
                 'setup_future_usage' => 'off_session',
             ]);
 
-            // Save card for remaining 75%
             $setupIntent = SetupIntent::create([
                 'customer' => $stripeCustomer->id,
                 'payment_method_types' => ['card'],
                 'usage' => 'off_session',
                 'metadata' => [
-                    'local_booking_id' => $booking->id,
-                    'type'         => 'remaining',
+                    'booking_id' => $booking->id,
+                    'type'       => 'remaining',
                 ],
             ]);
         }
@@ -197,44 +158,10 @@ if ($damageDepositCents < 5000) { // < £50
         $booking->update([
             'stripe_customer_id'        => $stripeCustomer->id,
             'upfront_payment_intent_id' => $paymentIntent->id,
-            'setup_intent_id'           => $setupIntent ? $setupIntent->id : null,
+            'setup_intent_id'           => $setupIntent?->id,
             'payment_status'            => 'pending',
-            'upfront_cents'             => $upfrontCents,
-            'remaining_cents'           => $remainingCents,
-            'remaining_payment_scheduled_at' => $remainingPaymentScheduledAt,
         ]);
 
-        //  Schedule Remaining 75% after 3 minutes
-        // if ($booking->stripe_customer_id && $booking->stripe_payment_method_id) {
-        //     Queue::later(now()->addMinutes(3), function () use ($booking) {
-        //         \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-        //         try {
-        //             $intent = PaymentIntent::create([
-        //                 'amount'   => $booking->remaining_cents,
-        //                 'currency' => 'gbp',
-        //                 'customer' => $booking->stripe_customer_id,
-        //                 'payment_method' => $booking->stripe_payment_method_id,
-        //                 'off_session' => true,
-        //                 // 'confirm' => true,
-        //                 'metadata' => [
-        //                     'local_booking_id' => $booking->id,
-        //                     'type' => 'remaining',
-        //                 ],
-        //             ]);
-
-        //             $booking->update([
-        //                 'remaining_payment_intent_id' => $intent->id,
-        //                 'payment_status' => 'fully_paid',
-        //             ]);
-
-        //             Log::info("Remaining payment auto-charged for booking {$booking->id}");
-        //         } catch (\Exception $e) {
-        //             Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
-        //         }
-        //     });
-        // }
-
-        // 4. Response
         return response()->json([
             'status'  => true,
             'message' => 'Booking payment created successfully',
@@ -244,7 +171,7 @@ if ($damageDepositCents < 5000) { // < £50
                 'booking_id'               => $bookingID,
                 'initial_payment'          => $upfrontCents / 100,
                 'final_payment'            => $remainingCents / 100,
-                'final_payment_due_date'   => $remainingPaymentScheduledAt ? $remainingPaymentScheduledAt->toDateString() : null,
+                'final_payment_due_date'   => $remainingPaymentScheduledAt?->toDateString(),
                 'damage_deposit'           => $damageDepositCents / 100,
                 'damage_deposit_hold_date' => $depositHoldScheduledAt->toDateString(),
                 'client_secret'            => $paymentIntent->client_secret,
@@ -254,184 +181,36 @@ if ($damageDepositCents < 5000) { // < £50
         ]);
     }
 
-    /**
-     * Release the deposit hold
-     */
-    public function releaseDeposit(TestBooking $booking)
-    {
-        Stripe::setApiKey(config('services.stripe.secret'));
-
-        try {
-            if (empty($booking->damage_deposit_intent_id)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'No damage deposit intent found for this booking',
-                ], 400);
-            }
-
-            $paymentIntent = PaymentIntent::retrieve($booking->damage_deposit_intent_id);
-
-            // Logging intent details for debug
-            Log::info('ReleaseDeposit - PaymentIntent details', [
-                'id'     => $paymentIntent->id,
-                'amount' => $paymentIntent->amount,
-                'status' => $paymentIntent->status,
-            ]);
-
-            if ($paymentIntent->amount < 50) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Deposit amount too small to release (must be >= 50 cents)',
-                ], 400);
-            }
-
-            $paymentIntent->cancel(); // release hold
-
-            $booking->update(['deposit_status' => 'released']);
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Deposit released successfully',
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error releasing deposit: ' . $e->getMessage());
-            return response()->json([
-                'status' => false,
-                'message' => 'Error releasing deposit: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Capture the deposit if needed
-     */
-    public function captureDeposit(TestBooking $booking)
-    {
-        Stripe::setApiKey(config('services.stripe.secret'));
-
-        try {
-            if (empty($booking->damage_deposit_intent_id)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'No damage deposit intent found for this booking',
-                ], 400);
-            }
-
-            $paymentIntent = PaymentIntent::retrieve($booking->damage_deposit_intent_id);
-
-            // Logging intent details for debug
-            Log::info('CaptureDeposit - PaymentIntent details', [
-                'id'     => $paymentIntent->id,
-                'amount' => $paymentIntent->amount,
-                'status' => $paymentIntent->status,
-            ]);
-
-            if ($paymentIntent->amount < 50) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Deposit amount too small to capture (must be >= 50 cents)',
-                ], 400);
-            }
-
-            $paymentIntent->capture(); // charge the hold
-
-            $booking->update(['deposit_status' => 'captured']);
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Deposit captured successfully',
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error capturing deposit: ' . $e->getMessage());
-            return response()->json([
-                'status' => false,
-                'message' => 'Error capturing deposit: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-    public function checkoutSuccess($bookingId)
-    {
-        $booking = TestBooking::findOrFail($bookingId);
-        $booking->update(['payment_status' => 'paid']); //  fix quotes
-
-        return redirect('http://192.168.0.134:3000/home');
-    }
-
-    public function checkoutCancel($bookingId)
-    {
-        $booking = TestBooking::findOrFail($bookingId);
-
-        return redirect('http://192.168.0.134:3000/home?payment=cancelled');
-    }
-
+    // ✅ Webhook for payment_intent.succeeded to update booking + log receipt_url
     public function handleStripeWebhook(Request $request)
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
-        $endpointSecret = env('STRIPE_WEBHOOK_SECRET'); // from Stripe dashboard
+        $endpointSecret = env('STRIPE_WEBHOOK_SECRET');
 
         try {
             $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
-        } catch (\UnexpectedValueException $e) {
-            return response()->json(['error' => 'Invalid payload'], 400);
-        } catch (\Stripe\Exception\SignatureVerificationException $e) {
-            return response()->json(['error' => 'Invalid signature'], 400);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
         }
 
-        // Handle the event
-        if ($event->type === 'checkout.session.completed') {
-            $session = $event->data->object;
+        if ($event->type === 'payment_intent.succeeded') {
+            $intent = $event->data->object;
+            $bookingId = $intent->metadata->booking_id ?? null;
 
-            // Update booking status
-            $bookingId = $session->metadata->local_booking_id ?? null;
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
-                    $booking->update(['payment_status' => 'paid']);
+                    $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
+                    $booking->update([
+                        'payment_status' => 'paid',
+                        'receipt_url' => $receiptUrl,
+                    ]);
+                    Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
                 }
             }
         }
 
         return response()->json(['status' => 'success']);
-    }
-
-    public function getClientSecret(Request $request)
-    {
-        $request->validate([
-            'booking_id' => 'required|integer',
-        ]);
-
-        // yaha custom booking_id se search karo
-        $booking = TestBooking::where('booking_id', $request->booking_id)->first();
-
-        if (!$booking) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Booking not found',
-            ], 404);
-        }
-
-        if (!$booking->upfront_payment_intent_id) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No upfront payment intent found for this booking',
-            ], 400);
-        }
-
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-
-        try {
-            $paymentIntent = \Stripe\PaymentIntent::retrieve($booking->upfront_payment_intent_id);
-
-            return response()->json([
-                'status' => true,
-                'client_secret' => $paymentIntent->client_secret,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Error fetching client_secret: ' . $e->getMessage(),
-            ], 500);
-        }
     }
 }
