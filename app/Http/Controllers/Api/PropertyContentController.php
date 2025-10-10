@@ -508,13 +508,13 @@ $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
                 // 'label'  => $depositLabel,
                 // 'amount' => $depositAmount
                 //    'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-                'label'    => 'Due Now',
-                'amount'   => $depositAmount
+                // 'label'    => 'Due Now',
+                'amount'   => $balanceAmount
             ],
             'balance' => [
-                //  'label'  => 'Due Now',
+                 'label'  => 'Due Now',
                   'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-                'amount' => $balanceAmount
+                'amount' => $depositAmount
             ]
         ]
     ]
