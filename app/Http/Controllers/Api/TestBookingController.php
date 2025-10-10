@@ -114,7 +114,7 @@ class TestBookingController extends Controller
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
                 'receipt_email' => $data['email'], // ✅ sends receipt to customer
-                'automatic_payment_methods' => ['enabled' => true],
+                'payment_method_types' => ['card'],
                 'description' => "Full payment for Booking {$bookingRef}",
                 'metadata' => [
                     'booking_id'      => $booking->id,
@@ -134,7 +134,7 @@ class TestBookingController extends Controller
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
                 'receipt_email' => $data['email'],
-                'automatic_payment_methods' => ['enabled' => true],
+                'payment_method_types' => ['card'],
                 'description' => "25% Deposit for Booking {$bookingRef}",
                 'metadata' => [
                     'booking_id'  => $booking->id,

@@ -173,7 +173,7 @@ Route::delete('/feature-boxes/{id}', [FeatureBoxController::class, 'destroy']); 
 
 
 Route::get('/about-detail', [HospitalitySectionController::class, 'index']);
-Route::post('/about-detail/update', [HospitalitySectionController::class, 'update']);
+Route::post('/heading', [HospitalitySectionController::class, 'update']);
 
 Route::get('/hero-section', [HeroSectionController::class, 'show']);
 Route::post('/hero-section', [HeroSectionController::class, 'storeOrUpdate']);
