@@ -1,12 +1,12 @@
-<x-mail::message>
-# Introduction
+@component('mail::message')
+# Booking Confirmed 🎉
 
-The body of your message.
+Thank you {{ $booking->first_name ?? 'Guest' }} for your booking!
 
-<x-mail::button :url="''">
-Button Text
-</x-mail::button>
+**Booking Reference:** {{ $booking->booking_reference }}
 
-Thanks,<br>
+We’ll contact you soon.
+
+Thanks,  
 {{ config('app.name') }}
-</x-mail::message>
+@endcomponent

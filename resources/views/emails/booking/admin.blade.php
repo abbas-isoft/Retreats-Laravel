@@ -1,12 +1,10 @@
-<x-mail::message>
-# Introduction
+@component('mail::message')
+# New Booking Notification 🏡
 
-The body of your message.
+A new booking has been confirmed.
 
-<x-mail::button :url="''">
-Button Text
-</x-mail::button>
+**Booking ID:** {{ $booking->id }}
+**Customer:** {{ $booking->first_name ?? 'N/A' }}
+**Amount:** £{{ $booking->initial_payment ?? 'N/A' }}
 
-Thanks,<br>
-{{ config('app.name') }}
-</x-mail::message>
+@endcomponent
