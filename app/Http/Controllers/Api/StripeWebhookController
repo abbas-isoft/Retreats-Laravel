@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TestBooking;
-use App\Models\GroupContactForm;
 use Stripe\Webhook;
 use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Log;
@@ -103,18 +102,7 @@ class StripeWebhookController extends Controller
 
                         // ✅ Send receipt email
                         try {
-                            // Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
-                            // ✅ Find the latest contact form email (or however you want to match)
-$contact = GroupContactForm::latest()->first();
-
-if ($contact && $contact->email) {
-    Mail::to($contact->email)->send(new \App\Mail\BookingConfirmed($booking));
-    Log::info("📧 Booking confirmation sent to {$contact->email}");
-} else {
-    // fallback to your own email if none found
-    Mail::to('huzaifaahmed0605@gmail.com')->send(new \App\Mail\BookingConfirmed($booking));
-    Log::warning("⚠️ No contact email found, sent to default address.");
-}
+                            Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
                             Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
                         } catch (\Exception $e) {
                             Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
