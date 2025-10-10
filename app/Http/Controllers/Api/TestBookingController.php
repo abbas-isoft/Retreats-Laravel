@@ -125,6 +125,7 @@ class TestBookingController extends Controller
                 ],
                 'statement_descriptor_suffix' => 'GR BOOKING',
             ]);
+            
             $setupIntent = null;
         } else {
             // 💰 Split payment: 25% now, 75% later

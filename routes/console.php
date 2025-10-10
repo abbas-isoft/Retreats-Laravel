@@ -14,5 +14,5 @@ Schedule::command('fetch:prices-Listing')->dailyAt('02:00');
 // Schedule::command('payments:charge-final')->dailyAt('02:00');
 Schedule::command('payments:hold-deposit')->dailyAt('02:00');
 Schedule::command('payments:charge-remaining')->everyFiveSeconds();
-Schedule::command('deposit:hold')->dailyAt('02:00');
-Schedule::command('deposit:release')->dailyAt('02:00');
+Schedule::command('deposit:hold')->everyFiveSeconds();
+Schedule::command('deposit:release')->everyFiveSeconds();
