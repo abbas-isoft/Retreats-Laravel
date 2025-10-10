@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Stripe\Checkout\Session as CheckoutSession;
+use App\Mail\BookingConfirmed;
+use Illuminate\Support\Facades\Mail;
 use Stripe\Webhook;
 
 class TestBookingController extends Controller
@@ -161,7 +163,7 @@ class TestBookingController extends Controller
             'setup_intent_id'           => $setupIntent?->id,
             'payment_status'            => 'pending',
         ]);
-
+        Mail::to($data['email'])->send(new BookingConfirmed($booking));
         return response()->json([
             'status'  => true,
             'message' => 'Booking payment created successfully',
