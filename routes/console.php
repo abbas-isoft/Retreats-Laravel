@@ -10,7 +10,7 @@ Schedule::command('fetch:configurations')->dailyAt('02:00');
 Schedule::command('fetch:prices')->dailyAt('02:00');
 Schedule::command('fetch:property-contents')->dailyAt('02:00');
 Schedule::command('fetch:single-property')->dailyAt('02:00');
-Schedule::command('fetch:prices-Listing')->everyFiveHours();
+Schedule::command('fetch:prices-Listing')->everyTwoHours();
 // Schedule::command('payments:charge-final')->dailyAt('02:00');
 Schedule::command('payments:hold-deposit')->dailyAt('02:00');
 Schedule::command('payments:charge-remaining')->everyFiveSeconds();
