@@ -322,5 +322,69 @@ class TestBookingController extends Controller
                 'nights' => $booking->nights,
             ]
         ]);
-    }  
+    }
+ 
+    // 🧪 Simple test webhook (no Stripe signature verification)
+    public function testWebhookSimple(Request $request)
+    {
+        error_log("🧪 SIMPLE WEBHOOK TEST CALLED at " . date('Y-m-d H:i:s'));
+        error_log("🧪 REQUEST METHOD: " . $request->method());
+        error_log("🧪 REQUEST HEADERS: " . json_encode($request->headers->all()));
+       
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Simple webhook test successful',
+            'timestamp' => date('Y-m-d H:i:s'),
+            'method' => $request->method()
+        ]);
+    }
+ 
+    // 🧪 Webhook WITHOUT signature verification for testing
+    public function handleStripeWebhookTest(Request $request)
+    {
+        error_log("🎯 TEST WEBHOOK CALLED: handleStripeWebhookTest method accessed");
+       
+        $payload = $request->getContent();
+        error_log("🔍 TEST WEBHOOK PAYLOAD LENGTH: " . strlen($payload));
+       
+        // Parse JSON without signature verification
+        $event = json_decode($payload, true);
+       
+        if ($event && isset($event['type'])) {
+            error_log("🎉 TEST WEBHOOK EVENT TYPE: " . $event['type']);
+           
+            if ($event['type'] === 'payment_intent.succeeded') {
+                error_log("✅ TEST PAYMENT INTENT SUCCEEDED EVENT DETECTED");
+               
+                $intent = $event['data']['object'];
+                $bookingId = $intent['metadata']['booking_id'] ?? null;
+               
+                error_log("🆔 TEST BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
+               
+                if ($bookingId) {
+                    $booking = TestBooking::find($bookingId);
+                    if ($booking) {
+                        error_log("📋 TEST BOOKING FOUND: " . $booking->booking_reference);
+                       
+                        // Try to get receipt URL
+                        $receiptUrl = null;
+                        if (isset($intent['charges']['data'][0]['receipt_url'])) {
+                            $receiptUrl = $intent['charges']['data'][0]['receipt_url'];
+                            error_log("🧾 TEST Receipt URL found: " . $receiptUrl);
+                        }
+                       
+                        // Update booking
+                        $booking->update([
+                            'payment_status' => 'paid',
+                            'receipt_url' => $receiptUrl,
+                        ]);
+                       
+                        error_log("✅ TEST BOOKING UPDATED SUCCESSFULLY");
+                    }
+                }
+            }
+        }
+       
+        return response()->json(['status' => 'success']);
+    }
 }

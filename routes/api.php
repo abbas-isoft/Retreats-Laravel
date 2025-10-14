@@ -102,7 +102,8 @@ Route::get('/newsletter/index', [NewsletterController::class, 'index']);
 Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index']);
 Route::get('similar_properties/{id}', [PropertyContentController::class, 'getSimilar']);
 Route::get('/test-logs', [TestBookingController::class, 'testLogging']);
-
+Route::post('/test-webhook-simple', [TestBookingController::class, 'testWebhookSimple']);
+Route::post('/stripe-webhook', [TestBookingController::class, 'handleStripeWebhook']);
 // Create Booking
 Route::post('/book-property', [BookingController::class, 'bookProperty']);
 
