@@ -191,11 +191,11 @@ class TestBookingController extends Controller
     {
         // Debug: Log that webhook was called
         error_log("🎯 WEBHOOK CALLED: handleStripeWebhook method accessed");
-       
+        
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
         $endpointSecret = env('STRIPE_WEBHOOK_SECRET');
-       
+        
         error_log("🔍 WEBHOOK PAYLOAD LENGTH: " . strlen($payload));
         error_log("🔍 STRIPE SIGNATURE PRESENT: " . ($sigHeader ? 'YES' : 'NO'));
         error_log("🔍 WEBHOOK SECRET SET: " . ($endpointSecret ? 'YES' : 'NO'));
@@ -212,9 +212,9 @@ class TestBookingController extends Controller
             error_log("✅ PAYMENT INTENT SUCCEEDED EVENT DETECTED");
             $intent = $event->data->object;
             $bookingId = $intent->metadata->booking_id ?? null;
-           
+            
             error_log("🆔 BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
-           
+            
             // Debug: Log the entire intent object structure
             Log::info("PaymentIntent succeeded webhook received", [
                 'intent_id' => $intent->id,
@@ -223,11 +223,11 @@ class TestBookingController extends Controller
                 'has_charges' => isset($intent->charges),
                 'intent_structure' => json_encode($intent, JSON_PRETTY_PRINT)
             ]);
- 
+
             // Alternative logging methods for debugging
             error_log("🔍 WEBHOOK DEBUG: PaymentIntent succeeded for booking ID: " . $bookingId);
-            file_put_contents(storage_path('logs/webhook_debug.log'),
-                date('Y-m-d H:i:s') . " - PaymentIntent succeeded for booking: " . $bookingId . "\n",
+            file_put_contents(storage_path('logs/webhook_debug.log'), 
+                date('Y-m-d H:i:s') . " - PaymentIntent succeeded for booking: " . $bookingId . "\n", 
                 FILE_APPEND | LOCK_EX
             );
  
@@ -235,14 +235,14 @@ class TestBookingController extends Controller
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
                     $receiptUrl = null;
-                   
+                    
                     // Method 1: Try to get receipt_url from charges in the webhook payload
                     if (isset($intent->charges) && isset($intent->charges->data) && count($intent->charges->data) > 0) {
                         $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
                         Log::info("Receipt URL from webhook payload: " . ($receiptUrl ?? 'null'));
                         error_log("🧾 Receipt URL from webhook: " . ($receiptUrl ?? 'NULL'));
                     }
-                   
+                    
                     // Method 2: If receipt_url is still null, fetch fresh PaymentIntent from Stripe API
                     if (!$receiptUrl) {
                         try {
@@ -251,7 +251,7 @@ class TestBookingController extends Controller
                                 'id' => $intent->id,
                                 'expand' => ['charges']
                             ]);
-                           
+                            
                             if (isset($freshIntent->charges->data[0]->receipt_url)) {
                                 $receiptUrl = $freshIntent->charges->data[0]->receipt_url;
                                 Log::info("Receipt URL from fresh API call: " . $receiptUrl);
@@ -261,13 +261,13 @@ class TestBookingController extends Controller
                             Log::error("Error fetching fresh PaymentIntent: " . $e->getMessage());
                         }
                     }
-                   
+                    
                     // Update booking with payment status and receipt URL
                     $booking->update([
                         'payment_status' => 'paid',
                         'receipt_url' => $receiptUrl,
                     ]);
-                   
+                    
                     if ($receiptUrl) {
                         Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
                         error_log("✅ SUCCESS: Booking {$bookingId} marked paid with receipt: {$receiptUrl}");
@@ -281,7 +281,7 @@ class TestBookingController extends Controller
  
         return response()->json(['status' => 'success']);
     }
- 
+
     // 🧪 Test method to check if logging works
     public function testLogging()
     {
@@ -293,22 +293,46 @@ class TestBookingController extends Controller
         Log::notice('📢 NOTICE log test');
         Log::info('ℹ️ INFO log test');
         Log::debug('🐛 DEBUG log test');
-       
+        
         return response()->json(['message' => 'Log tests written - check your log file']);
     }
- 
+
     // 📋 Get booking details including receipt URL (after payment)
     public function getBookingDetails($bookingId)
     {
         $booking = TestBooking::find($bookingId);
-       
+        
         if (!$booking) {
             return response()->json([
                 'status' => false,
                 'message' => 'Booking not found'
             ], 404);
         }
- 
+
+        // If payment is still pending, check Stripe for latest status
+        if ($booking->payment_status === 'pending' && $booking->upfront_payment_intent_id) {
+            try {
+                Stripe::setApiKey(config('services.stripe.secret'));
+                $paymentIntent = PaymentIntent::retrieve([
+                    'id' => $booking->upfront_payment_intent_id,
+                    'expand' => ['charges']
+                ]);
+
+                if ($paymentIntent->status === 'succeeded') {
+                    $receiptUrl = $paymentIntent->charges->data[0]->receipt_url ?? null;
+                    
+                    $booking->update([
+                        'payment_status' => 'paid',
+                        'receipt_url' => $receiptUrl,
+                    ]);
+                    
+                    error_log("📋 Booking {$booking->id} status updated to paid with receipt: " . ($receiptUrl ?? 'none'));
+                }
+            } catch (\Exception $e) {
+                error_log("❌ Error checking payment status: " . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'status' => true,
             'data' => [
@@ -323,14 +347,14 @@ class TestBookingController extends Controller
             ]
         ]);
     }
- 
+
     // 🧪 Simple test webhook (no Stripe signature verification)
     public function testWebhookSimple(Request $request)
     {
         error_log("🧪 SIMPLE WEBHOOK TEST CALLED at " . date('Y-m-d H:i:s'));
         error_log("🧪 REQUEST METHOD: " . $request->method());
         error_log("🧪 REQUEST HEADERS: " . json_encode($request->headers->all()));
-       
+        
         return response()->json([
             'status' => 'success',
             'message' => 'Simple webhook test successful',
@@ -338,53 +362,122 @@ class TestBookingController extends Controller
             'method' => $request->method()
         ]);
     }
- 
+
     // 🧪 Webhook WITHOUT signature verification for testing
     public function handleStripeWebhookTest(Request $request)
     {
         error_log("🎯 TEST WEBHOOK CALLED: handleStripeWebhookTest method accessed");
-       
+        
         $payload = $request->getContent();
         error_log("🔍 TEST WEBHOOK PAYLOAD LENGTH: " . strlen($payload));
-       
+        
         // Parse JSON without signature verification
         $event = json_decode($payload, true);
-       
+        
         if ($event && isset($event['type'])) {
             error_log("🎉 TEST WEBHOOK EVENT TYPE: " . $event['type']);
-           
+            
             if ($event['type'] === 'payment_intent.succeeded') {
                 error_log("✅ TEST PAYMENT INTENT SUCCEEDED EVENT DETECTED");
-               
+                
                 $intent = $event['data']['object'];
                 $bookingId = $intent['metadata']['booking_id'] ?? null;
-               
+                
                 error_log("🆔 TEST BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
-               
+                
                 if ($bookingId) {
                     $booking = TestBooking::find($bookingId);
                     if ($booking) {
                         error_log("📋 TEST BOOKING FOUND: " . $booking->booking_reference);
-                       
+                        
                         // Try to get receipt URL
                         $receiptUrl = null;
                         if (isset($intent['charges']['data'][0]['receipt_url'])) {
                             $receiptUrl = $intent['charges']['data'][0]['receipt_url'];
                             error_log("🧾 TEST Receipt URL found: " . $receiptUrl);
                         }
-                       
+                        
                         // Update booking
                         $booking->update([
                             'payment_status' => 'paid',
                             'receipt_url' => $receiptUrl,
                         ]);
-                       
+                        
                         error_log("✅ TEST BOOKING UPDATED SUCCESSFULLY");
                     }
                 }
             }
         }
-       
+        
         return response()->json(['status' => 'success']);
+    }
+
+    // 🎯 Handle payment success immediately (called from frontend after payment confirmation)
+    public function handlePaymentSuccess(Request $request)
+    {
+        $data = $request->validate([
+            'payment_intent_id' => 'required|string',
+            'booking_id' => 'required|integer'
+        ]);
+
+        error_log("🎯 PAYMENT SUCCESS HANDLER CALLED for booking: " . $data['booking_id']);
+
+        $booking = TestBooking::find($data['booking_id']);
+        if (!$booking) {
+            return response()->json(['error' => 'Booking not found'], 404);
+        }
+
+        try {
+            // Fetch fresh payment intent from Stripe to get receipt URL
+            Stripe::setApiKey(config('services.stripe.secret'));
+            $paymentIntent = PaymentIntent::retrieve([
+                'id' => $data['payment_intent_id'],
+                'expand' => ['charges']
+            ]);
+
+            $receiptUrl = null;
+            if (isset($paymentIntent->charges->data[0]->receipt_url)) {
+                $receiptUrl = $paymentIntent->charges->data[0]->receipt_url;
+                error_log("🧾 Receipt URL retrieved: " . $receiptUrl);
+            }
+
+            // Update booking
+            $booking->update([
+                'payment_status' => 'paid',
+                'receipt_url' => $receiptUrl,
+            ]);
+
+            // Send email with receipt URL
+            if ($receiptUrl) {
+                $emailSubject = "Payment Receipt - Booking {$booking->booking_reference}";
+                $emailBody = "Dear {$booking->guest_firstname},\n\n";
+                $emailBody .= "Your payment has been confirmed for booking {$booking->booking_reference}.\n\n";
+                $emailBody .= "Receipt URL: {$receiptUrl}\n\n";
+                $emailBody .= "Thank you for your booking!";
+                
+                try {
+                    Mail::raw($emailBody, function ($message) use ($booking, $emailSubject) {
+                        $message->to($booking->email)->subject($emailSubject);
+                    });
+                    error_log("📧 Receipt email sent to: " . $booking->email);
+                } catch (\Exception $e) {
+                    error_log("❌ Failed to send receipt email: " . $e->getMessage());
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Payment processed successfully',
+                'data' => [
+                    'payment_status' => $booking->payment_status,
+                    'receipt_url' => $receiptUrl,
+                    'booking_reference' => $booking->booking_reference
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            error_log("❌ Error processing payment success: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to process payment'], 500);
+        }
     }
 }
