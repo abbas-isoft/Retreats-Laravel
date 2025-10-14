@@ -118,7 +118,7 @@ class TestBookingController extends Controller
                 'payment_method_types' => ['card'],
                 'description' => "Full payment for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'      => $booking->booking_id,
+                    'booking_id'      => $booking->booking_id,  // Use booking_id field
                     'booking_ref'     => $bookingRef,
                     'guest_name'      => $data['guest_firstname'].' '.$data['guest_lastname'],
                     'property_id'     => $testPropertyId,
@@ -138,7 +138,7 @@ class TestBookingController extends Controller
                 'payment_method_types' => ['card'],
                 'description' => "25% Deposit for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'  => $booking->booking_id,
+                    'booking_id'  => $booking->booking_id,  // Use booking_id field
                     'booking_ref' => $bookingRef,
                     'guest_name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
                     'property_id' => $testPropertyId,
@@ -173,6 +173,7 @@ class TestBookingController extends Controller
                 'booking_reference'        => $bookingRef,
                 'property_id'              => $testPropertyId,
                 'booking_id'               => $bookingID,
+                'database_id'              => $booking->id,  // Add the actual database ID
                 'initial_payment'          => $upfrontCents / 100,
                 'final_payment'            => $remainingCents / 100,
                 'final_payment_due_date'   => $remainingPaymentScheduledAt?->toDateString(),
@@ -261,7 +262,7 @@ class TestBookingController extends Controller
             );
  
             if ($bookingId) {
-                $booking = TestBooking::find($bookingId);
+                $booking = TestBooking::where('booking_id', $bookingId)->first();
                 if ($booking) {
                     $receiptUrl = null;
                     
@@ -329,7 +330,7 @@ class TestBookingController extends Controller
     // 📋 Get booking details including receipt URL (after payment)
     public function getBookingDetails($bookingId)
     {
-        $booking = TestBooking::find($bookingId);
+        $booking = TestBooking::where('booking_id', $bookingId)->first();
         
         if (!$booking) {
             return response()->json([
@@ -415,7 +416,7 @@ class TestBookingController extends Controller
                 error_log("🆔 TEST BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
                 
                 if ($bookingId) {
-                    $booking = TestBooking::find($bookingId);
+                    $booking = TestBooking::where('booking_id', $bookingId)->first();
                     if ($booking) {
                         error_log("📋 TEST BOOKING FOUND: " . $booking->booking_reference);
                         
@@ -461,9 +462,14 @@ class TestBookingController extends Controller
 
         error_log("🔍 LOOKING FOR BOOKING ID: " . $data['booking_id']);
 
-        $booking = TestBooking::find($data['booking_id']);
+        $booking = TestBooking::where('booking_id', $data['booking_id'])->first();
         if (!$booking) {
-            error_log("❌ BOOKING NOT FOUND for ID: " . $data['booking_id']);
+            error_log("❌ BOOKING NOT FOUND for booking_id: " . $data['booking_id']);
+            error_log("🔍 TRYING TO FIND ANY BOOKINGS IN DATABASE...");
+            $totalBookings = TestBooking::count();
+            error_log("🔍 TOTAL BOOKINGS IN DATABASE: " . $totalBookings);
+            $recentBookings = TestBooking::latest()->take(5)->pluck('booking_id');
+            error_log("🔍 RECENT BOOKING IDs: " . $recentBookings->toJson());
             return response()->json(['error' => 'Booking not found'], 404);
         }
 
