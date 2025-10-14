@@ -118,7 +118,7 @@ class TestBookingController extends Controller
                 'payment_method_types' => ['card'],
                 'description' => "Full payment for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'      => $booking->id,
+                    'booking_id'      => $booking->booking_id,
                     'booking_ref'     => $bookingRef,
                     'guest_name'      => $data['guest_firstname'].' '.$data['guest_lastname'],
                     'property_id'     => $testPropertyId,
@@ -138,7 +138,7 @@ class TestBookingController extends Controller
                 'payment_method_types' => ['card'],
                 'description' => "25% Deposit for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'  => $booking->id,
+                    'booking_id'  => $booking->booking_id,
                     'booking_ref' => $bookingRef,
                     'guest_name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
                     'property_id' => $testPropertyId,
@@ -444,31 +444,64 @@ class TestBookingController extends Controller
     // 🎯 Handle payment success immediately (called from frontend after payment confirmation)
     public function handlePaymentSuccess(Request $request)
     {
-        $data = $request->validate([
-            'payment_intent_id' => 'required|string',
-            'booking_id' => 'required|integer'
-        ]);
+        error_log("🎯 PAYMENT SUCCESS HANDLER CALLED - STARTING");
+        error_log("🔍 REQUEST DATA: " . json_encode($request->all()));
+        
+        try {
+            $data = $request->validate([
+                'payment_intent_id' => 'required|string',
+                'booking_id' => 'required|integer'
+            ]);
+            
+            error_log("✅ VALIDATION PASSED for booking: " . $data['booking_id']);
+        } catch (\Exception $e) {
+            error_log("❌ VALIDATION FAILED: " . $e->getMessage());
+            return response()->json(['error' => 'Validation failed: ' . $e->getMessage()], 400);
+        }
 
-        error_log("🎯 PAYMENT SUCCESS HANDLER CALLED for booking: " . $data['booking_id']);
+        error_log("🔍 LOOKING FOR BOOKING ID: " . $data['booking_id']);
 
         $booking = TestBooking::find($data['booking_id']);
         if (!$booking) {
+            error_log("❌ BOOKING NOT FOUND for ID: " . $data['booking_id']);
             return response()->json(['error' => 'Booking not found'], 404);
         }
 
+        error_log("✅ BOOKING FOUND: " . $booking->booking_reference);
+
         try {
+            error_log("🔍 CALLING STRIPE API with payment_intent_id: " . $data['payment_intent_id']);
+            
             // Fetch fresh payment intent from Stripe to get receipt URL
             Stripe::setApiKey(config('services.stripe.secret'));
+            
             $paymentIntent = PaymentIntent::retrieve([
                 'id' => $data['payment_intent_id'],
                 'expand' => ['charges']
             ]);
 
+            error_log("✅ STRIPE API CALL SUCCESSFUL");
+            error_log("🔍 PAYMENT INTENT STATUS: " . $paymentIntent->status);
+            error_log("🔍 CHARGES COUNT: " . (isset($paymentIntent->charges->data) ? count($paymentIntent->charges->data) : 0));
+
             $receiptUrl = null;
-            if (isset($paymentIntent->charges->data[0]->receipt_url)) {
-                $receiptUrl = $paymentIntent->charges->data[0]->receipt_url;
-                error_log("🧾 Receipt URL retrieved: " . $receiptUrl);
+            if (isset($paymentIntent->charges->data[0])) {
+                $charge = $paymentIntent->charges->data[0];
+                error_log("🔍 FIRST CHARGE ID: " . $charge->id);
+                error_log("🔍 CHARGE STATUS: " . $charge->status);
+                
+                if (isset($charge->receipt_url)) {
+                    $receiptUrl = $charge->receipt_url;
+                    error_log("🧾 RECEIPT URL FOUND: " . $receiptUrl);
+                } else {
+                    error_log("⚠️ NO RECEIPT_URL IN CHARGE OBJECT");
+                    error_log("🔍 CHARGE OBJECT KEYS: " . json_encode(array_keys((array)$charge)));
+                }
+            } else {
+                error_log("⚠️ NO CHARGES FOUND IN PAYMENT INTENT");
             }
+
+            error_log("🔄 UPDATING BOOKING WITH PAYMENT STATUS AND RECEIPT URL");
 
             // Update booking
             $booking->update([
@@ -476,8 +509,12 @@ class TestBookingController extends Controller
                 'receipt_url' => $receiptUrl,
             ]);
 
+            error_log("✅ BOOKING UPDATED SUCCESSFULLY");
+
             // Send email with receipt URL
             if ($receiptUrl) {
+                error_log("📧 ATTEMPTING TO SEND EMAIL WITH RECEIPT URL");
+                
                 $emailSubject = "Payment Receipt - Booking {$booking->booking_reference}";
                 $emailBody = "Dear {$booking->guest_firstname},\n\n";
                 $emailBody .= "Your payment has been confirmed for booking {$booking->booking_reference}.\n\n";
@@ -488,11 +525,15 @@ class TestBookingController extends Controller
                     Mail::raw($emailBody, function ($message) use ($booking, $emailSubject) {
                         $message->to($booking->email)->subject($emailSubject);
                     });
-                    error_log("📧 Receipt email sent to: " . $booking->email);
+                    error_log("📧 RECEIPT EMAIL SENT SUCCESSFULLY to: " . $booking->email);
                 } catch (\Exception $e) {
-                    error_log("❌ Failed to send receipt email: " . $e->getMessage());
+                    error_log("❌ FAILED TO SEND RECEIPT EMAIL: " . $e->getMessage());
                 }
+            } else {
+                error_log("⚠️ NO RECEIPT URL - SKIPPING EMAIL");
             }
+
+            error_log("🎉 PAYMENT SUCCESS HANDLER COMPLETED SUCCESSFULLY");
 
             return response()->json([
                 'status' => 'success',
@@ -505,8 +546,9 @@ class TestBookingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            error_log("❌ Error processing payment success: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to process payment'], 500);
+            error_log("❌ ERROR IN PAYMENT SUCCESS HANDLER: " . $e->getMessage());
+            error_log("❌ ERROR TRACE: " . $e->getTraceAsString());
+            return response()->json(['error' => 'Failed to process payment: ' . $e->getMessage()], 500);
         }
     }
 }
