@@ -181,6 +181,7 @@ class TestBookingController extends Controller
                 'client_secret'            => $paymentIntent->client_secret,
                 'setup_client_secret'      => $setupIntent?->client_secret,
                 'payment_status'           => $booking->payment_status,
+                // receipt_url will be available after payment success via webhook
             ]
         ]);
     }
@@ -188,19 +189,31 @@ class TestBookingController extends Controller
     // ✅ Webhook for payment_intent.succeeded to update booking + log receipt_url
     public function handleStripeWebhook(Request $request)
     {
+        // Debug: Log that webhook was called
+        error_log("🎯 WEBHOOK CALLED: handleStripeWebhook method accessed");
+       
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
         $endpointSecret = env('STRIPE_WEBHOOK_SECRET');
+       
+        error_log("🔍 WEBHOOK PAYLOAD LENGTH: " . strlen($payload));
+        error_log("🔍 STRIPE SIGNATURE PRESENT: " . ($sigHeader ? 'YES' : 'NO'));
+        error_log("🔍 WEBHOOK SECRET SET: " . ($endpointSecret ? 'YES' : 'NO'));
  
         try {
             $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
+            error_log("🎉 WEBHOOK EVENT CONSTRUCTED: " . $event->type);
         } catch (\Exception $e) {
+            error_log("❌ WEBHOOK CONSTRUCTION FAILED: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 400);
         }
  
         if ($event->type === 'payment_intent.succeeded') {
+            error_log("✅ PAYMENT INTENT SUCCEEDED EVENT DETECTED");
             $intent = $event->data->object;
             $bookingId = $intent->metadata->booking_id ?? null;
+           
+            error_log("🆔 BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
            
             // Debug: Log the entire intent object structure
             Log::info("PaymentIntent succeeded webhook received", [
@@ -283,5 +296,31 @@ class TestBookingController extends Controller
        
         return response()->json(['message' => 'Log tests written - check your log file']);
     }
-   
+ 
+    // 📋 Get booking details including receipt URL (after payment)
+    public function getBookingDetails($bookingId)
+    {
+        $booking = TestBooking::find($bookingId);
+       
+        if (!$booking) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Booking not found'
+            ], 404);
+        }
+ 
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'booking_reference' => $booking->booking_reference,
+                'payment_status' => $booking->payment_status,
+                'receipt_url' => $booking->receipt_url,
+                'guest_name' => $booking->guest_firstname . ' ' . $booking->guest_lastname,
+                'email' => $booking->email,
+                'total_amount' => $booking->value,
+                'start_date' => $booking->start_date,
+                'nights' => $booking->nights,
+            ]
+        ]);
+    }  
 }
