@@ -201,6 +201,22 @@ class TestBookingController extends Controller
         if ($event->type === 'payment_intent.succeeded') {
             $intent = $event->data->object;
             $bookingId = $intent->metadata->booking_id ?? null;
+           
+            // Debug: Log the entire intent object structure
+            Log::info("PaymentIntent succeeded webhook received", [
+                'intent_id' => $intent->id,
+                'booking_id' => $bookingId,
+                'charges_count' => isset($intent->charges->data) ? count($intent->charges->data) : 0,
+                'has_charges' => isset($intent->charges),
+                'intent_structure' => json_encode($intent, JSON_PRETTY_PRINT)
+            ]);
+ 
+            // Alternative logging methods for debugging
+            error_log("🔍 WEBHOOK DEBUG: PaymentIntent succeeded for booking ID: " . $bookingId);
+            file_put_contents(storage_path('logs/webhook_debug.log'),
+                date('Y-m-d H:i:s') . " - PaymentIntent succeeded for booking: " . $bookingId . "\n",
+                FILE_APPEND | LOCK_EX
+            );
  
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
@@ -211,6 +227,7 @@ class TestBookingController extends Controller
                     if (isset($intent->charges) && isset($intent->charges->data) && count($intent->charges->data) > 0) {
                         $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
                         Log::info("Receipt URL from webhook payload: " . ($receiptUrl ?? 'null'));
+                        error_log("🧾 Receipt URL from webhook: " . ($receiptUrl ?? 'NULL'));
                     }
                    
                     // Method 2: If receipt_url is still null, fetch fresh PaymentIntent from Stripe API
@@ -225,6 +242,7 @@ class TestBookingController extends Controller
                             if (isset($freshIntent->charges->data[0]->receipt_url)) {
                                 $receiptUrl = $freshIntent->charges->data[0]->receipt_url;
                                 Log::info("Receipt URL from fresh API call: " . $receiptUrl);
+                                error_log("🔄 Receipt URL from fresh API: " . $receiptUrl);
                             }
                         } catch (\Exception $e) {
                             Log::error("Error fetching fresh PaymentIntent: " . $e->getMessage());
@@ -239,8 +257,10 @@ class TestBookingController extends Controller
                    
                     if ($receiptUrl) {
                         Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
+                        error_log("✅ SUCCESS: Booking {$bookingId} marked paid with receipt: {$receiptUrl}");
                     } else {
                         Log::warning("⚠️ Booking {$bookingId} marked paid but receipt_url is still null");
+                        error_log("⚠️ WARNING: Booking {$bookingId} marked paid but NO receipt_url found");
                     }
                 }
             }
@@ -248,6 +268,20 @@ class TestBookingController extends Controller
  
         return response()->json(['status' => 'success']);
     }
+ 
+    // 🧪 Test method to check if logging works
+    public function testLogging()
+    {
+        Log::emergency('🚨 EMERGENCY log test');
+        Log::alert('🔔 ALERT log test');
+        Log::critical('💥 CRITICAL log test');
+        Log::error('❌ ERROR log test');
+        Log::warning('⚠️ WARNING log test');
+        Log::notice('📢 NOTICE log test');
+        Log::info('ℹ️ INFO log test');
+        Log::debug('🐛 DEBUG log test');
+       
+        return response()->json(['message' => 'Log tests written - check your log file']);
+    }
    
 }
- 
