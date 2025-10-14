@@ -1,7 +1,7 @@
 <?php
-
+ 
 namespace App\Http\Controllers\Api;
-
+ 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TestBooking;
@@ -17,7 +17,8 @@ use Stripe\Checkout\Session as CheckoutSession;
 use App\Mail\BookingConfirmed;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Webhook;
-
+use App\Jobs\FetchReceiptUrlJob;
+ 
 class TestBookingController extends Controller
 {
     public function bookTestProperty(Request $request)
@@ -34,14 +35,14 @@ class TestBookingController extends Controller
             'accepted_rules'   => 'required|boolean',
             'stripe_payment_method_id' => 'nullable|string',
         ]);
-
+ 
         $testPropertyId = 659508;
         $bookingRef = strtoupper(uniqid('TEST-'));
         $bookingID  = rand(100000, 999999);
-
+ 
         $totalCents = (int) round($data['total_price'] * 100);
         $daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
-
+ 
         if ($daysUntilStart <= 60) {
             $upfrontCents   = $totalCents;
             $remainingCents = 0;
@@ -53,23 +54,23 @@ class TestBookingController extends Controller
             $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
             $isFullPayment = false;
         }
-
+ 
         $supercontrolUrl = "https://secure.supercontrol.co.uk/api/property/{$testPropertyId}";
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('SUPERCONTROL_API_KEY'),
             'Accept'        => 'application/json',
         ])->get($supercontrolUrl);
-
+ 
         $property = $response->ok() ? $response->json() : [];
-
+ 
         $securityDeposit = $property['security_deposit'] ?? 0;
         $damageDepositCents = intval($securityDeposit * 100);
         if ($damageDepositCents < 5000) {
             $damageDepositCents = 5000; // default £50
         }
-
+ 
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
-
+ 
         $booking = TestBooking::create([
             'property_id'                   => $testPropertyId,
             'start_date'                    => $data['start_date'],
@@ -93,9 +94,9 @@ class TestBookingController extends Controller
             'payment_status'                => 'pending',
             'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
         ]);
-
+ 
         Stripe::setApiKey(config('services.stripe.secret'));
-
+ 
         $stripeCustomer = Customer::create([
             'name'  => $data['guest_firstname'] . ' ' . $data['guest_lastname'],
             'email' => $data['email'],
@@ -106,7 +107,7 @@ class TestBookingController extends Controller
                 'booking_ref'      => $bookingRef,
             ],
         ]);
-
+ 
         if ($isFullPayment) {
             // 💳 One-shot full payment
             $paymentIntent = PaymentIntent::create([
@@ -125,7 +126,7 @@ class TestBookingController extends Controller
                 ],
                 'statement_descriptor_suffix' => 'GR BOOKING',
             ]);
-            
+           
             $setupIntent = null;
         } else {
             // 💰 Split payment: 25% now, 75% later
@@ -146,7 +147,7 @@ class TestBookingController extends Controller
                 'statement_descriptor_suffix' => 'GR DEPOSIT',
                 'setup_future_usage' => 'off_session',
             ]);
-
+ 
             $setupIntent = SetupIntent::create([
                 'customer' => $stripeCustomer->id,
                 'payment_method_types' => ['card'],
@@ -157,7 +158,7 @@ class TestBookingController extends Controller
                 ],
             ]);
         }
-
+ 
         $booking->update([
             'stripe_customer_id'        => $stripeCustomer->id,
             'upfront_payment_intent_id' => $paymentIntent->id,
@@ -183,37 +184,70 @@ class TestBookingController extends Controller
             ]
         ]);
     }
-
+ 
     // ✅ Webhook for payment_intent.succeeded to update booking + log receipt_url
     public function handleStripeWebhook(Request $request)
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
         $endpointSecret = env('STRIPE_WEBHOOK_SECRET');
-
+ 
         try {
             $event = Webhook::constructEvent($payload, $sigHeader, $endpointSecret);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 400);
         }
-
+ 
         if ($event->type === 'payment_intent.succeeded') {
             $intent = $event->data->object;
             $bookingId = $intent->metadata->booking_id ?? null;
-
+ 
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
-                    $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
+                    $receiptUrl = null;
+                   
+                    // Method 1: Try to get receipt_url from charges in the webhook payload
+                    if (isset($intent->charges) && isset($intent->charges->data) && count($intent->charges->data) > 0) {
+                        $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
+                        Log::info("Receipt URL from webhook payload: " . ($receiptUrl ?? 'null'));
+                    }
+                   
+                    // Method 2: If receipt_url is still null, fetch fresh PaymentIntent from Stripe API
+                    if (!$receiptUrl) {
+                        try {
+                            Stripe::setApiKey(config('services.stripe.secret'));
+                            $freshIntent = PaymentIntent::retrieve([
+                                'id' => $intent->id,
+                                'expand' => ['charges']
+                            ]);
+                           
+                            if (isset($freshIntent->charges->data[0]->receipt_url)) {
+                                $receiptUrl = $freshIntent->charges->data[0]->receipt_url;
+                                Log::info("Receipt URL from fresh API call: " . $receiptUrl);
+                            }
+                        } catch (\Exception $e) {
+                            Log::error("Error fetching fresh PaymentIntent: " . $e->getMessage());
+                        }
+                    }
+                   
+                    // Update booking with payment status and receipt URL
                     $booking->update([
                         'payment_status' => 'paid',
                         'receipt_url' => $receiptUrl,
                     ]);
-                    Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
+                   
+                    if ($receiptUrl) {
+                        Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
+                    } else {
+                        Log::warning("⚠️ Booking {$bookingId} marked paid but receipt_url is still null");
+                    }
                 }
             }
         }
-
+ 
         return response()->json(['status' => 'success']);
     }
+   
 }
+ 
