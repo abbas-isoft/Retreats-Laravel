@@ -39,7 +39,7 @@ class ChargeRemainingPayments extends Command
 
                 // agar abhi bhi payment method missing hai toh skip
                 if (empty($booking->stripe_payment_method_id)) {
-                    Log::warning("No payment method found for booking {$booking->id}, skipping charge.");
+                    // Log::warning("No payment method found for booking {$booking->id}, skipping charge.");
                     continue;
                 }
 
@@ -65,7 +65,7 @@ class ChargeRemainingPayments extends Command
                 Log::info("Remaining 75% charged successfully for booking {$booking->id}");
                 $this->info("Booking {$booking->id} charged successfully.");
             } catch (\Exception $e) {
-                Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
+                // Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
                 $this->error("Booking {$booking->id} failed: " . $e->getMessage());
             }
         }
