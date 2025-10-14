@@ -28,10 +28,11 @@ class LatestArrivalController extends Controller
     if ($selectedFilter) {
         $mappedFilter = $filters[$selectedFilter] ?? $selectedFilterRaw;
 
-        switch ($mappedFilter) {
-            case 'New Stays':
-                $query->whereDate('created_at', '>=', now()->subDays(30));
-                break;
+       switch ($mappedFilter) {
+    case 'New Stays':
+        // ✅ Show 4 most recently created properties
+        $query->orderBy('created_at', 'desc')->limit(4);
+        break;
 
             case 'Without Hot Tubs':
                 // ✅ Properties that DO NOT have the amenity 'POOL_SPA_HOT_TUB'
