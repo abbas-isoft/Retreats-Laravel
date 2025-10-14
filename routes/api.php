@@ -104,6 +104,7 @@ Route::get('similar_properties/{id}', [PropertyContentController::class, 'getSim
 Route::get('/test-logs', [TestBookingController::class, 'testLogging']);
 Route::post('/test-webhook-simple', [TestBookingController::class, 'testWebhookSimple']);
 Route::post('/stripe-webhook', [TestBookingController::class, 'handleStripeWebhook']);
+Route::post('/handle-payment-success', [TestBookingController::class, 'handlePaymentSuccess']);
 // Create Booking
 Route::post('/book-property', [BookingController::class, 'bookProperty']);
 
