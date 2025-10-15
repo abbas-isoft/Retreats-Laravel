@@ -20,7 +20,7 @@ class BookingConfirmed extends Mailable
 
     public function build()
     {
-        return $this->subject('Booking Confirmed' . $this->booking->id)
+        return $this->subject('Booking Confirmed')
                     ->markdown('emails.booking.confirmed');
     }
 }
