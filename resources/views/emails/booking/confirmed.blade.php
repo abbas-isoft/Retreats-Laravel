@@ -1,59 +1,70 @@
 @component('mail::message')
-# 🏡 Booking Confirmation
+{{-- Header Section --}}
+<div style="background-color:#b9975b; padding:25px 0; text-align:center;">
+    <img src="{{ asset('images/logo.png') }}" alt="Logo" style="max-width:80px; border-radius:8px;">
+</div>
 
-Hi **{{ $booking->first_name ?? 'Guest' }}**,  
+{{-- Title --}}
+<h1 style="text-align:center; margin-top:20px; color:#333;">Receipt from {{ config('app.name') }}</h1>
+<p style="text-align:center; color:#666;">Receipt #{{ strtoupper(substr($booking->booking_reference ?? 'N/A', 0, 8)) }}</p>
 
-Thank you for booking with us!  
-We’re excited to have you stay. Below are your booking details:
+{{-- Summary Info --}}
+<table width="100%" cellpadding="6" cellspacing="0" style="margin:25px 0; font-size:14px;">
+    <tr>
+        <td><strong>Amount Paid</strong></td>
+        <td style="text-align:right;">£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</td>
+    </tr>
+    <tr>
+        <td><strong>Date Paid</strong></td>
+        <td style="text-align:right;">{{ \Carbon\Carbon::now()->format('M d, Y, h:i A') }}</td>
+    </tr>
+    <tr>
+        <td><strong>Payment Method</strong></td>
+        <td style="text-align:right;">VISA •••• {{ $booking->card_last4 ?? '4242' }}</td>
+    </tr>
+</table>
 
----
+<hr>
 
-## 📋 Booking Details
-
-**Booking Reference:** {{ $booking->booking_reference ?? 'N/A' }}  
-**Property ID:** {{ $booking->property_id ?? 'N/A' }}  
-**Booking ID:** {{ $booking->booking_id ?? 'N/A' }}
-
----
-
-## 💳 Payment Summary
-
-| Description | Amount (£) | Status |
-|--------------|-------------|---------|
-| **Initial Payment (25%)** | {{ number_format($booking->upfront_cents ?? 0, 2) }} | ✅ Paid |
-| **Final Payment (Remaining)** | {{ number_format($booking->remaining_cents ?? 0, 2) }} | {{ $booking->payment_status == 'pending' ? '⏳ Pending' : '✅ Paid' }} |
-| **Final Payment Due Date** | {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'N/A' }} | — |
-
----
+{{-- Booking Summary --}}
+<h2 style="margin-top:25px; color:#333;">Summary</h2>
+<table width="100%" cellpadding="6" cellspacing="0" style="font-size:14px; border:1px solid #eee; border-radius:8px;">
+    <tr style="background-color:#f9f9f9;">
+        <td>Full payment for Booking {{ strtoupper($booking->booking_reference ?? 'N/A') }}</td>
+        <td style="text-align:right;">£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</td>
+    </tr>
+    <tr>
+        <td><strong>Amount Paid</strong></td>
+        <td style="text-align:right;"><strong>£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</strong></td>
+    </tr>
+</table>
 
 @if($booking->receipt_url)
-@component('mail::button', ['url' => $booking->receipt_url])
-🧾 View Your Receipt
-@endcomponent
-@else
-Your payment receipt will be available shortly.
+    <div style="text-align:center; margin-top:30px;">
+        <a href="{{ $booking->receipt_url }}" 
+           style="display:inline-block; background-color:#b9975b; color:#fff; padding:10px 20px; border-radius:6px; text-decoration:none;">
+            🧾 View Receipt
+        </a>
+    </div>
 @endif
 
----
+<hr style="margin:40px 0;">
 
-@if($booking->payment_status == 'pending')
-> 💰 **25% payment received.** The remaining balance is due by  
-> **{{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'your due date' }}.**
-@else
-> ✅ **Your full payment has been received.** Thank you for completing your booking!
-@endif
+{{-- Footer --}}
+<p style="text-align:center; color:#555;">
+    If you have any questions, contact us at  
+    <a href="mailto:{{ config('mail.from.address') }}" style="color:#b9975b; text-decoration:none;">
+        {{ config('mail.from.address') }}
+    </a>
+</p>
 
----
+<p style="text-align:center; color:#999; font-size:12px; margin-top:20px;">
+    You're receiving this email because you made a purchase at {{ config('app.name') }},  
+    which partners with Stripe to provide invoicing and secure payment processing.
+</p>
 
-### 📅 What’s Next
-- You’ll receive reminders before your final payment is due.  
-- Our team will contact you with further stay details soon.  
-- For any questions, just reply to this email — we’re happy to help.
-
----
-
-Thanks again for choosing us!  
-Warm regards,  
-**{{ config('app.name') }} Team**
+<p style="text-align:center; font-size:12px; color:#999;">
+    Something wrong with the email? <a href="{{ $booking->receipt_url ?? '#' }}" style="color:#b9975b;">View it in your browser</a>
+</p>
 
 @endcomponent
