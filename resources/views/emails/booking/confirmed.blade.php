@@ -60,12 +60,16 @@
         <td style="text-align:right;">£{{ number_format(($booking->damage_deposit_cents ?? 0) / 100, 2) }}</td>
     </tr>
     <tr style="border-bottom:1px solid #eee;">
-    <td>Security Deposit (to be held later)</td>
-    <td style="text-align:right;">£{{ number_format(($booking->security_deposit_cents ?? 0) / 100, 2) }}</td>
-</tr>
+        <td>Security Deposit (to be held later)</td>
+        <td style="text-align:right;">£{{ number_format(($booking->security_deposit_cents ?? 0) / 100, 2) }}</td>
+    </tr>
     <tr>
         <td><strong>Total Amount Due</strong></td>
-        <td style="text-align:right;"><strong>£{{ number_format((($booking->upfront_cents + $booking->remaining_cents + $booking->damage_deposit_cents) ?? 0) / 100, 2) }}</strong></td>
+        <td style="text-align:right;">
+            <strong>
+                £{{ number_format((($booking->upfront_cents + $booking->remaining_cents + $booking->damage_deposit_cents + $booking->security_deposit_cents) ?? 0) / 100, 2) }}
+            </strong>
+        </td>
     </tr>
 </table>
 
