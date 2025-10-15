@@ -26,62 +26,52 @@
 
 <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
 
-{{-- Payment Summary --}}
-<h2 style="margin-top:25px; color:#333;">Payment Summary</h2>
+{{-- Payment Summary Section --}}
+<h2 style="font-size:18px; color:#222; margin-top:30px;">Payment Summary</h2>
 
-<table width="100%" cellpadding="8" cellspacing="0" style="margin:15px 0; font-size:14px; color:#333;">
-    <tr>
-        <td><strong>Full Booking Amount</strong></td>
-        <td style="text-align:right;">£{{ number_format($booking->amount_cents / 100, 2) }}</td>
+<table width="100%" cellpadding="8" cellspacing="0" style="margin:15px 0 25px; font-size:14px; color:#333; border-collapse:collapse;">
+    <tr style="border-bottom:1px solid #eee;">
+        <td><strong>Amount Paid</strong></td>
+        <td style="text-align:right;">£{{ number_format(($booking->upfront_cents ?? 0) / 100, 2) }}</td>
     </tr>
-    <tr>
-        <td>Initial Payment (25%)</td>
-        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }} <span style="color:green;">✅ Paid</span></td>
+    <tr style="border-bottom:1px solid #eee;">
+        <td><strong>Date Paid</strong></td>
+        <td style="text-align:right;">
+            {{ $booking->created_at ? \Carbon\Carbon::parse($booking->created_at)->format('M d, Y, h:i A') : \Carbon\Carbon::now()->format('M d, Y, h:i A') }}
+        </td>
     </tr>
-
-    @if(!empty($booking->remaining_cents) && $booking->remaining_cents > 0)
-        <tr>
-            <td>
-                Remaining Balance (due on 
-                {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('D, d M Y') : 'N/A' }})
-            </td>
-            <td style="text-align:right;">
-                £{{ number_format($booking->remaining_cents / 100, 2) }} <span style="color:#b9975b;">⏳ Pending</span>
-            </td>
-        </tr>
-    @else
-        <tr>
-            <td>Remaining Balance</td>
-            <td style="text-align:right;"><span style="color:green;">✅ Fully Paid</span></td>
-        </tr>
-    @endif
-
-    <tr>
+    <tr style="border-bottom:1px solid #eee;">
+        <td><strong>Payment Method</strong></td>
+        <td style="text-align:right;">
+            {{ strtoupper($booking->card_brand ?? 'VISA') }} •••• {{ $booking->card_last4 ?? '4242' }}
+        </td>
+    </tr>
+    <tr style="border-bottom:1px solid #eee;">
+        <td>Remaining Balance (due on 
+            {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('D, d M Y') : 'N/A' }})
+        </td>
+        <td style="text-align:right;">
+            £{{ number_format(($booking->remaining_cents ?? 0) / 100, 2) }}
+            <span style="color:#b9975b;">{{ $booking->payment_status == 'pending' ? '⏳ Pending' : '✅ Paid' }}</span>
+        </td>
+    </tr>
+    <tr style="border-bottom:1px solid #eee;">
         <td>Damage Deposit (to be held later)</td>
-        <td style="text-align:right;">£{{ number_format($booking->damage_deposit_cents / 100, 2) }}</td>
+        <td style="text-align:right;">£{{ number_format(($booking->damage_deposit_cents ?? 0) / 100, 2) }}</td>
     </tr>
-
     <tr>
         <td><strong>Total Amount Due</strong></td>
-        <td style="text-align:right;"><strong>£{{ number_format($booking->amount_cents / 100, 2) }}</strong></td>
+        <td style="text-align:right;"><strong>£{{ number_format((($booking->upfront_cents + $booking->remaining_cents + $booking->damage_deposit_cents) ?? 0) / 100, 2) }}</strong></td>
     </tr>
 </table>
 
-{{-- Note Section --}}
-<p style="margin-top:15px; color:#555; font-size:13px;">
-    💡 The remaining balance will be automatically charged on 
-    <strong>{{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'your due date' }}</strong>.
-    The damage deposit will be pre-authorized a few days before your arrival.
-</p>
-
-{{-- Receipt Button --}}
 @if($booking->receipt_url)
-    <div style="text-align:center; margin-top:30px;">
-        <a href="{{ $booking->receipt_url }}" 
-           style="display:inline-block; background-color:#b9975b; color:#fff; padding:10px 20px; border-radius:6px; text-decoration:none;">
-            🧾 View Receipt
-        </a>
-    </div>
+<p style="text-align:center; margin-top:25px;">
+    <a href="{{ $booking->receipt_url }}" 
+       style="display:inline-block; background:#007bff; color:#fff; text-decoration:none; padding:10px 20px; border-radius:5px; font-weight:bold;">
+        🔗 View Payment Receipt
+    </a>
+</p>
 @endif
 
 <hr style="margin:40px 0; border:0; border-top:1px solid #ddd;">
