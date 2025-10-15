@@ -5,7 +5,7 @@
 </div>
 
 {{-- Title --}}
-<h1 style="text-align:center; margin-top:20px; color:#333;">Receipt from {{ config('app.name') }}</h1>
+<h1 style="text-align:center; margin-top:20px; color:#333;">Invoice</h1>
 <p style="text-align:center; color:#666;">Receipt #{{ strtoupper(substr($booking->booking_reference ?? 'N/A', 0, 8)) }}</p>
 
 {{-- Summary Info --}}
