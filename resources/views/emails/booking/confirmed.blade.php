@@ -83,8 +83,8 @@
 {{-- Footer --}}
 <p style="text-align:center; color:#555;">
     If you have any questions, contact us at  
-    <a href="mailto:{{ config('mail.from.address') }}" style="color:#b9975b; text-decoration:none;">
-        {{ config('mail.from.address') }}
+    <a href="mailto:enquiries@groupretreats.co.uk" style="color:#b9975b; text-decoration:none;">
+        enquiries@groupretreats.co.uk
     </a>
 </p>
 
