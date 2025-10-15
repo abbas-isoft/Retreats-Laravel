@@ -17,8 +17,9 @@ Thank you **{{ $booking->first_name ?? 'Guest' }}** for your booking!
 ---
 
 @if($booking->receipt_url)
-Your receipt: [View Receipt]({{ $booking->receipt_url }})
-@else
+@component('mail::button', ['url' => $booking->receipt_url])
+View Receipt
+@endcomponent@else
 Your receipt will be available shortly.
 @endif
 

@@ -444,117 +444,99 @@ class TestBookingController extends Controller
 
     // 🎯 Handle payment success immediately (called from frontend after payment confirmation)
     public function handlePaymentSuccess(Request $request)
-    {
-        error_log("🎯 PAYMENT SUCCESS HANDLER CALLED - STARTING");
-        error_log("🔍 REQUEST DATA: " . json_encode($request->all()));
-        
-        try {
-            $data = $request->validate([
-                'payment_intent_id' => 'required|string',
-                'booking_id' => 'required|integer'
-            ]);
-            
-            error_log("✅ VALIDATION PASSED for booking: " . $data['booking_id']);
-        } catch (\Exception $e) {
-            error_log("❌ VALIDATION FAILED: " . $e->getMessage());
-            return response()->json(['error' => 'Validation failed: ' . $e->getMessage()], 400);
-        }
+{
+    error_log("🎯 PAYMENT SUCCESS HANDLER CALLED - STARTING");
+    error_log("🔍 REQUEST DATA: " . json_encode($request->all()));
 
-        error_log("🔍 LOOKING FOR BOOKING ID: " . $data['booking_id']);
+    try {
+        $data = $request->validate([
+            'payment_intent_id' => 'required|string',
+            'booking_id' => 'required|integer'
+        ]);
 
-        $booking = TestBooking::where('booking_id', $data['booking_id'])->first();
-        if (!$booking) {
-            error_log("❌ BOOKING NOT FOUND for booking_id: " . $data['booking_id']);
-            error_log("🔍 TRYING TO FIND ANY BOOKINGS IN DATABASE...");
-            $totalBookings = TestBooking::count();
-            error_log("🔍 TOTAL BOOKINGS IN DATABASE: " . $totalBookings);
-            $recentBookings = TestBooking::latest()->take(5)->pluck('booking_id');
-            error_log("🔍 RECENT BOOKING IDs: " . $recentBookings->toJson());
-            return response()->json(['error' => 'Booking not found'], 404);
-        }
-
-        error_log("✅ BOOKING FOUND: " . $booking->booking_reference);
-
-        try {
-            error_log("🔍 CALLING STRIPE API with payment_intent_id: " . $data['payment_intent_id']);
-            
-            // Fetch fresh payment intent from Stripe to get receipt URL
-            Stripe::setApiKey(config('services.stripe.secret'));
-            
-            $paymentIntent = PaymentIntent::retrieve([
-                'id' => $data['payment_intent_id'],
-                'expand' => ['charges']
-            ]);
-
-            error_log("✅ STRIPE API CALL SUCCESSFUL");
-            error_log("🔍 PAYMENT INTENT STATUS: " . $paymentIntent->status);
-            error_log("🔍 CHARGES COUNT: " . (isset($paymentIntent->charges->data) ? count($paymentIntent->charges->data) : 0));
-
-            $receiptUrl = null;
-            if (isset($paymentIntent->charges->data[0])) {
-                $charge = $paymentIntent->charges->data[0];
-                error_log("🔍 FIRST CHARGE ID: " . $charge->id);
-                error_log("🔍 CHARGE STATUS: " . $charge->status);
-                
-                if (isset($charge->receipt_url)) {
-                    $receiptUrl = $charge->receipt_url;
-                    error_log("🧾 RECEIPT URL FOUND: " . $receiptUrl);
-                } else {
-                    error_log("⚠️ NO RECEIPT_URL IN CHARGE OBJECT");
-                    error_log("🔍 CHARGE OBJECT KEYS: " . json_encode(array_keys((array)$charge)));
-                }
-            } else {
-                error_log("⚠️ NO CHARGES FOUND IN PAYMENT INTENT");
-            }
-
-            error_log("🔄 UPDATING BOOKING WITH PAYMENT STATUS AND RECEIPT URL");
-
-            // Update booking
-            $booking->update([
-                'payment_status' => 'paid',
-                'receipt_url' => $receiptUrl,
-            ]);
-
-            error_log("✅ BOOKING UPDATED SUCCESSFULLY");
-
-            // Send email with receipt URL
-            if ($receiptUrl) {
-                error_log("📧 ATTEMPTING TO SEND EMAIL WITH RECEIPT URL");
-                
-                $emailSubject = "Payment Receipt - Booking {$booking->booking_reference}";
-                $emailBody = "Dear {$booking->guest_firstname},\n\n";
-                $emailBody .= "Your payment has been confirmed for booking {$booking->booking_reference}.\n\n";
-                $emailBody .= "Receipt URL: {$receiptUrl}\n\n";
-                $emailBody .= "Thank you for your booking!";
-                
-                try {
-                    Mail::raw($emailBody, function ($message) use ($booking, $emailSubject) {
-                        $message->to($booking->email)->subject($emailSubject);
-                    });
-                    error_log("📧 RECEIPT EMAIL SENT SUCCESSFULLY to: " . $booking->email);
-                } catch (\Exception $e) {
-                    error_log("❌ FAILED TO SEND RECEIPT EMAIL: " . $e->getMessage());
-                }
-            } else {
-                error_log("⚠️ NO RECEIPT URL - SKIPPING EMAIL");
-            }
-
-            error_log("🎉 PAYMENT SUCCESS HANDLER COMPLETED SUCCESSFULLY");
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Payment processed successfully',
-                'data' => [
-                    'payment_status' => $booking->payment_status,
-                    'receipt_url' => $receiptUrl,
-                    'booking_reference' => $booking->booking_reference
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            error_log("❌ ERROR IN PAYMENT SUCCESS HANDLER: " . $e->getMessage());
-            error_log("❌ ERROR TRACE: " . $e->getTraceAsString());
-            return response()->json(['error' => 'Failed to process payment: ' . $e->getMessage()], 500);
-        }
+        error_log("✅ VALIDATION PASSED for booking: " . $data['booking_id']);
+    } catch (\Exception $e) {
+        error_log("❌ VALIDATION FAILED: " . $e->getMessage());
+        return response()->json(['error' => 'Validation failed: ' . $e->getMessage()], 400);
     }
+
+    error_log("🔍 LOOKING FOR BOOKING ID: " . $data['booking_id']);
+
+    $booking = TestBooking::where('booking_id', $data['booking_id'])->first();
+
+    if (!$booking) {
+        error_log("❌ BOOKING NOT FOUND for booking_id: " . $data['booking_id']);
+        $totalBookings = TestBooking::count();
+        error_log("🔍 TOTAL BOOKINGS IN DATABASE: " . $totalBookings);
+        $recentBookings = TestBooking::latest()->take(5)->pluck('booking_id');
+        error_log("🔍 RECENT BOOKING IDs: " . $recentBookings->toJson());
+        return response()->json(['error' => 'Booking not found'], 404);
+    }
+
+    error_log("✅ BOOKING FOUND: " . $booking->booking_reference);
+
+    try {
+        error_log("🔍 CALLING STRIPE API with payment_intent_id: " . $data['payment_intent_id']);
+
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        $paymentIntent = PaymentIntent::retrieve([
+            'id' => $data['payment_intent_id'],
+            'expand' => ['charges']
+        ]);
+
+        error_log("✅ STRIPE API CALL SUCCESSFUL");
+        error_log("🔍 PAYMENT INTENT STATUS: " . $paymentIntent->status);
+
+        $receiptUrl = null;
+        if (!empty($paymentIntent->charges->data)) {
+            $charge = $paymentIntent->charges->data[0];
+            $receiptUrl = $charge->receipt_url ?? null;
+
+            if ($receiptUrl) {
+                error_log("🧾 RECEIPT URL FOUND: " . $receiptUrl);
+            } else {
+                error_log("⚠️ NO RECEIPT_URL FOUND IN CHARGE");
+            }
+        } else {
+            error_log("⚠️ NO CHARGES FOUND IN PAYMENT INTENT");
+        }
+
+        // ✅ Update booking
+        $booking->update([
+            'payment_status' => 'paid',
+            'receipt_url' => $receiptUrl,
+        ]);
+
+        error_log("✅ BOOKING UPDATED SUCCESSFULLY");
+
+        // ✅ Send booking confirmation email using Blade template
+        try {
+            error_log("📧 SENDING BOOKING CONFIRMATION EMAIL USING Mailable");
+
+            Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
+
+            error_log("📧 BOOKING CONFIRMATION EMAIL SENT SUCCESSFULLY to: " . $booking->email);
+        } catch (\Exception $e) {
+            error_log("❌ FAILED TO SEND BOOKING CONFIRMATION EMAIL: " . $e->getMessage());
+        }
+
+        error_log("🎉 PAYMENT SUCCESS HANDLER COMPLETED SUCCESSFULLY");
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Payment processed successfully',
+            'data' => [
+                'payment_status' => $booking->payment_status,
+                'receipt_url' => $receiptUrl,
+                'booking_reference' => $booking->booking_reference
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        error_log("❌ ERROR IN PAYMENT SUCCESS HANDLER: " . $e->getMessage());
+        error_log("❌ ERROR TRACE: " . $e->getTraceAsString());
+        return response()->json(['error' => 'Failed to process payment: ' . $e->getMessage()], 500);
+    }
+}
 }
