@@ -1,14 +1,14 @@
 @component('mail::message')
-# 🎉 Booking Confirmation
+# 🏡 Booking Confirmation
 
 Hi **{{ $booking->first_name ?? 'Guest' }}**,  
 
 Thank you for booking with us!  
-Here are your booking details:
+We’re excited to have you stay. Below are your booking details:
 
 ---
 
-## 🏠 Booking Summary
+## 📋 Booking Details
 
 **Booking Reference:** {{ $booking->booking_reference ?? 'N/A' }}  
 **Property ID:** {{ $booking->property_id ?? 'N/A' }}  
@@ -16,15 +16,13 @@ Here are your booking details:
 
 ---
 
-## 💳 Payment Details
+## 💳 Payment Summary
 
 | Description | Amount (£) | Status |
 |--------------|-------------|---------|
-| **Initial Payment (25%)** | {{ number_format($booking->initial_payment ?? 0, 2) }} | ✅ Paid |
-| **Final Payment (Remaining)** | {{ number_format($booking->final_payment ?? 0, 2) }} | {{ $booking->payment_status == 'pending' ? '⏳ Pending' : '✅ Paid' }} |
-| **Final Payment Due Date** | {{ $booking->final_payment_due_date ? \Carbon\Carbon::parse($booking->final_payment_due_date)->format('d M Y') : 'N/A' }} | — |
-| **Damage Deposit Hold** | {{ number_format($booking->damage_deposit ?? 0, 2) }} | 💰 Held |
-| **Hold Release Date** | {{ $booking->damage_deposit_hold_date ? \Carbon\Carbon::parse($booking->damage_deposit_hold_date)->format('d M Y') : 'N/A' }} | — |
+| **Initial Payment (25%)** | {{ number_format($booking->upfront_cents ?? 0, 2) }} | ✅ Paid |
+| **Final Payment (Remaining)** | {{ number_format($booking->remaining_cents ?? 0, 2) }} | {{ $booking->payment_status == 'pending' ? '⏳ Pending' : '✅ Paid' }} |
+| **Final Payment Due Date** | {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'N/A' }} | — |
 
 ---
 
@@ -38,16 +36,23 @@ Your payment receipt will be available shortly.
 
 ---
 
-### 📅 Next Steps
-- Please ensure the **final payment** is made before the due date.  
-- You will receive an update once your payment is confirmed.  
-- For any queries or changes, feel free to reply to this email.
+@if($booking->payment_status == 'pending')
+> 💰 **25% payment received.** The remaining balance is due by  
+> **{{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'your due date' }}.**
+@else
+> ✅ **Your full payment has been received.** Thank you for completing your booking!
+@endif
+
+---
+
+### 📅 What’s Next
+- You’ll receive reminders before your final payment is due.  
+- Our team will contact you with further stay details soon.  
+- For any questions, just reply to this email — we’re happy to help.
 
 ---
 
 Thanks again for choosing us!  
-We look forward to hosting you soon.  
-
 Warm regards,  
 **{{ config('app.name') }} Team**
 
