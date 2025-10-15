@@ -29,46 +29,41 @@
 {{-- Booking Breakdown --}}
 <h2 style="margin-top:25px; color:#333;">Payment Summary</h2>
 
-<table width="100%" cellpadding="8" cellspacing="0" 
-       style="margin-top:10px; font-size:14px; border-collapse:collapse; width:100%; border:1px solid #eee; border-radius:8px; overflow:hidden;">
-    <tr style="background-color:#f9f9f9;">
-        <td style="padding:10px; font-weight:600; color:#333;">Full Booking Amount</td>
-        <td style="text-align:right; padding:10px; font-weight:600; color:#333;">
-            £{{ number_format($booking->amount_cents / 100, 2) }}
-        </td>
+<table width="100%" cellpadding="6" cellspacing="0" style="margin:15px 0; font-size:14px;">
+    <tr>
+        <td><strong>Full Booking Amount</strong></td>
+        <td style="text-align:right;">£{{ number_format($booking->amount_cents / 100, 2) }}</td>
     </tr>
     <tr>
-        <td style="padding:10px;">Initial Payment (25%)</td>
-        <td style="text-align:right; padding:10px;">£{{ number_format($booking->upfront_cents / 100, 2) }} — ✅ Paid</td>
+        <td>Initial Payment (25%)</td>
+        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }} — ✅ Paid</td>
     </tr>
 
     @if(!empty($booking->remaining_cents) && $booking->remaining_cents > 0)
-        <tr style="background-color:#f9f9f9;">
-            <td style="padding:10px;">
+        <tr>
+            <td>
                 Remaining Balance (due on 
                 {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('D, d M Y') : 'N/A' }})
             </td>
-            <td style="text-align:right; padding:10px;">
+            <td style="text-align:right;">
                 £{{ number_format($booking->remaining_cents / 100, 2) }} — ⏳ Pending
             </td>
         </tr>
     @else
-        <tr style="background-color:#f9f9f9;">
-            <td style="padding:10px;">Remaining Balance</td>
-            <td style="text-align:right; padding:10px;">£0.00 — ✅ Fully Paid</td>
+        <tr>
+            <td>Remaining Balance</td>
+            <td style="text-align:right;">£0.00 — ✅ Fully Paid</td>
         </tr>
     @endif
 
     <tr>
-        <td style="padding:10px;">Damage Deposit (to be held later)</td>
-        <td style="text-align:right; padding:10px;">£{{ number_format($booking->damage_deposit_cents / 100, 2) }}</td>
+        <td>Damage Deposit (to be held later)</td>
+        <td style="text-align:right;">£{{ number_format($booking->damage_deposit_cents / 100, 2) }}</td>
     </tr>
 
-    <tr style="background-color:#f9f9f9; border-top:1px solid #eee;">
-        <td style="padding:12px; font-weight:600; color:#333;">Total Amount Due</td>
-        <td style="text-align:right; padding:12px; font-weight:600; color:#333;">
-            £{{ number_format($booking->amount_cents / 100, 2) }}
-        </td>
+    <tr>
+        <td><strong>Total Amount Due</strong></td>
+        <td style="text-align:right;"><strong>£{{ number_format($booking->amount_cents / 100, 2) }}</strong></td>
     </tr>
 </table>
 
