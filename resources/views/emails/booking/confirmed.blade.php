@@ -9,7 +9,7 @@
 <p style="text-align:center; color:#666;">Receipt #{{ strtoupper(substr($booking->booking_reference ?? 'N/A', 0, 8)) }}</p>
 
 {{-- Summary Info --}}
-<table width="100%" cellpadding="6" cellspacing="0" style="margin:25px 0; font-size:14px;">
+<table width="100%" cellpadding="8" cellspacing="0" style="margin:25px 0; font-size:14px; color:#333;">
     <tr>
         <td><strong>Amount Paid</strong></td>
         <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }}</td>
@@ -24,19 +24,19 @@
     </tr>
 </table>
 
-<hr>
+<hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
 
-{{-- Booking Breakdown --}}
+{{-- Payment Summary --}}
 <h2 style="margin-top:25px; color:#333;">Payment Summary</h2>
 
-<table width="100%" cellpadding="6" cellspacing="0" style="margin:15px 0; font-size:14px;">
+<table width="100%" cellpadding="8" cellspacing="0" style="margin:15px 0; font-size:14px; color:#333;">
     <tr>
         <td><strong>Full Booking Amount</strong></td>
         <td style="text-align:right;">£{{ number_format($booking->amount_cents / 100, 2) }}</td>
     </tr>
     <tr>
         <td>Initial Payment (25%)</td>
-        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }} — ✅ Paid</td>
+        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }} <span style="color:green;">✅ Paid</span></td>
     </tr>
 
     @if(!empty($booking->remaining_cents) && $booking->remaining_cents > 0)
@@ -46,13 +46,13 @@
                 {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('D, d M Y') : 'N/A' }})
             </td>
             <td style="text-align:right;">
-                £{{ number_format($booking->remaining_cents / 100, 2) }} — ⏳ Pending
+                £{{ number_format($booking->remaining_cents / 100, 2) }} <span style="color:#b9975b;">⏳ Pending</span>
             </td>
         </tr>
     @else
         <tr>
             <td>Remaining Balance</td>
-            <td style="text-align:right;">£0.00 — ✅ Fully Paid</td>
+            <td style="text-align:right;"><span style="color:green;">✅ Fully Paid</span></td>
         </tr>
     @endif
 
@@ -66,7 +66,6 @@
         <td style="text-align:right;"><strong>£{{ number_format($booking->amount_cents / 100, 2) }}</strong></td>
     </tr>
 </table>
-
 
 {{-- Note Section --}}
 <p style="margin-top:15px; color:#555; font-size:13px;">
@@ -85,7 +84,7 @@
     </div>
 @endif
 
-<hr style="margin:40px 0;">
+<hr style="margin:40px 0; border:0; border-top:1px solid #ddd;">
 
 {{-- Footer --}}
 <p style="text-align:center; color:#555;">
@@ -104,5 +103,4 @@
     Something wrong with the email? 
     <a href="{{ $booking->receipt_url ?? '#' }}" style="color:#b9975b;">View it in your browser</a>
 </p>
-
 @endcomponent
