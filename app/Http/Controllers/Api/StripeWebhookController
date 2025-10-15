@@ -33,29 +33,32 @@ class StripeWebhookController extends Controller
         /**
          * ✅ CHECKOUT SESSION COMPLETED
          */
-        if ($type === 'checkout.session.completed') {
-            $session   = $obj;
-            $bookingId = $session->metadata->local_booking_id ?? null;
+       if ($type === 'checkout.session.completed') {
+    $session   = $obj;
+    $bookingId = $session->metadata->local_booking_id ?? null;
 
-            if ($bookingId) {
-                $booking = TestBooking::find($bookingId);
-                if ($booking) {
-                    if (!empty($session->payment_intent)) {
-                        $paymentIntent = PaymentIntent::retrieve($session->payment_intent);
+    if ($bookingId) {
+        $booking = TestBooking::find($bookingId);
+        if ($booking) {
+            if (!empty($session->payment_intent)) {
+                $paymentIntent = PaymentIntent::retrieve([
+                    'id' => $session->payment_intent,
+                    'expand' => ['charges']
+                ]);
 
-                        $booking->update([
-                            'payment_status'            => 'paid',
-                            'stripe_payment_method_id'  => $paymentIntent->payment_method,
-                            'upfront_payment_intent_id' => $paymentIntent->id,
-                            'stripe_transaction_id'     => $paymentIntent->id,
-                            'receipt_url'               => $paymentIntent->charges->data[0]->receipt_url ?? null,
-                        ]);
-                    } else {
-                        $booking->update(['payment_status' => 'paid']);
-                    }
-                }
+                $booking->update([
+                    'payment_status'            => 'paid',
+                    'stripe_payment_method_id'  => $paymentIntent->payment_method,
+                    'upfront_payment_intent_id' => $paymentIntent->id,
+                    'stripe_transaction_id'     => $paymentIntent->id,
+                    'receipt_url'               => $paymentIntent->charges->data[0]->receipt_url ?? null,
+                ]);
+            } else {
+                $booking->update(['payment_status' => 'paid']);
             }
         }
+    }
+}
 
         /**
          * ✅ PAYMENT INTENT SUCCEEDED
@@ -69,8 +72,10 @@ class StripeWebhookController extends Controller
                 $booking = TestBooking::find($bookingId);
                 if ($booking) {
                     try {
-                        $intent = PaymentIntent::retrieve($pi->id);
-
+                        $intent = PaymentIntent::retrieve([
+    'id' => $pi->id,
+    'expand' => ['charges']
+]);
                         // Update local DB
                         $updateData = [
                             'stripe_payment_method_id' => $intent->payment_method,
