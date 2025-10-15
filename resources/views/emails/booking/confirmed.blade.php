@@ -59,10 +59,10 @@
         <td>Damage Deposit (Pre-authorised hold on the card 7 days before arrival and released 7 days after departure.)</td>
         <td style="text-align:right;">£{{ number_format(($booking->damage_deposit_cents ?? 0) / 100, 2) }}</td>
     </tr>
-    <tr style="border-bottom:1px solid #eee;">
+    <!-- <tr style="border-bottom:1px solid #eee;">
     <td>Security Deposit (to be held later)</td>
     <td style="text-align:right;">£{{ number_format(($booking->security_deposit_cents ?? 0) / 100, 2) }}</td>
-</tr>
+</tr> -->
     <tr>
         <td><strong>Total Amount Due</strong></td>
         <td style="text-align:right;"><strong>£{{ number_format((($booking->upfront_cents + $booking->remaining_cents + $booking->damage_deposit_cents) ?? 0) / 100, 2) }}</strong></td>
