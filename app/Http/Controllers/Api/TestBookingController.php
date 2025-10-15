@@ -488,7 +488,8 @@ class TestBookingController extends Controller
             'payment_status' => 1,
             'receipt_url' => $receiptUrl,
         ]);
-
+     
+        
         // Step 4: Return success response
         return response()->json([
             'status' => 'success',
