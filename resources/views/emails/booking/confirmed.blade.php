@@ -5,40 +5,70 @@
 </div>
 
 {{-- Title --}}
-<h1 style="text-align:center; margin-top:20px; color:#333;">Invoice</h1>
+<h1 style="text-align:center; margin-top:20px; color:#333;">Booking Invoice</h1>
 <p style="text-align:center; color:#666;">Receipt #{{ strtoupper(substr($booking->booking_reference ?? 'N/A', 0, 8)) }}</p>
 
 {{-- Summary Info --}}
 <table width="100%" cellpadding="6" cellspacing="0" style="margin:25px 0; font-size:14px;">
     <tr>
         <td><strong>Amount Paid</strong></td>
-        <td style="text-align:right;">£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</td>
+        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }}</td>
     </tr>
     <tr>
         <td><strong>Date Paid</strong></td>
-        <td style="text-align:right;">{{ \Carbon\Carbon::now()->format('M d, Y, h:i A') }}</td>
+        <td style="text-align:right;">{{ $booking->created_at ? \Carbon\Carbon::parse($booking->created_at)->format('M d, Y, h:i A') : \Carbon\Carbon::now()->format('M d, Y, h:i A') }}</td>
     </tr>
     <tr>
         <td><strong>Payment Method</strong></td>
-        <td style="text-align:right;">VISA •••• {{ $booking->card_last4 ?? '4242' }}</td>
+        <td style="text-align:right;">{{ strtoupper($booking->card_brand ?? 'VISA') }} •••• {{ $booking->card_last4 ?? '4242' }}</td>
     </tr>
 </table>
 
 <hr>
 
-{{-- Booking Summary --}}
-<h2 style="margin-top:25px; color:#333;">Summary</h2>
-<table width="100%" cellpadding="6" cellspacing="0" style="font-size:14px; border:1px solid #eee; border-radius:8px;">
+{{-- Booking Breakdown --}}
+<h2 style="margin-top:25px; color:#333;">Payment Summary</h2>
+<table width="100%" cellpadding="8" cellspacing="0" style="font-size:14px; border:1px solid #eee; border-radius:8px;">
     <tr style="background-color:#f9f9f9;">
-        <td>Full payment for Booking {{ strtoupper($booking->booking_reference ?? 'N/A') }}</td>
-        <td style="text-align:right;">£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</td>
+        <td><strong>Full Booking Amount</strong></td>
+        <td style="text-align:right;"><strong>£{{ number_format($booking->amount_cents / 100, 2) }}</strong></td>
     </tr>
     <tr>
-        <td><strong>Amount Paid</strong></td>
-        <td style="text-align:right;"><strong>£{{ number_format(($booking->upfront_cents ?? 0) + ($booking->remaining_cents ?? 0), 2) }}</strong></td>
+        <td>Initial Payment (25%)</td>
+        <td style="text-align:right;">£{{ number_format($booking->upfront_cents / 100, 2) }} — ✅ Paid</td>
+    </tr>
+
+    @if(!empty($booking->remaining_cents) && $booking->remaining_cents > 0)
+    <tr>
+        <td>Remaining Balance (due on {{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('D, d M Y') : 'N/A' }})</td>
+        <td style="text-align:right;">£{{ number_format($booking->remaining_cents / 100, 2) }} — ⏳ Pending</td>
+    </tr>
+    @else
+    <tr>
+        <td>Remaining Balance</td>
+        <td style="text-align:right;">£0.00 — ✅ Fully Paid</td>
+    </tr>
+    @endif
+
+    <tr>
+        <td>Damage Deposit (to be held later)</td>
+        <td style="text-align:right;">£{{ number_format($booking->damage_deposit_cents / 100, 2) }}</td>
+    </tr>
+
+    <tr style="background-color:#f9f9f9;">
+        <td><strong>Total Amount Due</strong></td>
+        <td style="text-align:right;"><strong>£{{ number_format($booking->amount_cents / 100, 2) }}</strong></td>
     </tr>
 </table>
 
+{{-- Note Section --}}
+<p style="margin-top:15px; color:#555; font-size:13px;">
+    💡 The remaining balance will be automatically charged on 
+    <strong>{{ $booking->remaining_payment_scheduled_at ? \Carbon\Carbon::parse($booking->remaining_payment_scheduled_at)->format('d M Y') : 'your due date' }}</strong>.
+    The damage deposit will be pre-authorized a few days before your arrival.
+</p>
+
+{{-- Receipt Button --}}
 @if($booking->receipt_url)
     <div style="text-align:center; margin-top:30px;">
         <a href="{{ $booking->receipt_url }}" 
@@ -59,12 +89,13 @@
 </p>
 
 <p style="text-align:center; color:#999; font-size:12px; margin-top:20px;">
-    You're receiving this email because you made a purchase at {{ config('app.name') }},  
+    You're receiving this email because you made a booking at {{ config('app.name') }},  
     which partners with Stripe to provide invoicing and secure payment processing.
 </p>
 
 <p style="text-align:center; font-size:12px; color:#999;">
-    Something wrong with the email? <a href="{{ $booking->receipt_url ?? '#' }}" style="color:#b9975b;">View it in your browser</a>
+    Something wrong with the email? 
+    <a href="{{ $booking->receipt_url ?? '#' }}" style="color:#b9975b;">View it in your browser</a>
 </p>
 
 @endcomponent
