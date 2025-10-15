@@ -504,7 +504,7 @@ class TestBookingController extends Controller
 
         // ✅ Update booking
         $booking->update([
-            'payment_status' => 'paid',
+            'payment_status' => 1, // instead of 'paid'
             'receipt_url' => $receiptUrl,
         ]);
 
