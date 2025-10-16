@@ -32,7 +32,7 @@
 <table width="100%" cellpadding="8" cellspacing="0" style="margin:15px 0 25px; font-size:14px; color:#333; border-collapse:collapse;">
     <tr style="border-bottom:1px solid #eee;">
         <td><strong>Final Payment (75%)</strong></td>
-        <td style="text-align:right;">£{{ number_format(($booking->remaining_cents ?? 0) / 100, 2) }} — ✅ Paid</td>
+        <td style="text-align:right;">£{{ number_format(($booking->remaining_cents ?? 0) / 100, 2) }} — Paid</td>
     </tr>
     <tr style="border-bottom:1px solid #eee;">
         <td>Damage Deposit  
