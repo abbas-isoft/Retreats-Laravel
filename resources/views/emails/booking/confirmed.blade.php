@@ -64,7 +64,7 @@
     <td style="text-align:right;">£{{ number_format(($booking->security_deposit_cents ?? 0) / 100, 2) }}</td>
 </tr> -->
     <tr>
-        <td><strong>Total Amount Due</strong></td>
+        <td><strong>Total Amount</strong></td>
         <td style="text-align:right;"><strong>£{{ number_format((($booking->upfront_cents + $booking->remaining_cents + $booking->damage_deposit_cents) ?? 0) / 100, 2) }}</strong></td>
     </tr>
 </table>
