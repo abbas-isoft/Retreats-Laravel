@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Log;
+use App\Mail\RemainingPaymentMail;
+use Illuminate\Support\Facades\Mail;
 
 class ChargeRemainingPayments extends Command
 {
@@ -64,6 +66,7 @@ class ChargeRemainingPayments extends Command
 
                 Log::info("Remaining 75% charged successfully for booking {$booking->id}");
                 $this->info("Booking {$booking->id} charged successfully.");
+                Mail::to($booking->email)->send(new RemainingPaymentMail($booking));
             } catch (\Exception $e) {
                 // Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
                 $this->error("Booking {$booking->id} failed: " . $e->getMessage());

@@ -432,6 +432,12 @@ class TestBookingController extends Controller
                             'payment_status' => 'paid',
                             'receipt_url' => $receiptUrl,
                         ]);
+                        try {
+    Mail::to($booking->email)->send(new \App\Mail\RemainingPaymentMail($booking));
+Log::info("📩 Booking confirmation email sent to {$booking->email}");
+} catch (\Exception $e) {
+    Log::error("❌ Failed to send booking confirmation email: " . $e->getMessage());
+}
                         
                         error_log("✅ TEST BOOKING UPDATED SUCCESSFULLY");
                     }
