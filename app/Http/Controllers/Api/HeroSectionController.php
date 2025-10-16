@@ -18,14 +18,14 @@ class HeroSectionController extends Controller
     public function storeOrUpdate(Request $request)
     {
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'subtitle'    => 'nullable|string',
-            'button_text' => 'nullable|string|max:255',
-            // 'button_link' => 'nullable|string|max:255',
-            'background'  => 'nullable|string', // e.g. image filename or URL
+            'title'                => 'required|string|max:255',
+            'subtitle'             => 'nullable|string',
+            'button_text'          => 'nullable|string|max:255',
+            // 'button_link'          => 'nullable|string|max:255',
+            'background_video_url' => 'nullable|url', // ✅ Now expects a valid external video URL
         ]);
 
-        // pehle record fetch karo
+        // Fetch the first record
         $hero = HeroSection::first();
 
         if ($hero) {
