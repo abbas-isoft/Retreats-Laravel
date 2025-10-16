@@ -21,7 +21,7 @@ class RemainingPaymentMail extends Mailable
     public function build()
     {
         return $this->subject('Final Payment Receipt - ' . config('app.name'))
-                    ->markdown('emails.remaining_payment')
+                    ->markdown('emails.booking.remaining_payment')
                     ->with(['booking' => $this->booking]);
     }
 }
