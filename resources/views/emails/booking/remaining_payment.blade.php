@@ -1,7 +1,7 @@
 @component('mail::message')
 {{-- Header --}}
 <div style="background-color:#b9975b; padding:25px 0; text-align:center;">
-<img src="{{asset('images/GROUP_RETREATS_MAIN_LOGO.png')}}" alt="Logo" style="max-width:80px; border-radius:8px;">
+<img src="{{asset('images/logo.svg')}}" alt="Logo" style="max-width:130px; border-radius:8px">
 </div>
 
 {{-- Title --}}
