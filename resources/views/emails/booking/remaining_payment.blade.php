@@ -8,7 +8,7 @@
 <h1 style="text-align:center; margin-top:20px; color:#333;">Final Payment Receipt</h1>
 <p style="text-align:center; color:#666;">Receipt #{{ strtoupper(substr($booking->booking_reference ?? 'N/A', 0, 8)) }}</p>
 
-{{-- Summary Info --}}
+{{-- Payment Details --}}
 <table width="100%" cellpadding="8" cellspacing="0" style="margin:25px 0; font-size:14px; color:#333;">
     <tr>
         <td><strong>Amount Paid</strong></td>
@@ -16,9 +16,7 @@
     </tr>
     <tr>
         <td><strong>Date Paid</strong></td>
-        <td style="text-align:right;">
-            {{ \Carbon\Carbon::now()->format('M d, Y, h:i A') }}
-        </td>
+        <td style="text-align:right;">{{ \Carbon\Carbon::now()->format('M d, Y, h:i A') }}</td>
     </tr>
     <tr>
         <td><strong>Payment Method</strong></td>
@@ -28,8 +26,8 @@
 
 <hr style="border:0; border-top:1px solid #ddd; margin:20px 0;">
 
-{{-- Payment Summary Section --}}
-<h2 style="font-size:18px; color:#222; margin-top:30px;">Payment Summary</h2>
+{{-- Payment Summary --}}
+<h2 style="font-size:18px; color:#222; margin-top:30px;">Final Payment Summary</h2>
 
 <table width="100%" cellpadding="8" cellspacing="0" style="margin:15px 0 25px; font-size:14px; color:#333; border-collapse:collapse;">
     <tr style="border-bottom:1px solid #eee;">
@@ -37,15 +35,24 @@
         <td style="text-align:right;">£{{ number_format(($booking->remaining_cents ?? 0) / 100, 2) }} — ✅ Paid</td>
     </tr>
     <tr style="border-bottom:1px solid #eee;">
-        <td>Damage Deposit (Pre-authorised hold on the card 7 days before arrival and released 7 days after departure.)</td>
+        <td>Damage Deposit  
+            <br><small style="color:#777;">(Pre-authorised 7 days before arrival, released 7 days after departure)</small>
+        </td>
         <td style="text-align:right;">£{{ number_format(($booking->damage_deposit_cents ?? 0) / 100, 2) }}</td>
     </tr>
+    @if(!empty($booking->security_deposit_cents) && $booking->security_deposit_cents > 0)
+    <tr style="border-bottom:1px solid #eee;">
+        <td>Security Deposit (to be held later)</td>
+        <td style="text-align:right;">£{{ number_format(($booking->security_deposit_cents ?? 0) / 100, 2) }}</td>
+    </tr>
+    @endif
     <tr>
-        <td><strong>Total Amount (100%)</strong></td>
+        <td><strong>Total Booking Amount</strong></td>
         <td style="text-align:right;"><strong>£{{ number_format((($booking->upfront_cents + $booking->remaining_cents) ?? 0) / 100, 2) }}</strong></td>
     </tr>
 </table>
 
+{{-- Stripe Receipt Button --}}
 @if($booking->receipt_url)
 <p style="text-align:center; margin-top:25px;">
     <a href="{{ $booking->receipt_url }}" 
@@ -67,11 +74,11 @@
 
 <p style="text-align:center; color:#999; font-size:12px; margin-top:20px;">
     You're receiving this email because you made a booking at {{ config('app.name') }},  
-    which partners with Stripe to provide invoicing and secure payment processing.
+    which partners with Stripe to provide secure payment processing.
 </p>
 
 <p style="text-align:center; font-size:12px; color:#999;">
-    Something wrong with the email? 
+    Something wrong with this email?  
     <a href="{{ $booking->receipt_url ?? '#' }}" style="color:#b9975b;">View it in your browser</a>
 </p>
 @endcomponent
