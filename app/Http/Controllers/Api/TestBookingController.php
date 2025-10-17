@@ -1,7 +1,7 @@
 <?php
-
+ 
 namespace App\Http\Controllers\Api;
-
+ 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TestBooking;
@@ -12,11 +12,13 @@ use Stripe\PaymentIntent;
 use Stripe\SetupIntent;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use Stripe\Checkout\Session as CheckoutSession;
 use App\Mail\BookingConfirmed;
+use Illuminate\Support\Facades\Mail;
 use Stripe\Webhook;
-use Illuminate\Support\Facades\DB;
-
+use App\Jobs\FetchReceiptUrlJob;
+ 
 class TestBookingController extends Controller
 {
     public function bookTestProperty(Request $request)
@@ -32,20 +34,15 @@ class TestBookingController extends Controller
             'accepted_terms'   => 'required|boolean',
             'accepted_rules'   => 'required|boolean',
             'stripe_payment_method_id' => 'nullable|string',
-            'property_id'      => 'nullable|integer', // optional dynamic property id
         ]);
-
-        // ✅ Step 1: Identify property
-        $testPropertyId = $data['property_id'] ?? 659508; // fallback property
-
-        // ✅ Step 2: Create booking reference & IDs
+ 
+        $testPropertyId = 659508;
         $bookingRef = strtoupper(uniqid('TEST-'));
         $bookingID  = rand(100000, 999999);
-
-        // ✅ Step 3: Calculate amounts
+ 
         $totalCents = (int) round($data['total_price'] * 100);
         $daysUntilStart = Carbon::now()->diffInDays(Carbon::parse($data['start_date']), false);
-
+ 
         if ($daysUntilStart <= 60) {
             $upfrontCents   = $totalCents;
             $remainingCents = 0;
@@ -57,33 +54,23 @@ class TestBookingController extends Controller
             $remainingPaymentScheduledAt = Carbon::parse($data['start_date'])->subDays(60);
             $isFullPayment = false;
         }
-
-        // ✅ Step 4: Fetch property details from SuperControl API
+ 
         $supercontrolUrl = "https://secure.supercontrol.co.uk/api/property/{$testPropertyId}";
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('SUPERCONTROL_API_KEY'),
             'Accept'        => 'application/json',
         ])->get($supercontrolUrl);
-
+ 
         $property = $response->ok() ? $response->json() : [];
-
-        // ✅ Step 5: Fetch dynamic security deposit from local DB
-        $priceConfig = DB::table('price_configurations')
-            ->where('property_id', $testPropertyId)
-            ->first();
-
-        $securityDeposit = $priceConfig ? $priceConfig->security_deposit : 0;
-
-        // Store in cents for later pre-auth hold
+ 
+        $securityDeposit = $property['security_deposit'] ?? 0;
         $damageDepositCents = intval($securityDeposit * 100);
-
-        // Just for safe logging
-        Log::info("💰 Security deposit fetched for property {$testPropertyId}: £{$securityDeposit}");
-
-        // ✅ Step 6: Create deposit hold schedule date (7 days before check-in)
+        if ($damageDepositCents < 5000) {
+            $damageDepositCents = 5000; // default £50
+        }
+ 
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
-
-        // ✅ Step 7: Save booking in DB
+ 
         $booking = TestBooking::create([
             'property_id'                   => $testPropertyId,
             'start_date'                    => $data['start_date'],
@@ -101,16 +88,15 @@ class TestBookingController extends Controller
             'amount_cents'                  => $totalCents,
             'upfront_cents'                 => $upfrontCents,
             'remaining_cents'               => $remainingCents,
-            'damage_deposit_cents'          => $damageDepositCents, // ✅ dynamic now
+            'damage_deposit_cents'          => $damageDepositCents,
             'remaining_payment_scheduled_at' => $remainingPaymentScheduledAt,
             'deposit_hold_scheduled_at'     => $depositHoldScheduledAt,
             'payment_status'                => 'pending',
             'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
         ]);
-
-        // ✅ Step 8: Stripe setup
+ 
         Stripe::setApiKey(config('services.stripe.secret'));
-
+ 
         $stripeCustomer = Customer::create([
             'name'  => $data['guest_firstname'] . ' ' . $data['guest_lastname'],
             'email' => $data['email'],
@@ -121,28 +107,29 @@ class TestBookingController extends Controller
                 'booking_ref'      => $bookingRef,
             ],
         ]);
-
+ 
         if ($isFullPayment) {
             // 💳 One-shot full payment
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $totalCents,
                 'currency' => 'gbp',
                 'customer' => $stripeCustomer->id,
-                'receipt_email' => $data['email'],
+                'receipt_email' => $data['email'], // ✅ sends receipt to customer
                 'payment_method_types' => ['card'],
                 'description' => "Full payment for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'  => $booking->booking_id,
-                    'booking_ref' => $bookingRef,
-                    'guest_name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
-                    'property_id' => $testPropertyId,
-                    'type'        => 'full',
+                    'booking_id'      => $booking->booking_id,  // Use booking_id field
+                    'booking_ref'     => $bookingRef,
+                    'guest_name'      => $data['guest_firstname'].' '.$data['guest_lastname'],
+                    'property_id'     => $testPropertyId,
+                    'type'            => 'full',
                 ],
                 'statement_descriptor_suffix' => 'GR BOOKING',
             ]);
+           
             $setupIntent = null;
         } else {
-            // 💰 Split payment (25% now, 75% later)
+            // 💰 Split payment: 25% now, 75% later
             $paymentIntent = PaymentIntent::create([
                 'amount'   => $upfrontCents,
                 'currency' => 'gbp',
@@ -151,7 +138,7 @@ class TestBookingController extends Controller
                 'payment_method_types' => ['card'],
                 'description' => "25% Deposit for Booking {$bookingRef}",
                 'metadata' => [
-                    'booking_id'  => $booking->booking_id,
+                    'booking_id'  => $booking->booking_id,  // Use booking_id field
                     'booking_ref' => $bookingRef,
                     'guest_name'  => $data['guest_firstname'].' '.$data['guest_lastname'],
                     'property_id' => $testPropertyId,
@@ -160,7 +147,7 @@ class TestBookingController extends Controller
                 'statement_descriptor_suffix' => 'GR DEPOSIT',
                 'setup_future_usage' => 'off_session',
             ]);
-
+ 
             $setupIntent = SetupIntent::create([
                 'customer' => $stripeCustomer->id,
                 'payment_method_types' => ['card'],
@@ -171,19 +158,14 @@ class TestBookingController extends Controller
                 ],
             ]);
         }
-
-        // ✅ Update booking with Stripe info
+ 
         $booking->update([
             'stripe_customer_id'        => $stripeCustomer->id,
             'upfront_payment_intent_id' => $paymentIntent->id,
             'setup_intent_id'           => $setupIntent?->id,
             'payment_status'            => 'pending',
         ]);
-
-        // ✅ Send confirmation email
         Mail::to($data['email'])->send(new BookingConfirmed($booking));
-
-        // ✅ Return JSON response
         return response()->json([
             'status'  => true,
             'message' => 'Booking payment created successfully',
@@ -191,18 +173,20 @@ class TestBookingController extends Controller
                 'booking_reference'        => $bookingRef,
                 'property_id'              => $testPropertyId,
                 'booking_id'               => $bookingID,
-                'database_id'              => $booking->id,
+                'database_id'              => $booking->id,  // Add the actual database ID
                 'initial_payment'          => $upfrontCents / 100,
                 'final_payment'            => $remainingCents / 100,
                 'final_payment_due_date'   => $remainingPaymentScheduledAt?->toDateString(),
-                'damage_deposit' => (float) $securityDeposit, // ✅ dynamic display value (£)
+                'damage_deposit'           => $damageDepositCents / 100,
                 'damage_deposit_hold_date' => $depositHoldScheduledAt->toDateString(),
                 'client_secret'            => $paymentIntent->client_secret,
                 'setup_client_secret'      => $setupIntent?->client_secret,
                 'payment_status'           => $booking->payment_status,
+                // receipt_url will be available after payment success via webhook
             ]
         ]);
     }
+ 
     // ✅ Webhook for payment_intent.succeeded to update booking + log receipt_url
     public function handleStripeWebhook(Request $request)
     {
