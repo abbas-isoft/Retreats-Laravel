@@ -195,7 +195,7 @@ class TestBookingController extends Controller
                 'initial_payment'          => $upfrontCents / 100,
                 'final_payment'            => $remainingCents / 100,
                 'final_payment_due_date'   => $remainingPaymentScheduledAt?->toDateString(),
-                'damage_deposit'           => $securityDeposit, // ✅ dynamic display value (£)
+                'damage_deposit' => (float) $securityDeposit, // ✅ dynamic display value (£)
                 'damage_deposit_hold_date' => $depositHoldScheduledAt->toDateString(),
                 'client_secret'            => $paymentIntent->client_secret,
                 'setup_client_secret'      => $setupIntent?->client_secret,
