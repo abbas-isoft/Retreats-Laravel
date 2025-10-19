@@ -18,7 +18,7 @@ use App\Mail\BookingConfirmed;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Webhook;
 use App\Jobs\FetchReceiptUrlJob;
- 
+use Illuminate\Support\Facades\DB;
 class TestBookingController extends Controller
 {
     public function bookTestProperty(Request $request)
@@ -63,12 +63,26 @@ class TestBookingController extends Controller
  
         $property = $response->ok() ? $response->json() : [];
  
-        $securityDeposit = $property['security_deposit'] ?? 0;
+        // $securityDeposit = $property['security_deposit'] ?? 0;
+        // $damageDepositCents = intval($securityDeposit * 100);
+        // if ($damageDepositCents < 5000) {
+        //     $damageDepositCents = 5000; // default £50
+        // }
+         
+        // ✅ Step 5: Fetch dynamic security deposit from local DB
+        $priceConfig = DB::table('price_configurations')
+            ->where('property_id', $testPropertyId)
+            ->first();
+
+        $securityDeposit = $priceConfig ? $priceConfig->security_deposit : 0;
+
+        // Store in cents for later pre-auth hold
         $damageDepositCents = intval($securityDeposit * 100);
-        if ($damageDepositCents < 5000) {
-            $damageDepositCents = 5000; // default £50
-        }
- 
+
+        // Just for safe logging
+        Log::info("💰 Security deposit fetched for property {$testPropertyId}: £{$securityDeposit}");
+
+
         $depositHoldScheduledAt = Carbon::parse($data['start_date'])->subDays(7);
  
         $booking = TestBooking::create([
