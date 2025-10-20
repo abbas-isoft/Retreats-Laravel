@@ -488,60 +488,10 @@ public function GetBookingInfo(Request $request, $propertyId)
         $depositLabel = "Due Now";
         $balanceLabel = null;
     }
-// $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
-
-//     //  Final Response
-//     return response()->json([
-//     'status'  => true,
-//     'message' => 'Booking info fetched successfully',
-//     'data'    => [
-//         'property_id' => $propertyId,
-//         'extras'      => PropertyExtra::where('property_id', $propertyId)->get(),
-//         'settings'    => $settings,
-//         'billing'     => [
-//             'deposit_type'     => $depositType,
-//             'deposit_value'    => $depositValue,
-//             'security_deposit' => $securityDeposit,
-//             'total_price'      => $totalPrice,
-//             'nights'          => $nights,
-//             'deposit' => [
-//                 // 'label'  => $depositLabel,
-//                 // 'amount' => $depositAmount
-//                 //    'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-//                 'label'    => 'Due Now',
-//                 'amount'   => $depositAmount
-//             ],
-//             'balance' => [
-//                 //  'label'  => 'Due Now',
-//                   'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-//                 'amount' => $balanceAmount
-//             ]
-//         ]
-//     ]
-// ]);
-
 $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
 
-/**
- * 🐶 Dog Charge Logic
- * Check if user sent 'dogs' parameter in request (e.g., ?dogs=2)
- * and add £50 per dog to total and balance.
- */
-$dogsCount = (int) ($request->dogs ?? 0); // Default 0 if not sent
-$dogChargePerDog = 50;
-
-if ($dogsCount > 0) {
-    $dogTotal = $dogsCount * $dogChargePerDog;
-
-    // Add dog charge to total price and balance
-    $totalPrice += $dogTotal;
-    $balanceAmount += $dogTotal;
-}
-
-/**
- * 🧾 Final Response
- */
-return response()->json([
+    //  Final Response
+    return response()->json([
     'status'  => true,
     'message' => 'Booking info fetched successfully',
     'data'    => [
@@ -551,29 +501,24 @@ return response()->json([
         'billing'     => [
             'deposit_type'     => $depositType,
             'deposit_value'    => $depositValue,
-            'security_deposit' => (float) $securityDeposit,
+            'security_deposit' => $securityDeposit,
             'total_price'      => $totalPrice,
-            'nights'           => $nights,
+            'nights'          => $nights,
             'deposit' => [
-                'label'  => 'Due Now',
-                'amount' => $depositAmount
+                // 'label'  => $depositLabel,
+                // 'amount' => $depositAmount
+                //    'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
+                'label'    => 'Due Now',
+                'amount'   => $depositAmount
             ],
             'balance' => [
-                'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-                'amount'   => $balanceAmount
-            ],
-            // Optionally show dogs info in response
-            'dog_charge' => [
-                'dogs_selected' => $dogsCount,
-                'amount'        => $dogsCount > 0 ? $dogsCount * $dogChargePerDog : 0
-            ],
+                //  'label'  => 'Due Now',
+                  'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
+                'amount' => $balanceAmount
+            ]
         ]
     ]
 ]);
-
-
-
-
 }
 
 
