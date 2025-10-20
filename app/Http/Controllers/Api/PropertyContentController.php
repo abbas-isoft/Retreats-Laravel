@@ -466,7 +466,7 @@ public function GetBookingInfo(Request $request, $propertyId)
     $depositLabel  = "Due Now";
     $balanceLabel  = null;
 
-    if ($daysUntilArrival > 62) {
+    if ($daysUntilArrival > 60) {
         if ($depositType === 'Percentage') {
             $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
         } else {
@@ -482,8 +482,8 @@ public function GetBookingInfo(Request $request, $propertyId)
         $depositLabel = "Due Now";
         $balanceLabel = "Charged on " . $balanceDueDate;
     } else {
-        $depositAmount = $totalPrice;
-        $balanceAmount = 0;
+        $depositAmount = 0;
+        $balanceAmount = $totalPrice;
 
         $depositLabel = "Due Now";
         $balanceLabel = null;
