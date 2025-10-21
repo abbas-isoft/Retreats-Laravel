@@ -1,8 +1,8 @@
 @component('mail::message')
 {{-- Header --}}
 <div style="background-color:#b9975b; padding:25px 0; text-align:center;">
-        <img src="' . url('images/logo.png') . '" alt="Logo" style="max-width:130px; border-radius:8px;">
-    </div>
+<img src="{{asset('images/logo.png')}}" alt="Logo" style="max-width:130px; border-radius:8px;"/>
+</div>
 
 {{-- Title --}}
 <h1 style="text-align:center; margin-top:20px; color:#333;">Final Payment Receipt</h1>
