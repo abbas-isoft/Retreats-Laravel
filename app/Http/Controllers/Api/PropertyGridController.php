@@ -14,8 +14,8 @@ class PropertyGridController extends Controller
     public function index(Request $request)
     {
       $query = \App\Models\PropertyContent::query()
-    ->with('images') // 👈 add this only once
-    ->where('active', 1); // ✅ Show only active properties
+    ->with('images'); // 👈 add this only once
+
 if ($request->filled('collection_id')) {
     $query->join('collection_property', 'property_contents.property_id', '=', 'collection_property.property_id')
           ->where('collection_property.collection_id', $request->collection_id)
