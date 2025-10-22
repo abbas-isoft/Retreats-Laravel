@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 // use App\Models\PropertyContentImage;
 class PropertyContent extends Model
 {
+    protected $primaryKey = 'property_id'; // ✅ this is the real key
+    public $incrementing = false;          // ✅ it’s not auto-increment
+    protected $keyType = 'int';
     protected $fillable = [
         'property_id',
         'customer_property_id',
