@@ -63,62 +63,69 @@ class StripeWebhookController extends Controller
         /**
          * ✅ PAYMENT INTENT SUCCEEDED
          */
-        if ($type === 'payment_intent.succeeded') {
-            $pi = $obj;
-            $bookingId = $pi->metadata->local_booking_id ?? null;
-            $typeMeta  = $pi->metadata->type ?? null;
+       if ($type === 'payment_intent.succeeded') {
+    $pi = $obj;
+    $bookingId = $pi->metadata->local_booking_id ?? null;
+    $typeMeta  = $pi->metadata->type ?? null;
 
-            if ($bookingId) {
-                $booking = TestBooking::find($bookingId);
-                if ($booking) {
-                    try {
-                        $intent = PaymentIntent::retrieve([
-    'id' => $pi->id,
-    'expand' => ['charges']
-]);
-                        // Update local DB
-                        $updateData = [
-                            'stripe_payment_method_id' => $intent->payment_method,
-                            'stripe_transaction_id'    => $intent->id,
-                            'receipt_url'              => $intent->charges->data[0]->receipt_url ?? null,
-                        ];
+    if ($bookingId) {
+        $booking = TestBooking::find($bookingId);
+        if ($booking) {
+            try {
+                $intent = PaymentIntent::retrieve([
+                    'id' => $pi->id,
+                    'expand' => ['charges']
+                ]);
 
-                        if ($typeMeta === 'upfront') {
-                            $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
-                            $updateData['upfront_payment_intent_id'] = $intent->id;
-                        } elseif ($typeMeta === 'remaining') {
-                            $updateData['remaining_payment_intent_id'] = $intent->id;
-                            $updateData['payment_status'] = 'fully_paid';
-                        } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
-                            $updateData['damage_deposit_intent_id'] = $intent->id;
-                        }
+                // Confirm payment success
+                if (!empty($intent->charges->data) && $intent->charges->data[0]->status === 'succeeded') {
 
-                        $booking->update($updateData);
+                    $updateData = [
+                        'stripe_payment_method_id' => $intent->payment_method,
+                        'stripe_transaction_id'    => $intent->id,
+                        'receipt_url'              => $intent->charges->data[0]->receipt_url ?? null,
+                    ];
 
-                        // ✅ Optional: Sync transaction with SuperControl
-                        Http::post('https://secure.supercontrol.co.uk/api/update-transaction', [
-                            'booking_reference' => $booking->booking_reference,
-                            'transaction_id'    => $intent->id,
-                            'amount'            => $intent->amount_received / 100,
-                            'currency'          => $intent->currency,
-                        ]);
-
-                        Log::info("✅ Payment synced for booking {$booking->id}");
-
-                        // ✅ Send receipt email
-                        try {
-                            Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
-                            Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
-                        } catch (\Exception $e) {
-                            Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
-                        }
-
-                    } catch (\Exception $e) {
-                        Log::error("⚠️ StripeWebhook Error (PI succeeded): {$e->getMessage()}");
+                    if ($typeMeta === 'upfront') {
+                        $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
+                        $updateData['upfront_payment_intent_id'] = $intent->id;
+                    } elseif ($typeMeta === 'remaining') {
+                        $updateData['remaining_payment_intent_id'] = $intent->id;
+                        $updateData['payment_status'] = 'fully_paid';
+                    } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
+                        $updateData['damage_deposit_intent_id'] = $intent->id;
                     }
+
+                    $booking->update($updateData);
+
+                    // ✅ Sync with SuperControl (optional)
+                    Http::post('https://secure.supercontrol.co.uk/api/update-transaction', [
+                        'booking_reference' => $booking->booking_reference,
+                        'transaction_id'    => $intent->id,
+                        'amount'            => $intent->amount_received / 100,
+                        'currency'          => $intent->currency,
+                    ]);
+
+                    Log::info("✅ Stripe payment confirmed for booking {$booking->id}");
+
+                    // ✅ Send emails only when payment confirmed
+                    try {
+                        Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
+                        // Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+                        Log::info("📧 Booking confirmation email sent for booking {$booking->id}");
+                    } catch (\Exception $e) {
+                        Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
+                    }
+                } else {
+                    Log::warning("⚠️ PaymentIntent succeeded event but no confirmed charge for booking {$booking->id}");
                 }
+
+            } catch (\Exception $e) {
+                Log::error("⚠️ StripeWebhook Error (PI succeeded): {$e->getMessage()}");
             }
         }
+    }
+}
 
         /**
          * ❌ PAYMENT FAILED
