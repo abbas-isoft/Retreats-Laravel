@@ -36,34 +36,38 @@ class TestBookingController extends Controller
         'stripe_payment_method_id' => 'nullable|string',
     ]);
 
-    $testPropertyId = 659508;
+    $testPropertyId = 659508; // ✅ Static for now
 
-    // 🧩 Check overlapping bookings dynamically
-    $startDate = Carbon::parse($data['start_date']);
-    $endDate = $startDate->copy()->addDays($data['nights']);
+    // 🧩 Check overlapping bookings dynamically (no end_date column)
+$startDate = Carbon::parse($data['start_date']);
+$endDate = $startDate->copy()->addDays($data['nights']); // calculate end date
 
-    $existingBooking = \App\Models\TestBooking::where('property_id', $testPropertyId)
-        ->get()
-        ->filter(function ($booking) use ($startDate, $endDate) {
-            $bookingStart = Carbon::parse($booking->start_date);
-            $bookingEnd = $bookingStart->copy()->addDays($booking->nights);
-            return $bookingEnd->greaterThan($startDate) && $bookingStart->lessThan($endDate);
-        })
-        ->isNotEmpty();
+$existingBooking = \App\Models\TestBooking::where('property_id', 659508)
+    ->get()
+    ->filter(function ($booking) {
+        // Calculate each booking's end date dynamically
+        $bookingStart = Carbon::parse($booking->start_date);
+        $bookingEnd = $bookingStart->copy()->addDays($booking->nights);
 
-    if ($existingBooking) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Property is already booked for the selected dates.'
-        ], 409);
-    }
+        return $bookingEnd->greaterThan(Carbon::parse(request('start_date'))) &&
+               $bookingStart->lessThan(Carbon::parse(request('start_date'))->copy()->addDays(request('nights')));
+    })
+    ->isNotEmpty();
 
-    // ✅ Step 2: Mark old bookings expired (optional but safe)
+if ($existingBooking) {
+    return response()->json([
+        'status' => false,
+        'message' => 'Property is already booked for the selected dates.'
+    ], 409);
+}
+
+    // ✅ Step 2: Mark old bookings as expired (freeing up property)
     TestBooking::where('property_id', $testPropertyId)
         ->where('payment_status', 'paid')
         ->whereRaw('DATE_ADD(start_date, INTERVAL nights DAY) < NOW()')
         ->update(['payment_status' => 'expired']);
 
+    // ✅ Step 3: Continue with your booking creation
     $bookingRef = strtoupper(uniqid('TEST-'));
     $bookingID  = rand(100000, 999999);
 
@@ -82,7 +86,7 @@ class TestBookingController extends Controller
         $isFullPayment = false;
     }
 
-    // ✅ Fetch property + deposit
+    // ✅ Fetch SuperControl property details
     $supercontrolUrl = "https://secure.supercontrol.co.uk/api/property/{$testPropertyId}";
     $response = Http::withHeaders([
         'Authorization' => 'Bearer ' . env('SUPERCONTROL_API_KEY'),
@@ -91,16 +95,18 @@ class TestBookingController extends Controller
 
     $property = $response->ok() ? $response->json() : [];
 
+    // ✅ Fetch security deposit from local DB
     $priceConfig = DB::table('price_configurations')
         ->where('property_id', $testPropertyId)
         ->first();
 
     $securityDeposit = $priceConfig ? $priceConfig->security_deposit : 0;
     $damageDepositCents = intval($securityDeposit * 100);
+    Log::info("💰 Security deposit fetched for property {$testPropertyId}: £{$securityDeposit}");
 
     $depositHoldScheduledAt = (clone $startDate)->subDays(7);
 
-    // ✅ Create local booking (pending)
+    // ✅ Create local booking
     $booking = TestBooking::create([
         'property_id'                   => $testPropertyId,
         'start_date'                    => $data['start_date'],
@@ -125,7 +131,7 @@ class TestBookingController extends Controller
         'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
     ]);
 
-    // ✅ Stripe
+    // ✅ Stripe setup
     Stripe::setApiKey(config('services.stripe.secret'));
 
     $stripeCustomer = Customer::create([
@@ -194,11 +200,13 @@ class TestBookingController extends Controller
         'payment_status'            => 'pending',
     ]);
 
-    // ❌ REMOVE email from here — send it *after payment success only*
+    // ✅ Email Confirmation
+    Mail::to($data['email'])->send(new BookingConfirmed($booking));
 
+    // ✅ Final JSON Response
     return response()->json([
         'status'  => true,
-        'message' => 'Booking created and payment initiated successfully',
+        'message' => 'Booking payment created successfully',
         'data'    => [
             'booking_reference'        => $bookingRef,
             'property_id'              => $testPropertyId,
