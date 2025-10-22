@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-// use App\Models\PropertyContentImage;
 class PropertyContent extends Model
 {
+    protected $table = 'property_contents';
+    protected $primaryKey = 'property_id'; // ✅ Tell Laravel actual PK column
+    public $incrementing = false;          // ✅ Because property_id is from API, not auto increment
+    protected $keyType = 'int';            // ✅ Ensure it’s treated as integer
+
     protected $fillable = [
         'property_id',
         'customer_property_id',
@@ -22,7 +26,6 @@ class PropertyContent extends Model
         'city',
         'country',
         'post_code',
-        'description',
         'latitude',
         'longitude',
         'property_type',
