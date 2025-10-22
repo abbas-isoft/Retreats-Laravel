@@ -201,7 +201,7 @@ if ($existingBooking) {
     ]);
 
     // ✅ Email Confirmation
-    // Mail::to($data['email'])->send(new BookingConfirmed($booking));
+    Mail::to($data['email'])->send(new BookingConfirmed($booking));
 
     // ✅ Final JSON Response
     return response()->json([
@@ -277,92 +277,77 @@ if ($existingBooking) {
         }
  
         if ($event->type === 'payment_intent.succeeded') {
-    error_log("✅ PAYMENT INTENT SUCCEEDED EVENT DETECTED");
-    $intent = $event->data->object;
-    $bookingId = $intent->metadata->booking_id ?? null;
-    
-    error_log("🆔 BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
-    
-    // Debug: Log the entire intent object structure
-    Log::info("PaymentIntent succeeded webhook received", [
-        'intent_id' => $intent->id,
-        'booking_id' => $bookingId,
-        'charges_count' => isset($intent->charges->data) ? count($intent->charges->data) : 0,
-        'has_charges' => isset($intent->charges),
-        'intent_structure' => json_encode($intent, JSON_PRETTY_PRINT)
-    ]);
-
-    // Alternative logging methods for debugging
-    error_log("🔍 WEBHOOK DEBUG: PaymentIntent succeeded for booking ID: " . $bookingId);
-    file_put_contents(storage_path('logs/webhook_debug.log'), 
-        date('Y-m-d H:i:s') . " - PaymentIntent succeeded for booking: " . $bookingId . "\n", 
-        FILE_APPEND | LOCK_EX
-    );
-
-    if ($bookingId) {
-        $booking = TestBooking::where('booking_id', $bookingId)->first();
-        if ($booking) {
-            $receiptUrl = null;
+            error_log("✅ PAYMENT INTENT SUCCEEDED EVENT DETECTED");
+            $intent = $event->data->object;
+            $bookingId = $intent->metadata->booking_id ?? null;
             
-            // Method 1: Try to get receipt_url from charges in the webhook payload
-            if (isset($intent->charges) && isset($intent->charges->data) && count($intent->charges->data) > 0) {
-                $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
-                Log::info("Receipt URL from webhook payload: " . ($receiptUrl ?? 'null'));
-                error_log("🧾 Receipt URL from webhook: " . ($receiptUrl ?? 'NULL'));
-            }
+            error_log("🆔 BOOKING ID FROM METADATA: " . ($bookingId ?? 'NULL'));
             
-            // Method 2: If receipt_url is still null, fetch fresh PaymentIntent from Stripe API
-            if (!$receiptUrl) {
-                try {
-                    Stripe::setApiKey(config('services.stripe.secret'));
-                    $freshIntent = PaymentIntent::retrieve([
-                        'id' => $intent->id,
-                        'expand' => ['charges']
+            // Debug: Log the entire intent object structure
+            Log::info("PaymentIntent succeeded webhook received", [
+                'intent_id' => $intent->id,
+                'booking_id' => $bookingId,
+                'charges_count' => isset($intent->charges->data) ? count($intent->charges->data) : 0,
+                'has_charges' => isset($intent->charges),
+                'intent_structure' => json_encode($intent, JSON_PRETTY_PRINT)
+            ]);
+
+            // Alternative logging methods for debugging
+            error_log("🔍 WEBHOOK DEBUG: PaymentIntent succeeded for booking ID: " . $bookingId);
+            file_put_contents(storage_path('logs/webhook_debug.log'), 
+                date('Y-m-d H:i:s') . " - PaymentIntent succeeded for booking: " . $bookingId . "\n", 
+                FILE_APPEND | LOCK_EX
+            );
+ 
+            if ($bookingId) {
+                $booking = TestBooking::where('booking_id', $bookingId)->first();
+                if ($booking) {
+                    $receiptUrl = null;
+                    
+                    // Method 1: Try to get receipt_url from charges in the webhook payload
+                    if (isset($intent->charges) && isset($intent->charges->data) && count($intent->charges->data) > 0) {
+                        $receiptUrl = $intent->charges->data[0]->receipt_url ?? null;
+                        Log::info("Receipt URL from webhook payload: " . ($receiptUrl ?? 'null'));
+                        error_log("🧾 Receipt URL from webhook: " . ($receiptUrl ?? 'NULL'));
+                    }
+                    
+                    // Method 2: If receipt_url is still null, fetch fresh PaymentIntent from Stripe API
+                    if (!$receiptUrl) {
+                        try {
+                            Stripe::setApiKey(config('services.stripe.secret'));
+                            $freshIntent = PaymentIntent::retrieve([
+                                'id' => $intent->id,
+                                'expand' => ['charges']
+                            ]);
+                            
+                            if (isset($freshIntent->charges->data[0]->receipt_url)) {
+                                $receiptUrl = $freshIntent->charges->data[0]->receipt_url;
+                                Log::info("Receipt URL from fresh API call: " . $receiptUrl);
+                                error_log("🔄 Receipt URL from fresh API: " . $receiptUrl);
+                            }
+                        } catch (\Exception $e) {
+                            Log::error("Error fetching fresh PaymentIntent: " . $e->getMessage());
+                        }
+                    }
+                    
+                    // Update booking with payment status and receipt URL
+                    $booking->update([
+                        'payment_status' => 'paid',
+                        'receipt_url' => $receiptUrl,
                     ]);
                     
-                    if (isset($freshIntent->charges->data[0]->receipt_url)) {
-                        $receiptUrl = $freshIntent->charges->data[0]->receipt_url;
-                        Log::info("Receipt URL from fresh API call: " . $receiptUrl);
-                        error_log("🔄 Receipt URL from fresh API: " . $receiptUrl);
+                    if ($receiptUrl) {
+                        Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
+                        error_log("✅ SUCCESS: Booking {$bookingId} marked paid with receipt: {$receiptUrl}");
+                    } else {
+                        Log::warning("⚠️ Booking {$bookingId} marked paid but receipt_url is still null");
+                        error_log("⚠️ WARNING: Booking {$bookingId} marked paid but NO receipt_url found");
                     }
-                } catch (\Exception $e) {
-                    Log::error("Error fetching fresh PaymentIntent: " . $e->getMessage());
                 }
-            }
-            
-            // ✅ Update booking with payment status and receipt URL
-            $booking->update([
-                'payment_status' => 'paid',
-                'receipt_url' => $receiptUrl,
-            ]);
-            
-            if ($receiptUrl) {
-                Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
-                error_log("✅ SUCCESS: Booking {$bookingId} marked paid with receipt: {$receiptUrl}");
-            } else {
-                Log::warning("⚠️ Booking {$bookingId} marked paid but receipt_url is still null");
-                error_log("⚠️ WARNING: Booking {$bookingId} marked paid but NO receipt_url found");
-            }
-
-            // ✅ Step 2: Send Booking Confirmation Email (only if booking + email valid)
-            try {
-                if (!empty($booking->email)) {
-                    Mail::to($booking->email)->send(new BookingConfirmed($booking));
-                    Log::info("📧 Booking confirmation email sent to {$booking->email}");
-                    error_log("📧 EMAIL SENT to {$booking->email}");
-                } else {
-                    Log::warning("⚠️ Booking email missing for booking {$bookingId}, skipping email send");
-                    error_log("⚠️ NO EMAIL FOUND for booking {$bookingId}");
-                }
-            } catch (\Exception $e) {
-                Log::error("❌ Error sending booking confirmation email: " . $e->getMessage());
-                error_log("❌ EMAIL ERROR: " . $e->getMessage());
             }
         }
-    }
-}
-
-return response()->json(['status' => 'success']);
+ 
+        return response()->json(['status' => 'success']);
     }
 
     // 🧪 Test method to check if logging works
