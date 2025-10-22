@@ -201,7 +201,7 @@ if ($existingBooking) {
     ]);
 
     // ✅ Email Confirmation
-    // Mail::to($data['email'])->send(new BookingConfirmed($booking));
+    Mail::to($data['email'])->send(new BookingConfirmed($booking));
 
     // ✅ Final JSON Response
     return response()->json([
@@ -335,20 +335,6 @@ if ($existingBooking) {
                         'payment_status' => 'paid',
                         'receipt_url' => $receiptUrl,
                     ]);
-                    // ✅ Send booking confirmation email only after Stripe payment success
-try {
-    if (!empty($booking->email)) {
-        Mail::to($booking->email)->send(new BookingConfirmed($booking));
-        Log::info("📩 Booking confirmation email sent to {$booking->email}");
-        error_log("📧 EMAIL SENT to {$booking->email}");
-    } else {
-        Log::warning("⚠️ Booking email missing for booking {$bookingId}");
-        error_log("⚠️ NO EMAIL FOUND for booking {$bookingId}");
-    }
-} catch (\Exception $e) {
-    Log::error("❌ Failed to send booking confirmation email: " . $e->getMessage());
-    error_log("❌ EMAIL ERROR: " . $e->getMessage());
-}
                     
                     if ($receiptUrl) {
                         Log::info("✅ Booking {$bookingId} marked paid. Receipt: {$receiptUrl}");
