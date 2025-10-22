@@ -7,6 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Region extends Model
 {
     protected $table = 'regions';
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'description', 'image'];
     public $timestamps = true;
 }

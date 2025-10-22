@@ -194,61 +194,156 @@ class AdminCollectionController extends Controller
     }
 
      public function createRegion(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:regions,name',
-        ]);
+{
+    $request->validate([
+        'name'          => 'required|string|max:255|unique:regions,name',
+        'description'   => 'nullable|string',
+        'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        'property_ids'  => 'required|array',
+        'property_ids.*'=> 'exists:property_contents,property_id',
+    ]);
 
-        $region = Region::create(['name' => $request->name]);
+    // Handle image upload
+    $imageUrl = null;
+    if ($request->hasFile('image')) {
+        $path = $request->file('image')->store('images', 'public');
+        $imageUrl = asset('storage/' . $path);
+    }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Region created successfully',
-            'data' => $region,
+    // Create region
+    $region = Region::create([
+        'name'        => $request->name,
+        'description' => $request->description,
+        'image'       => $imageUrl,
+    ]);
+
+    // Attach properties
+    foreach ($request->property_ids as $propertyId) {
+        DB::table('region_property')->insert([
+            'region_id'   => $region->id,
+            'property_id' => $propertyId,
+            'created_at'  => now(),
+            'updated_at'  => now(),
         ]);
     }
+
+    // Fetch properties for response
+    $properties = DB::table('property_contents')
+        ->select('property_id', 'property_name', 'subcaption', 'description', 'city', 'country')
+        ->whereIn('property_id', $request->property_ids)
+        ->get();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Region created successfully',
+        'data' => [
+            'id'          => $region->id,
+            'name'        => $region->name,
+            'description' => $region->description,
+            'image'       => $region->image,
+            'properties'  => $properties,
+        ]
+    ]);
+}
 
     //  Update region name
     public function updateRegion(Request $request, $id)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255|unique:regions,name,' . $id,
-        ]);
-
-        $region = Region::find($id);
-        if (!$region) {
-            return response()->json(['status' => false, 'message' => 'Region not found'], 404);
-        }
-
-        $region->update(['name' => $request->name]);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Region updated successfully',
-            'data' => $region,
-        ]);
+{
+    $region = Region::find($id);
+    if (!$region) {
+        return response()->json(['status' => false, 'message' => 'Region not found'], 404);
     }
+
+    $request->validate([
+        'name'          => 'required|string|max:255|unique:regions,name,' . $id,
+        'description'   => 'nullable|string',
+        'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        'property_ids'  => 'nullable|array',
+        'property_ids.*'=> 'exists:property_contents,id',
+    ]);
+
+    $imageUrl = $region->image;
+    if ($request->hasFile('image')) {
+        $path = $request->file('image')->store('images', 'public');
+        $imageUrl = asset('storage/' . $path);
+    }
+
+    $region->update([
+        'name'        => $request->name,
+        'description' => $request->description,
+        'image'       => $imageUrl,
+    ]);
+
+    // Reassign properties if provided
+    if ($request->has('property_ids')) {
+        DB::table('region_property')->where('region_id', $region->id)->delete();
+
+        foreach ($request->property_ids as $propertyId) {
+            DB::table('region_property')->insert([
+                'region_id'   => $region->id,
+                'property_id' => $propertyId,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+        }
+    }
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Region updated successfully',
+        'data' => $region,
+    ]);
+}
 
     //  Delete region
-    public function deleteRegion($id)
-    {
-        $region = Region::find($id);
-        if (!$region) {
-            return response()->json(['status' => false, 'message' => 'Region not found'], 404);
-        }
+   public function deleteRegion($id)
+{
+    $region = Region::find($id);
 
-        $region->delete();
-
-        return response()->json(['status' => true, 'message' => 'Region deleted successfully']);
+    if (!$region) {
+        return response()->json(['status' => false, 'message' => 'Region not found'], 404);
     }
 
+    DB::table('region_property')->where('region_id', $region->id)->delete();
+    $region->delete();
+
+    return response()->json(['status' => true, 'message' => 'Region deleted successfully']);
+}
     //  Get all regions
     public function getAllRegions()
-    {
-        $regions = Region::select('id', 'name')->get();
+{
+    $regions = Region::select('id', 'name', 'description', 'image')->get();
 
-        return response()->json(['status' => true, 'data' => $regions]);
+    return response()->json(['status' => true, 'data' => $regions]);
+}
+
+    public function getRegion($id)
+{
+    $region = Region::find($id);
+
+    if (!$region) {
+        return response()->json(['status' => false, 'message' => 'Region not found'], 404);
     }
+
+    $propertyIds = DB::table('region_property')->where('region_id', $region->id)->pluck('property_id');
+
+    $properties = DB::table('property_contents')
+        ->select('property_id', 'property_name', 'subcaption', 'description', 'city', 'country')
+        ->whereIn('property_id', $propertyIds)
+        ->get();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Region fetched successfully',
+        'data' => [
+            'id'          => $region->id,
+            'name'        => $region->name,
+            'description' => $region->description,
+            'image'       => $region->image,
+            'properties'  => $properties,
+        ]
+    ]);
+}
 
     //  Get properties by region name (same logic)
 //     public function getRegionDestinations(Request $request)
