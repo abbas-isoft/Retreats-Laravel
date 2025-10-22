@@ -77,7 +77,7 @@ class StripeWebhookController extends Controller
                     'expand' => ['charges']
                 ]);
 
-                // Confirm payment success
+                // ✅ Ensure the charge actually succeeded
                 if (!empty($intent->charges->data) && $intent->charges->data[0]->status === 'succeeded') {
 
                     $updateData = [
@@ -87,7 +87,9 @@ class StripeWebhookController extends Controller
                     ];
 
                     if ($typeMeta === 'upfront') {
-                        $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
+                        $updateData['payment_status'] = ($booking->remaining_cents > 0)
+                            ? 'upfront_paid'
+                            : 'fully_paid';
                         $updateData['upfront_payment_intent_id'] = $intent->id;
                     } elseif ($typeMeta === 'remaining') {
                         $updateData['remaining_payment_intent_id'] = $intent->id;
@@ -111,11 +113,14 @@ class StripeWebhookController extends Controller
                     // ✅ Send emails only when payment confirmed
                     try {
                         Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
+                        // Optional admin email
                         // Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+
                         Log::info("📧 Booking confirmation email sent for booking {$booking->id}");
                     } catch (\Exception $e) {
                         Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
                     }
+
                 } else {
                     Log::warning("⚠️ PaymentIntent succeeded event but no confirmed charge for booking {$booking->id}");
                 }
