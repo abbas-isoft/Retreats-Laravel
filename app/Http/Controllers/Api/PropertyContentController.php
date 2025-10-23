@@ -461,37 +461,38 @@ public function GetBookingInfo(Request $request, $propertyId)
     $daysUntilArrival = now()->diffInDays($checkIn, false);
 
     //  Deposit & Balance Calculation
-    $depositAmount = 0;
-    $balanceAmount = 0;
-    $depositLabel  = "Due Now";
-    $balanceLabel  = null;
+    //  Deposit & Balance Calculation
+$depositAmount = 0;
+$balanceAmount = 0;
+$depositLabel  = "Due Now";
+$balanceLabel  = null;
 
-    if ($daysUntilArrival > 60) {
-        if ($depositType === 'Percentage') {
-            $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
-        } else {
-            $depositAmount = $depositValue;
-        }
-
-        if ($depositAmount <= 0) {
-            $depositAmount = round(0.25 * $totalPrice, 2);
-        }
-
-        $balanceAmount = $totalPrice - $depositAmount;
-
-        $depositLabel = "Due Now";
-        $balanceLabel = "Charged on " . $balanceDueDate;
+if ($daysUntilArrival > 60) {
+    if ($depositType === 'Percentage') {
+        $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
     } else {
-        $depositAmount = 0;
-        $balanceAmount = $totalPrice;
-
-        $depositLabel = "Due Now";
-        $balanceLabel = null;
+        $depositAmount = $depositValue;
     }
-$extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
 
-    //  Final Response
-    return response()->json([
+    if ($depositAmount <= 0) {
+        $depositAmount = round(0.25 * $totalPrice, 2);
+    }
+
+    $balanceAmount = $totalPrice - $depositAmount;
+
+    $depositLabel = "Due Now";
+    $balanceLabel = "Charged on " . $balanceDueDate;
+} else {
+    // Booking within 60 days: deposit = 0, full balance due now
+    $depositAmount = 0;
+    $balanceAmount = $totalPrice;
+
+    $depositLabel = "Due Now";
+    $balanceLabel = "Due Now"; // <-- Added this line
+}
+
+//  Final Response
+return response()->json([
     'status'  => true,
     'message' => 'Booking info fetched successfully',
     'data'    => [
@@ -503,18 +504,15 @@ $extras = \App\Models\PropertyExtra::where('property_id', $propertyId)->get();
             'deposit_value'    => $depositValue,
             'security_deposit' => $securityDeposit,
             'total_price'      => $totalPrice,
-            'nights'          => $nights,
+            'nights'           => $nights,
             'deposit' => [
-                // 'label'  => $depositLabel,
-                // 'amount' => $depositAmount
-                //    'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-                'label'    => 'Due Now',
-                'amount'   => $depositAmount
+                'label'  => $depositLabel,
+                'amount' => $depositAmount
             ],
             'balance' => [
-                //  'label'  => 'Due Now',
-                  'due_date' => $balanceAmount > 0 ? $balanceDueDate : null,
-                'amount' => $balanceAmount
+                'label'    => $balanceLabel, // <-- now dynamically set
+                'due_date' => $balanceAmount > 0 && $daysUntilArrival > 60 ? $balanceDueDate : null,
+                'amount'   => $balanceAmount
             ]
         ]
     ]
