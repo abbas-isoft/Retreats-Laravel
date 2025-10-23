@@ -13,6 +13,8 @@ class HomepageContentResource extends JsonResource
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'background_image' => $this->background_image ? url($this->background_image) : null,
+            'background_video' => $this->background_video,
+            'is_active' => $this->is_active,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

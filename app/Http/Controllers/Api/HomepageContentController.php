@@ -19,7 +19,7 @@ class HomepageContentController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => new HomepageContentResource($content),
+            'data'   => new HomepageContentResource($content),
         ]);
     }
 
@@ -29,41 +29,52 @@ class HomepageContentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string',
-            'subtitle' => 'required|string',
-            'background_image' => 'nullable', // can be array or file
+            'title'            => 'required|string',
+            'subtitle'         => 'required|string',
+            'background_image' => 'nullable', // can be array, file, or string
+            'background_video' => 'nullable', // video file or URL
+            'is_active' => 'in:true,false,1,0',
         ]);
 
         $images = [];
 
-        // ✅ If multiple files uploaded
+        // ✅ Handle background images
         if ($request->hasFile('background_image')) {
             foreach ($request->file('background_image') as $file) {
                 $imagePath = $file->store('images', 'public');
                 $images[] = url('/storage/' . $imagePath);
             }
-        }
-        // ✅ If already have array of image URLs (from frontend)
-        elseif (is_array($request->background_image)) {
+        } elseif (is_array($request->background_image)) {
             $images = $request->background_image;
-        }
-        // ✅ If single string (old behavior)
-        elseif (is_string($request->background_image)) {
+        } elseif (is_string($request->background_image)) {
             $images[] = $request->background_image;
         }
 
-        // ✅ Encode images array to store in DB
+        // ✅ Encode array to JSON
         $validated['background_image'] = json_encode($images);
 
+        // ✅ Handle background video
+        if ($request->hasFile('background_video')) {
+            $videoPath = $request->file('background_video')->store('videos', 'public');
+            $validated['background_video'] = url('/storage/' . $videoPath);
+        } elseif (is_string($request->background_video)) {
+            // For existing URL or frontend-provided link
+            $validated['background_video'] = $request->background_video;
+        }
+
+        // ✅ Default value for is_active
+        $validated['is_active'] = $request->has('is_active') ? (bool)$request->is_active : true;
+
+        // ✅ Create or update homepage content
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
 
-        // ✅ Decode before sending response
+        // ✅ Decode images before returning response
         $content->background_image = json_decode($content->background_image, true);
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Homepage content saved successfully',
-            'data' => $content,
+            'data'    => $content,
         ]);
     }
 }
