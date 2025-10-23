@@ -28,26 +28,42 @@ class HomepageContentController extends Controller
      */
     public function store(Request $request)
     {
-       $validated = $request->validate([
-    'title' => 'required|string',
-    'subtitle' => 'required|string',
-    'background_image' => 'nullable', // 👈 remove "string" or "image"
-]);
+        $validated = $request->validate([
+            'title' => 'required|string',
+            'subtitle' => 'required|string',
+            'background_image' => 'nullable', // can be array or file
+        ]);
 
-if ($request->hasFile('background_image')) {
-    // Agar file upload ho rahi hai to yeh chalega
-    $imagePath = $request->file('background_image')->store('images', 'public');
-    $validated['background_image'] = '/storage/' . $imagePath;
-} elseif ($request->background_image) {
-    // Agar sirf string path aayi hai to direct use kar lo
-    $validated['background_image'] = $request->background_image;
-}
+        $images = [];
+
+        // ✅ If multiple files uploaded
+        if ($request->hasFile('background_image')) {
+            foreach ($request->file('background_image') as $file) {
+                $imagePath = $file->store('images', 'public');
+                $images[] = url('/storage/' . $imagePath);
+            }
+        }
+        // ✅ If already have array of image URLs (from frontend)
+        elseif (is_array($request->background_image)) {
+            $images = $request->background_image;
+        }
+        // ✅ If single string (old behavior)
+        elseif (is_string($request->background_image)) {
+            $images[] = $request->background_image;
+        }
+
+        // ✅ Encode images array to store in DB
+        $validated['background_image'] = json_encode($images);
+
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
+
+        // ✅ Decode before sending response
+        $content->background_image = json_decode($content->background_image, true);
 
         return response()->json([
             'status' => true,
             'message' => 'Homepage content saved successfully',
-            'data' => new HomepageContentResource($content),
+            'data' => $content,
         ]);
     }
 }
