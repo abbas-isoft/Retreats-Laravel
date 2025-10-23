@@ -33,7 +33,7 @@ class HomepageContentController extends Controller
             'subtitle'         => 'required|string',
             'background_image' => 'nullable', // can be array, file, or string
             'background_video' => 'nullable', // video file or URL
-            'is_active' => 'in:true,false,1,0',
+            'is_video' => 'in:true,false,1,0',
         ]);
 
         $images = [];
@@ -63,7 +63,7 @@ class HomepageContentController extends Controller
         }
 
         // ✅ Default value for is_active
-        $validated['is_active'] = $request->has('is_active') ? (bool)$request->is_active : true;
+        $validated['is_video'] = $request->has('is_video') ? (bool)$request->is_active : true;
 
         // ✅ Create or update homepage content
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
