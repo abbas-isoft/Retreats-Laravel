@@ -71,12 +71,23 @@ class AboutUsController extends Controller
         ], 404);
     }
 
+    // Helper closure to handle image URLs safely
+    $getImageUrl = function ($image) {
+        if (!$image) return url('images/default-about-us.jpg');
+        // If it's already a full URL (starts with http or https), return as-is
+        if (preg_match('/^https?:\/\//', $image)) {
+            return $image;
+        }
+        // Otherwise, build URL from local images directory
+        return url('storage/images/' . ltrim($image, '/'));
+    };
+
     // Map AboutUs
     $section1 = $about ? [
         'title' => $about->title,
         'content' => $about->description,
         'button_title' => $about->button_text ?? 'Enquire Now',
-       'image' => $about->image ? url('images/'.$about->image) : url('images/default-about-us.jpg'),
+        'image' => $getImageUrl($about->image),
     ] : null;
 
     // Map BookingGuide
@@ -84,22 +95,18 @@ class AboutUsController extends Controller
         'title' => $guide->title ?? '',
         'content' => $guide->description ?? $guide->subtitle ?? '',
         'button_title' => $guide->button_text ?? 'Enquire Now',
-       'image' => $guide->image ? url('images/'.$guide->image) : url('images/image.jpg'),
-
-        // 'video_url' => $guide->video_url ?? '',
+        'image' => $getImageUrl($guide->image ?? null),
     ] : null;
 
     return response()->json([
         'status' => true,
         'message' => 'About Us content fetched successfully.',
         'data' => [
-              
-                'title' => $about->title ?? '',
-                'subtitle' => $about->subtitle ?? '',
-                'video_url' => $guide->video_url ?? '',
-                'section_1' => $section1,
-                'section_2' => $section2,
-            
+            'title' => $about->title ?? '',
+            'subtitle' => $about->subtitle ?? '',
+            'video_url' => $guide->video_url ?? '',
+            'section_1' => $section1,
+            'section_2' => $section2,
         ],
     ]);
 }
