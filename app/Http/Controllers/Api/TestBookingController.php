@@ -201,7 +201,7 @@ if ($existingBooking) {
     ]);
 
     // ✅ Email Confirmation
-    // Mail::to($data['email'])->send(new BookingConfirmed($booking));
+    Mail::to($data['email'])->send(new BookingConfirmed($booking));
 
     // ✅ Final JSON Response
     return response()->json([
