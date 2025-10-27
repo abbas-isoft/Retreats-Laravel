@@ -210,6 +210,7 @@ class AdminCollectionController extends Controller
         $imageUrl = asset('storage/' . $path);
     }
 
+    
     // Create region
     $region = Region::create([
         'name'        => $request->name,
