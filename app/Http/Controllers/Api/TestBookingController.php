@@ -124,7 +124,7 @@ class TestBookingController extends Controller
         'damage_deposit_cents'          => $damageDepositCents,
         'remaining_payment_scheduled_at'=> $remainingPaymentScheduledAt,
         'deposit_hold_scheduled_at'     => $depositHoldScheduledAt,
-        'payment_status'                => 'initiated', // 🔹 not yet booked
+        'payment_status'                => 'pending', // 🔹 not yet booked
         'stripe_payment_method_id'      => $data['stripe_payment_method_id'] ?? null,
     ]);
 
@@ -194,7 +194,7 @@ class TestBookingController extends Controller
         'stripe_customer_id'        => $stripeCustomer->id,
         'upfront_payment_intent_id' => $paymentIntent->id,
         'setup_intent_id'           => $setupIntent?->id,
-        'payment_status'            => 'initiated', // 🔹 still not booked
+        'payment_status'            => 'pending', // 🔹 still not booked
     ]);
 
     // 🚫 Email will be sent later after successful payment
