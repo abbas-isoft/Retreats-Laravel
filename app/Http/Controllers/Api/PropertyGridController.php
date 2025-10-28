@@ -7,7 +7,7 @@ use App\Models\PropertyContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
+
 
 class PropertyGridController extends Controller
 {
@@ -18,11 +18,10 @@ class PropertyGridController extends Controller
      ->where('active', 1); // ✅ Show only active properties
 
 if ($request->filled('collection_id')) {
-    $query->whereHas('collections', function ($q) use ($request) {
-        $q->where('collections.id', $request->collection_id);
-    });
+    $query->join('collection_property', 'property_contents.id', '=', 'collection_property.property_id') // ✅ correct join
+          ->where('collection_property.collection_id', $request->collection_id)
+          ->select('property_contents.*');
 }
-
 
 // $properties = $query->select('property_contents.*')
 //                     ->take(5) // sirf 4 dikhane hain
