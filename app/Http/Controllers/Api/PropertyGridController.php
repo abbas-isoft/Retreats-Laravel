@@ -42,13 +42,19 @@ if ($request->filled('collection_id')) {
 
         
         if ($request->filled('amenities')) {
-            $amenities = explode(',', $request->amenities);
-            foreach ($amenities as $amenity) {
-                $query->whereHas('amenities', function ($q) use ($amenity) {
-                    $q->where('name', $amenity);
-                });
-            }
-        }
+    // Allow both array and comma-separated formats
+    $amenities = is_array($request->amenities)
+        ? $request->amenities
+        : explode(',', $request->amenities);
+
+    // Trim spaces
+    $amenities = array_map('trim', $amenities);
+
+    // ✅ Filter properties that have ALL selected amenities
+    $query->whereHas('amenities', function ($q) use ($amenities) {
+        $q->whereIn('name', $amenities);
+    }, '=', count($amenities));
+}
 
         
         if ($request->filled('search')) {
