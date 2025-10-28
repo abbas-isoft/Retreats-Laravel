@@ -21,3 +21,17 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+.scribe/.filehashes  
+.scribe/auth.md  
+.scribe/endpoints.cache/00.yaml  
+.scribe/endpoints/00.yaml  
+.scribe/endpoints/custom.0.yaml  
+.scribe/intro.md  
+config/scribe.php  
+public/vendor/scribe/css/theme-default.print.css  
+public/vendor/scribe/css/theme-default.style.css  
+public/vendor/scribe/images/navbar.png  
+public/vendor/scribe/js/theme-default-5.5.0.js  
+public/vendor/scribe/js/tryitout-5.5.0.js  
+resources/views/scribe/index.blade.php
+
