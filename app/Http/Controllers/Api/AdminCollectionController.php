@@ -131,47 +131,99 @@ class AdminCollectionController extends Controller
      * Get a collection with its related properties
      */
     public function getCollection($id)
-    {
-        $collection = Collection::find($id);
+{
+    $collection = Collection::find($id);
 
-        if (!$collection) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Collection not found',
-            ], 404);
-        }
+    if (!$collection) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Collection not found',
+        ], 404);
+    }
 
-        $propertyIds = DB::table('collection_property')
-            ->where('collection_id', $collection->id)
-            ->pluck('property_id');
+    // ✅ Get only admin-linked property IDs
+    $propertyIds = DB::table('collection_property')
+        ->where('collection_id', $collection->id)
+        ->pluck('property_id');
 
-        $properties = DB::table('property_contents')
-            ->select(
-                'property_id',
-                'property_name',
-                'subcaption',
-                'description',
-                'accommodations_summary',
-                'location_description',
-                'address_line',
-                'city',
-                'country'
-            )
-            ->whereIn('property_id', $propertyIds)
-            ->get();
-
+    if ($propertyIds->isEmpty()) {
         return response()->json([
             'status' => true,
-            'message' => 'Collection fetched successfully',
+            'message' => 'No properties linked to this collection yet.',
             'data' => [
                 'id'          => $collection->id,
                 'name'        => $collection->title,
                 'description' => $collection->description,
-                'image'       => $collection->image, // already full URL
-                'properties'  => $properties,
+                'image'       => $collection->image,
+                'properties'  => [],
             ]
         ]);
     }
+
+    // ✅ Fetch property data
+    $properties = DB::table('property_contents')
+        ->select(
+            'id',
+            'property_id',
+            'customer_property_id',
+            'active',
+            'property_name',
+            'subcaption',
+            'description',
+            'accommodations_summary',
+            'location_description',
+            'changeover',
+            'second',
+            'address_line',
+            'city',
+            'country',
+            'post_code',
+            'latitude',
+            'longitude',
+            'property_type',
+            'registration_number',
+            'epcRating',
+            'bedroom_count',
+            'bathroom_count',
+            'area',
+            'area_unit',
+            'amenities',
+            'created_at',
+            'updated_at'
+        )
+        ->whereIn('property_id', $propertyIds)
+        ->get()
+        ->map(function ($property) {
+            // ✅ Attach images
+            $property->images = DB::table('property_content_images')
+                ->where('property_content_id', $property->id)
+                ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
+                ->get();
+
+            // ✅ Decode amenities (if JSON)
+            if (isset($property->amenities)) {
+                $decoded = $property->amenities;
+                if (is_string($decoded)) {
+                    $decoded = json_decode($decoded, true);
+                }
+                $property->amenities = is_array($decoded) ? $decoded : [];
+            }
+
+            return $property;
+        });
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Filtered properties fetched successfully.',
+        'data' => [
+            'id'          => $collection->id,
+            'name'        => $collection->title,
+            'description' => $collection->description,
+            'image'       => $collection->image,
+            'properties'  => $properties,
+        ]
+    ]);
+}
 
     /**
      * Get all collections
