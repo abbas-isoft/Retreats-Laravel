@@ -477,6 +477,7 @@ public function getRegionDestinations(Request $request)
 
     $regionName = strtolower(trim($request->region));
 
+    // Fetch region record by name
     $regionRecord = DB::table('regions')
         ->whereRaw('LOWER(name) = ?', [$regionName])
         ->first();
@@ -488,30 +489,22 @@ public function getRegionDestinations(Request $request)
         ], 404);
     }
 
-    $regions = [
-        'south west' => ['min_lat' => 50.0, 'max_lat' => 52.0, 'min_lng' => -5.7, 'max_lng' => -2.0],
-        'south east' => ['min_lat' => 50.5, 'max_lat' => 52.5, 'min_lng' => -2.0, 'max_lng' => 1.5],
-        'midlands' => ['min_lat' => 52.0, 'max_lat' => 54.0, 'min_lng' => -3.0, 'max_lng' => 0.5],
-        'north of england' => ['min_lat' => 54.0, 'max_lat' => 56.5, 'min_lng' => -4.0, 'max_lng' => -0.5],
-        'wales' => ['min_lat' => 51.3, 'max_lat' => 53.6, 'min_lng' => -5.5, 'max_lng' => -2.5],
-        'scotland' => ['min_lat' => 55.0, 'max_lat' => 59.0, 'min_lng' => -6.0, 'max_lng' => -1.0],
-        'coastal escapes' => ['min_lat' => 49.5, 'max_lat' => 51.0, 'min_lng' => -5.0, 'max_lng' => -3.0],
-        'northern lights' => ['min_lat' => 57.0, 'max_lat' => 59.5, 'min_lng' => -6.5, 'max_lng' => -1.0],
-        'central charm' => ['min_lat' => 52.5, 'max_lat' => 54.5, 'min_lng' => -2.5, 'max_lng' => 0.3],
-    ];
+    // ✅ Get property IDs from pivot table (region_property)
+    $propertyIds = DB::table('region_property')
+        ->where('region_id', $regionRecord->id)
+        ->pluck('property_id');
 
-    $bounds = $regions[$regionName] ?? null;
-
-    if (!$bounds) {
+    if ($propertyIds->isEmpty()) {
         return response()->json([
             'status' => true,
             'region' => $regionRecord->name,
-            'message' => 'No coordinates mapping found for this region name, but region exists in DB.',
+            'message' => 'No properties linked to this region yet.',
             'properties' => [],
             'total_properties' => 0
         ]);
     }
 
+    // ✅ Fetch only manually linked properties
     $properties = DB::table('property_contents')
         ->select(
             'id',
@@ -535,42 +528,34 @@ public function getRegionDestinations(Request $request)
             'area_unit',
             'amenities'
         )
-        ->whereBetween('latitude', [$bounds['min_lat'], $bounds['max_lat']])
-        ->whereBetween('longitude', [$bounds['min_lng'], $bounds['max_lng']])
+        ->whereIn('property_id', $propertyIds)
         ->get();
 
-    // ✅ Attach property images with full object structure
+    // ✅ Attach property images
     $propertiesWithImages = $properties->map(function ($property) {
         $property->images = \App\Models\PropertyContentImage::where('property_content_id', $property->id)->get();
-        return $property;
-    });
 
-    return response()->json([
-    'status' => true,
-    'region' => $regionRecord->name,
-    'total_properties' => $propertiesWithImages->count(),
-    'properties' => $propertiesWithImages->map(function ($property) {
-        // ✅ Fix double-encoded amenities
+        // ✅ Fix amenities double encoding issue
         if (isset($property->amenities)) {
             $decoded = $property->amenities;
-
-            // If it's a string, try to decode once
             if (is_string($decoded)) {
                 $decoded = json_decode($decoded, true);
             }
-
-            // If still a string inside, decode again
             if (is_string($decoded)) {
                 $decoded = json_decode($decoded, true);
             }
-
-            // Ensure it’s an array
             $property->amenities = is_array($decoded) ? $decoded : [];
         }
 
         return $property;
-    }),
-    'message' => 'Properties fetched successfully',
-]);
+    });
+
+    return response()->json([
+        'status' => true,
+        'region' => $regionRecord->name,
+        'total_properties' => $propertiesWithImages->count(),
+        'properties' => $propertiesWithImages,
+        'message' => 'Properties fetched successfully',
+    ]);
 }
 }
