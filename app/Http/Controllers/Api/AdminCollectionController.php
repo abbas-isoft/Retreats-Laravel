@@ -196,7 +196,7 @@ class AdminCollectionController extends Controller
      public function createRegion(Request $request)
 {
     $request->validate([
-        'name'          => 'required|string|max:255|unique:regions,name',
+        'name'          => 'required|string|max:255',
         'description'   => 'nullable|string',
         'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         'property_ids'  => 'required|array',
@@ -210,14 +210,28 @@ class AdminCollectionController extends Controller
         $imageUrl = asset('storage/' . $path);
     }
 
-    // Create region
-    $region = Region::create([
-        'name'        => $request->name,
-        'description' => $request->description,
-        'image'       => $imageUrl,
-    ]);
+    // ✅ Check if region already exists
+    $region = Region::where('name', $request->name)->first();
 
-    // Attach properties
+    if ($region) {
+        // Update existing
+        $region->update([
+            'description' => $request->description,
+            'image'       => $imageUrl ?? $region->image,
+        ]);
+
+        // Delete old property relations
+        DB::table('region_property')->where('region_id', $region->id)->delete();
+    } else {
+        // Create new
+        $region = Region::create([
+            'name'        => $request->name,
+            'description' => $request->description,
+            'image'       => $imageUrl,
+        ]);
+    }
+
+    // ✅ Attach selected properties
     foreach ($request->property_ids as $propertyId) {
         DB::table('region_property')->insert([
             'region_id'   => $region->id,
@@ -227,15 +241,27 @@ class AdminCollectionController extends Controller
         ]);
     }
 
-    // Fetch properties for response
+    // ✅ Fetch property details
     $properties = DB::table('property_contents')
-        ->select('property_id', 'property_name', 'subcaption', 'description', 'city', 'country')
+        ->select(
+            'property_id',
+            'property_name',
+            'subcaption',
+            'description',
+            'accommodations_summary',
+            'location_description',
+            'address_line',
+            'city',
+            'country'
+        )
         ->whereIn('property_id', $request->property_ids)
         ->get();
 
     return response()->json([
         'status' => true,
-        'message' => 'Region created successfully',
+        'message' => $region->wasRecentlyCreated
+            ? 'Region created successfully'
+            : 'Region updated successfully',
         'data' => [
             'id'          => $region->id,
             'name'        => $region->name,
@@ -259,7 +285,7 @@ class AdminCollectionController extends Controller
         'description'   => 'nullable|string',
         'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         'property_ids'  => 'nullable|array',
-        'property_ids.*'=> 'exists:property_contents,id',
+        'property_ids.*'=> 'exists:property_contents,property_id',
     ]);
 
     $imageUrl = $region->image;
@@ -274,8 +300,8 @@ class AdminCollectionController extends Controller
         'image'       => $imageUrl,
     ]);
 
-    // Reassign properties if provided
-    if ($request->has('property_ids')) {
+    // ✅ Update properties if provided
+    if (!empty($request->property_ids)) {
         DB::table('region_property')->where('region_id', $region->id)->delete();
 
         foreach ($request->property_ids as $propertyId) {
@@ -288,10 +314,32 @@ class AdminCollectionController extends Controller
         }
     }
 
+    // ✅ Fetch properties for updated region
+    $properties = DB::table('property_contents')
+        ->select(
+            'property_id',
+            'property_name',
+            'subcaption',
+            'description',
+            'accommodations_summary',
+            'location_description',
+            'address_line',
+            'city',
+            'country'
+        )
+        ->whereIn('property_id', $request->property_ids ?? [])
+        ->get();
+
     return response()->json([
         'status' => true,
         'message' => 'Region updated successfully',
-        'data' => $region,
+        'data' => [
+            'id'          => $region->id,
+            'name'        => $region->name,
+            'description' => $region->description,
+            'image'       => $region->image,
+            'properties'  => $properties,
+        ]
     ]);
 }
 
