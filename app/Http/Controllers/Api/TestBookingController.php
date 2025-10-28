@@ -181,7 +181,7 @@ if ($existingBooking) {
             'statement_descriptor_suffix' => 'GR DEPOSIT',
             'setup_future_usage' => 'off_session',
         ]);
-     
+           
         $setupIntent = SetupIntent::create([
             'customer' => $stripeCustomer->id,
             'payment_method_types' => ['card'],
