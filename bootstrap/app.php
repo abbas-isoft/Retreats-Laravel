@@ -12,8 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // 👇 Custom middleware alias for protecting Scribe docs
+        $middleware->alias([
+            'protect.scribe' => \App\Http\Middleware\ProtectScribeDocs::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();
+    })
+    ->create();
