@@ -16,3 +16,4 @@ class FetchAccounts extends Command
         $this->info('FetchAccountsJob dispatched.');
     }
 }
+      
