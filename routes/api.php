@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\ImageUploadController;
 use App\Http\Controllers\Api\AdminRegionController;
 use App\Http\Controllers\Api\VideoUploadController;
 use App\Http\Controllers\Api\IconUploadController;
+use App\Http\Controllers\Api\AdminFeaturedArrivalController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -149,6 +150,15 @@ Route::prefix('admin')->group(function () {
     //For Delete Region
     Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']); // ✅ ADD THIS LINE
 
+});
+
+
+Route::prefix('admin/featured-arrivals')->group(function () {
+    Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
+    Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
+    Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all
+    Route::get('/{id}', [AdminFeaturedArrivalController::class, 'get']);      // Get single
+    Route::delete('/{id}', [AdminFeaturedArrivalController::class, 'delete']); // Delete
 });
 
 // ✅ FETCH PROPERTIES FOR A REGION
