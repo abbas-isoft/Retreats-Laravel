@@ -65,14 +65,23 @@ public function getBookingSteps()
         ], 404);
     }
 
-    // Section 1
+    // ✅ Image URL handling
+    $imageUrl = $bookingStep->image_url;
+
+    if ($imageUrl && str_starts_with($imageUrl, 'http')) {
+        $finalImage = $imageUrl;
+    } elseif ($imageUrl) {
+        $finalImage = url('storage/images/' . $imageUrl);
+    } else {
+        $finalImage = url('images/image.jpg');
+    }
+
+    // ✅ Section 1
     $section1 = [
-        'title' => $bookingStep->title ?? '',
-        'content' => $bookingStep->description ?? '',
+        'title'        => $bookingStep->title ?? '',
+        'content'      => $bookingStep->description ?? '',
         'button_title' => $bookingStep->button_text ?? 'Enquire Now',
-        'image' => $bookingStep->image_url 
-            ? url('images/'.$bookingStep->image_url) 
-            : url('images/image.jpg'),
+        'image'        => $finalImage,
     ];
 
     // Section 2
