@@ -3,7 +3,7 @@
 
 
 <aside>
-    <strong>Base URL</strong>: <code>http://202.47.33.107:8000</code>
+    <strong>Base URL</strong>: <code>https://api.retreat.isoft-digital.net</code>
 </aside>
 
     This documentation aims to provide all the information you need to work with our API.
