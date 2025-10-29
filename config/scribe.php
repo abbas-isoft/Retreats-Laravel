@@ -49,6 +49,9 @@ return [
         ],
     ],
 
+    
+'middleware' => ['web', 'protect.scribe'],
+
     // The type of documentation output to generate.
     // - "static" will generate a static HTMl page in the /public/docs folder,
     // - "laravel" will generate the documentation as a Blade view, so you can add routing and authentication.
