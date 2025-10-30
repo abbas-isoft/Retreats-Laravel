@@ -21,7 +21,7 @@ class ChargeRemainingPayments extends Command
         Stripe::setApiKey(config('services.stripe.secret'));
 
         // Pehle wo bookings nikalte hain jinki payment due hai
-        $bookings = TestBooking::whereNotNull('stripe_customer_id')->where('payment_status', 'upfront_paid')->whereDate('remaining_payment_scheduled_at', '<=', Carbon::today())->get();
+        $bookings = TestBooking::whereNotNull('stripe_customer_id')->where('payment_status', 'upfront_paid')->where('remaining_payment_scheduled_at', '<=', Carbon::today())->get();
 Log::info("Payment method bookings".$bookings);
         foreach ($bookings as $booking) {
             try {
