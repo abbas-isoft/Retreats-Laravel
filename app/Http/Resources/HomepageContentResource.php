@@ -8,7 +8,7 @@ class HomepageContentResource extends JsonResource
 {
     public function toArray($request)
     {
-        // ✅ background_image ko hamesha array bana do
+        //  background_image ko hamesha array bana do
         $images = is_string($this->background_image)
             ? json_decode($this->background_image, true)
             : $this->background_image;
