@@ -88,7 +88,7 @@ class StripeWebhookController extends Controller
         if ($type === 'payment_intent.succeeded') {
             Log::info('✅ Handling payment_intent.succeeded event');
             $pi = $obj;
-            $bookingId = $pi->metadata->local_booking_id ?? null;
+            $bookingId = $pi->metadata->booking_id ?? null;
             $typeMeta  = $pi->metadata->type ?? null;
 
             Log::info('🧠 Payment Intent Metadata', ['booking_id' => $bookingId, 'type' => $typeMeta]);
@@ -138,7 +138,7 @@ class StripeWebhookController extends Controller
                         // ✅ Send receipt email
                         try {
                             Mail::to($booking->email)->send(new \App\Mail\BookingConfirmed($booking));
-                            Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
+                            // Mail::to('enquiries@groupretreats.co.uk')->send(new \App\Mail\NewBookingNotification($booking));
                             Log::info("📧 Emails sent for booking {$booking->id}");
                         } catch (\Exception $e) {
                             Log::error("⚠️ Mail send failed for booking {$booking->id}: {$e->getMessage()}");
@@ -163,7 +163,7 @@ class StripeWebhookController extends Controller
         if ($type === 'payment_intent.payment_failed') {
             Log::warning('❌ Handling payment_intent.payment_failed event');
             $pi        = $obj;
-            $bookingId = $pi->metadata->local_booking_id ?? null;
+            $bookingId = $pi->metadata->booking_id ?? null;
 
             if ($bookingId) {
                 $booking = TestBooking::find($bookingId);
