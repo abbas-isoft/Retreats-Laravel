@@ -73,7 +73,7 @@ Route::post('/stripe/webhook', [TestBookingController::class, 'handleStripeWebho
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
+// Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 Route::post('/bookings/{booking}/deposit/release', [TestBookingController::class, 'releaseDeposit']);
 Route::post('/bookings/{booking}/deposit/capture', [TestBookingController::class, 'captureDeposit']);
 // single property listing
@@ -104,7 +104,7 @@ Route::get('prices-listing/{propertyId}', [PricesApiController::class, 'index'])
 Route::get('similar_properties/{id}', [PropertyContentController::class, 'getSimilar']);
 Route::get('/test-logs', [TestBookingController::class, 'testLogging']);
 Route::post('/test-webhook-simple', [TestBookingController::class, 'testWebhookSimple']);
-Route::post('/stripe-webhook', [TestBookingController::class, 'handleStripeWebhook']);
+// Route::post('/stripe-webhook', [TestBookingController::class, 'handleStripeWebhook']);
 Route::post('/handle-payment-success', [TestBookingController::class, 'handlePaymentSuccess']);
 // Create Booking
 Route::post('/book-property', [BookingController::class, 'bookProperty']);
