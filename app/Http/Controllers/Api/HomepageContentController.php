@@ -42,15 +42,13 @@ class HomepageContentController extends Controller
 
         $images = [];
 
-        // ✅ Handle multiple image uploads (auto convert to .webp)
+        // ✅ Handle multiple image uploads (auto convert to optimized .webp)
         if ($request->hasFile('background_image')) {
             foreach ($request->file('background_image') as $file) {
                 $extension = strtolower($file->getClientOriginalExtension());
-
-                // Get temporary file path
                 $imagePath = $file->getRealPath();
 
-                // Create image resource from different formats
+                // Create image resource
                 switch ($extension) {
                     case 'jpeg':
                     case 'jpg':
@@ -58,7 +56,6 @@ class HomepageContentController extends Controller
                         break;
                     case 'png':
                         $image = imagecreatefrompng($imagePath);
-                        // Preserve transparency
                         imagepalettetotruecolor($image);
                         imagealphablending($image, true);
                         imagesavealpha($image, true);
@@ -67,21 +64,37 @@ class HomepageContentController extends Controller
                         $image = imagecreatefromgif($imagePath);
                         break;
                     default:
-                        // Unsupported format — just store as is
                         $storedPath = $file->store('images', 'public');
                         $images[] = url('/storage/' . $storedPath);
                         continue 2;
                 }
 
-                // Compress and convert to .webp
+                // ✅ Resize large images to max 1920px width (maintain aspect ratio)
+                $width = imagesx($image);
+                $height = imagesy($image);
+                $maxWidth = 1920;
+                $maxHeight = 1080;
+
+                if ($width > $maxWidth || $height > $maxHeight) {
+                    $ratio = min($maxWidth / $width, $maxHeight / $height);
+                    $newWidth = (int)($width * $ratio);
+                    $newHeight = (int)($height * $ratio);
+
+                    $resized = imagecreatetruecolor($newWidth, $newHeight);
+                    imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                    imagedestroy($image);
+                    $image = $resized;
+                }
+
+                // ✅ Compress and convert to WebP (strong compression)
                 $webpName = uniqid() . '.webp';
                 $savePath = storage_path('app/public/images/' . $webpName);
 
-                // ✅ Compress to ~80% quality
-                imagewebp($image, $savePath, 80);
+                // Compression: 65% (good balance between size and quality)
+                imagewebp($image, $savePath, 65);
                 imagedestroy($image);
 
-                // Add public URL
+                // ✅ Add optimized image URL
                 $images[] = url('/storage/images/' . $webpName);
             }
         } elseif (is_array($request->background_image)) {
@@ -91,7 +104,7 @@ class HomepageContentController extends Controller
             $images = is_array($decoded) ? $decoded : [$request->background_image];
         }
 
-        // ✅ Store as JSON only once
+        // ✅ Store JSON
         $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
 
         // ✅ Handle video upload or URL
@@ -106,13 +119,11 @@ class HomepageContentController extends Controller
 
         // ✅ Create or update record
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
-
-        // ✅ Decode for API response
         $content->background_image = json_decode($content->background_image, true);
 
         return response()->json([
             'status'  => true,
-            'message' => 'Homepage content saved successfully (optimized to webp)',
+            'message' => 'Homepage content saved successfully (optimized & resized)',
             'data'    => $content,
         ]);
     }
