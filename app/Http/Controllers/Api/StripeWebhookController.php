@@ -94,7 +94,7 @@ class StripeWebhookController extends Controller
             Log::info('🧠 Payment Intent Metadata', ['booking_id' => $bookingId, 'type' => $typeMeta]);
 
             if ($bookingId) {
-                $booking = TestBooking::find($bookingId);
+                $booking = TestBooking::where('booking_id' ,$bookingId)->first();
                 if ($booking) {
                     try {
                         Log::info('🔄 Retrieving full payment intent details', ['intent_id' => $pi->id]);
