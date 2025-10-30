@@ -69,11 +69,11 @@ Route::get('configurations/{accountid}', [ConfigurationController::class, 'index
 Route::get('availabilities/{accountid}', [AvailabilityController::class, 'index']);
 Route::get('/booking/success/{booking}', [TestBookingController::class, 'checkoutSuccess'])->name('booking.success');
 Route::get('/booking/cancel/{booking}', [TestBookingController::class, 'checkoutCancel'])->name('booking.cancel');
-Route::post('/stripe/webhook', [TestBookingController::class, 'handleStripeWebhook']);
+// Route::post('/stripe/webhook', [TestBookingController::class, 'handleStripeWebhook']);
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);
-// Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 Route::post('/bookings/{booking}/deposit/release', [TestBookingController::class, 'releaseDeposit']);
 Route::post('/bookings/{booking}/deposit/capture', [TestBookingController::class, 'captureDeposit']);
 // single property listing
