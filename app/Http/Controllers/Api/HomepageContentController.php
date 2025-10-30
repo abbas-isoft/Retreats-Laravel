@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\HomepageContent;
 use App\Http\Resources\HomepageContentResource;
+use Illuminate\Support\Facades\Storage;
 
 class HomepageContentController extends Controller
 {
@@ -17,7 +18,6 @@ class HomepageContentController extends Controller
         $content = HomepageContent::first();
 
         if ($content && is_string($content->background_image)) {
-            // Decode JSON if stored as string
             $content->background_image = json_decode($content->background_image, true);
         }
 
@@ -42,16 +42,51 @@ class HomepageContentController extends Controller
 
         $images = [];
 
-        // ✅ Handle multiple image uploads
+        // ✅ Handle multiple image uploads (auto convert to .webp)
         if ($request->hasFile('background_image')) {
             foreach ($request->file('background_image') as $file) {
-                $imagePath = $file->store('images', 'public');
-                $images[] = url('/storage/' . $imagePath);
+                $extension = strtolower($file->getClientOriginalExtension());
+
+                // Get temporary file path
+                $imagePath = $file->getRealPath();
+
+                // Create image resource from different formats
+                switch ($extension) {
+                    case 'jpeg':
+                    case 'jpg':
+                        $image = imagecreatefromjpeg($imagePath);
+                        break;
+                    case 'png':
+                        $image = imagecreatefrompng($imagePath);
+                        // Preserve transparency
+                        imagepalettetotruecolor($image);
+                        imagealphablending($image, true);
+                        imagesavealpha($image, true);
+                        break;
+                    case 'gif':
+                        $image = imagecreatefromgif($imagePath);
+                        break;
+                    default:
+                        // Unsupported format — just store as is
+                        $storedPath = $file->store('images', 'public');
+                        $images[] = url('/storage/' . $storedPath);
+                        continue 2;
+                }
+
+                // Compress and convert to .webp
+                $webpName = uniqid() . '.webp';
+                $savePath = storage_path('app/public/images/' . $webpName);
+
+                // ✅ Compress to ~80% quality
+                imagewebp($image, $savePath, 80);
+                imagedestroy($image);
+
+                // Add public URL
+                $images[] = url('/storage/images/' . $webpName);
             }
         } elseif (is_array($request->background_image)) {
             $images = $request->background_image;
         } elseif (is_string($request->background_image)) {
-            // Sometimes frontend sends single image as string
             $decoded = json_decode($request->background_image, true);
             $images = is_array($decoded) ? $decoded : [$request->background_image];
         }
@@ -77,7 +112,7 @@ class HomepageContentController extends Controller
 
         return response()->json([
             'status'  => true,
-            'message' => 'Homepage content saved successfully',
+            'message' => 'Homepage content saved successfully (optimized to webp)',
             'data'    => $content,
         ]);
     }
