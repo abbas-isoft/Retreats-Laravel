@@ -126,12 +126,12 @@ class StripeWebhookController extends Controller
 
                         // ✅ Optional: Sync transaction with SuperControl
                         Log::info('🌍 Syncing transaction with SuperControl', ['booking_ref' => $booking->booking_reference]);
-                        Http::post('https://secure.supercontrol.co.uk/api/update-transaction', [
-                            'booking_reference' => $booking->booking_reference,
-                            'transaction_id'    => $intent->id,
-                            'amount'            => $intent->amount_received / 100,
-                            'currency'          => $intent->currency,
-                        ]);
+                        // Http::post('https://secure.supercontrol.co.uk/api/update-transaction', [
+                        //     'booking_reference' => $booking->booking_reference,
+                        //     'transaction_id'    => $intent->id,
+                        //     'amount'            => $intent->amount_received / 100,
+                        //     'currency'          => $intent->currency,
+                        // ]);
 
                         Log::info("✅ Payment synced successfully for booking {$booking->id}");
 
@@ -209,7 +209,10 @@ class StripeWebhookController extends Controller
             }
         }
 
-        Log::info('✅ Stripe Webhook processed successfully', ['event' => $type]);
+        Log::info('✅ Stripe Webhook processed successfully', [
+            'event' => $type,
+            'o'=> $obj
+        ]);
         return response('OK', 200);
     }
 }
