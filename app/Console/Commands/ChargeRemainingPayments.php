@@ -68,7 +68,7 @@ class ChargeRemainingPayments extends Command
                 $this->info("Booking {$booking->id} charged successfully.");
                 Mail::to($booking->email)->send(new RemainingPaymentMail($booking));
             } catch (\Exception $e) {
-                // Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
+                Log::error("Remaining payment failed for booking {$booking->id}: " . $e->getMessage());
                 $this->error("Booking {$booking->id} failed: " . $e->getMessage());
             }
         }
