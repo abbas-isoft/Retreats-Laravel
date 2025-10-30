@@ -10,12 +10,15 @@ use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Stripe\Stripe;
 
 class StripeWebhookController extends Controller
 {
     public function handle(Request $request)
     {
         Log::info('🚀 Stripe Webhook received', ['time' => now()]);
+
+         Stripe::setApiKey(config('services.stripe.secret'));
 
         $payload   = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
