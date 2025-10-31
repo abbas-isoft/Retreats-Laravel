@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\HomepageContent;
 use App\Http\Resources\HomepageContentResource;
-use Illuminate\Support\Facades\Storage;
 
 class HomepageContentController extends Controller
 {
@@ -26,9 +25,9 @@ class HomepageContentController extends Controller
 
     public function store(Request $request)
     {
-        // 🧠 Increase memory and execution limits temporarily
-        ini_set('memory_limit', '1024M');  // 1GB memory
-        set_time_limit(120);               // 2 minutes max execution
+        // 🧠 Safe limits for better performance
+        ini_set('memory_limit', '512M');
+        set_time_limit(60);
 
         $validated = $request->validate([
             'title'            => 'required|string',
@@ -40,13 +39,12 @@ class HomepageContentController extends Controller
 
         $images = [];
 
-        // ✅ Handle multiple image uploads (optimized & fast)
+        // ✅ Handle image uploads safely with optimization
         if ($request->hasFile('background_image')) {
             foreach ($request->file('background_image') as $file) {
                 $extension = strtolower($file->getClientOriginalExtension());
                 $imagePath = $file->getRealPath();
 
-                // 🧠 Load image depending on type
                 switch ($extension) {
                     case 'jpeg':
                     case 'jpg':
@@ -54,58 +52,60 @@ class HomepageContentController extends Controller
                         break;
                     case 'png':
                         $src = @imagecreatefrompng($imagePath);
-                        imagepalettetotruecolor($src);
-                        imagealphablending($src, true);
-                        imagesavealpha($src, true);
+                        if ($src) {
+                            imagepalettetotruecolor($src);
+                            imagealphablending($src, true);
+                            imagesavealpha($src, true);
+                        }
                         break;
                     case 'gif':
                         $src = @imagecreatefromgif($imagePath);
                         break;
                     default:
+                        // unsupported formats (e.g., webp already)
                         $storedPath = $file->store('images', 'public');
                         $images[] = url('/storage/' . $storedPath);
                         continue 2;
                 }
 
                 if (!$src) {
-                    // Fallback if image couldn't load
+                    // Fallback: save original if cannot be optimized
                     $storedPath = $file->store('images', 'public');
                     $images[] = url('/storage/' . $storedPath);
                     continue;
                 }
 
-                // 🧩 Get original dimensions
+                // 🧩 Get original size
                 $width = imagesx($src);
                 $height = imagesy($src);
 
-                // ✅ Auto resize only if large (maintains aspect ratio)
-                $maxWidth = 1920;
-                $maxHeight = 1080;
+                // ✅ Resize only if larger than Full HD
+                $maxWidth = 1280;
+                $maxHeight = 720;
 
                 if ($width > $maxWidth || $height > $maxHeight) {
                     $ratio = min($maxWidth / $width, $maxHeight / $height);
                     $newWidth = (int)($width * $ratio);
                     $newHeight = (int)($height * $ratio);
 
-                    $tmp = imagecreatetruecolor($newWidth, $newHeight);
-                    imagecopyresampled($tmp, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                    $resized = imagecreatetruecolor($newWidth, $newHeight);
+                    imagecopyresampled($resized, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
                     imagedestroy($src);
-                    $src = $tmp;
+                    $src = $resized;
                 }
 
-                // ✅ Convert and compress to WebP (medium compression)
+                // ✅ Compress & convert to WebP (medium-light size)
                 $webpName = uniqid('img_') . '.webp';
                 $savePath = storage_path('app/public/images/' . $webpName);
 
-                // 🧠 Faster compression, low memory
-                imagewebp($src, $savePath, 60);
+                // Lower quality = smaller size (still clear on frontend)
+                imagewebp($src, $savePath, 50);
+
+                // Clean memory
                 imagedestroy($src);
-
-                // ✅ Add final image URL
-                $images[] = url('/storage/images/' . $webpName);
-
-                // 🧹 Free up memory after each image
                 gc_collect_cycles();
+
+                $images[] = url('/storage/images/' . $webpName);
             }
         } elseif (is_array($request->background_image)) {
             $images = $request->background_image;
@@ -114,7 +114,7 @@ class HomepageContentController extends Controller
             $images = is_array($decoded) ? $decoded : [$request->background_image];
         }
 
-        // ✅ Store JSON
+        // ✅ Store image URLs
         $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
 
         // ✅ Handle video upload or URL
@@ -127,13 +127,13 @@ class HomepageContentController extends Controller
 
         $validated['is_video'] = $request->boolean('is_video', false);
 
-        // ✅ Create or update record
+        // ✅ Save/Update record
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
         $content->background_image = json_decode($content->background_image, true);
 
         return response()->json([
             'status'  => true,
-            'message' => 'Homepage content saved successfully (fast optimized & resized)',
+            'message' => 'Homepage content saved successfully (optimized & lightweight)',
             'data'    => $content,
         ]);
     }
