@@ -52,7 +52,7 @@
         </td>
         <td style="text-align:right;">
             £{{ number_format(($booking->remaining_cents ?? 0) / 100, 2) }}
-            <span style="color:#b9975b;">{{ $booking->payment_status == 'pending' ? '⏳ Pending' : '✅ Paid' }}</span>
+            <span style="color:#b9975b;">{{ $booking->payment_status == 'pending' ? '⏳ Pending' }}</span>
         </td>
     </tr>
     <tr style="border-bottom:1px solid #eee;">
