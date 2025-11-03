@@ -89,43 +89,74 @@ class StripeWebhookController extends Controller
          * ✅ PAYMENT INTENT SUCCEEDED
          */
         if ($type === 'payment_intent.succeeded') {
-            Log::info('✅ Handling payment_intent.succeeded event');
-            $pi = $obj;
-            $bookingId = $pi->metadata->booking_id ?? null;
-            $typeMeta  = $pi->metadata->type ?? null;
+    Log::info('✅ Handling payment_intent.succeeded event');
+    $pi = $obj;
+    $bookingId = $pi->metadata->booking_id ?? null;
+    $typeMeta  = $pi->metadata->type ?? null;
 
-            Log::info('🧠 Payment Intent Metadata', ['booking_id' => $bookingId, 'type' => $typeMeta]);
+    Log::info('🧠 Payment Intent Metadata', ['booking_id' => $bookingId, 'type' => $typeMeta]);
 
-            if ($bookingId) {
-                $booking = TestBooking::where('booking_id' ,$bookingId)->first();
-                if ($booking) {
-                    try {
-                        Log::info('🔄 Retrieving full payment intent details', ['intent_id' => $pi->id]);
-                        $intent = PaymentIntent::retrieve([
-                            'id' => $pi->id,
-                            'expand' => ['charges']
-                        ]);
+    if ($bookingId) {
+        $booking = TestBooking::where('booking_id', $bookingId)->first();
+        if ($booking) {
+            try {
+                Log::info('🔄 Retrieving full payment intent details', ['intent_id' => $pi->id]);
+                $intent = PaymentIntent::retrieve([
+                    'id' => $pi->id,
+                    'expand' => ['charges']
+                ]);
 
-                        $updateData = [
-                            'stripe_payment_method_id' => $intent->payment_method,
-                            'stripe_transaction_id'    => $intent->id,
-                            'receipt_url'              => $intent->charges->data[0]->receipt_url ?? null,
-                        ];
+                // ✅ Prevent double booking at payment confirmation stage
+                $existingBooking = TestBooking::where('property_id', $booking->property_id)
+                    ->where('id', '!=', $booking->id) // exclude current booking
+                    ->where(function ($query) use ($booking) {
+                        $query->whereRaw('DATE_ADD(start_date, INTERVAL nights DAY) > ?', [$booking->start_date])
+                            ->where('start_date', '<', $booking->end_date);
+                    })
+                    ->whereIn('payment_status', ['upfront_paid', 'fully_paid', 'upfront', 'pending'])
+                    ->lockForUpdate()  // database row-level lock
+                    ->first();
 
-                        if ($typeMeta === 'upfront') {
-                            $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
-                            $updateData['upfront_payment_intent_id'] = $intent->id;
-                            Log::info('💵 Upfront payment processed', ['booking_id' => $booking->id]);
-                        } elseif ($typeMeta === 'remaining') {
-                            $updateData['remaining_payment_intent_id'] = $intent->id;
-                            $updateData['payment_status'] = 'fully_paid';
-                            Log::info('✅ Remaining balance paid', ['booking_id' => $booking->id]);
-                        } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
-                            $updateData['damage_deposit_intent_id'] = $intent->id;
-                            Log::info('🔒 Deposit hold/charge processed', ['booking_id' => $booking->id]);
+                if ($existingBooking) {
+                    Log::warning("⛔ Double booking blocked! Booking {$booking->id} conflicts with existing booking {$existingBooking->id}");
+
+                    // Optional: Auto refund if payment was charged
+                    if ($pi->status === 'succeeded') {
+                        try {
+                            \Stripe\Refund::create(['payment_intent' => $pi->id]);
+                            $booking->update(['payment_status' => 'refunded']);
+                            Log::info("💸 Payment refunded due to conflict for booking {$booking->id}");
+                        } catch (\Exception $e) {
+                            Log::error("⚠️ Refund failed for booking {$booking->id}: {$e->getMessage()}");
                         }
+                    }
 
-                        $booking->update($updateData);
+                    return response('Conflict with existing booking, payment reversed', 409);
+                }
+
+                $updateData = [
+                    'stripe_payment_method_id' => $intent->payment_method,
+                    'stripe_transaction_id'    => $intent->id,
+                    'receipt_url'              => $intent->charges->data[0]->receipt_url ?? null,
+                ];
+
+                if ($typeMeta === 'upfront') {
+                    $updateData['payment_status'] = ($booking->remaining_cents > 0) ? 'upfront_paid' : 'fully_paid';
+                    $updateData['upfront_payment_intent_id'] = $intent->id;
+                    Log::info('💵 Upfront payment processed', ['booking_id' => $booking->id]);
+                } elseif ($typeMeta === 'remaining') {
+                    $updateData['remaining_payment_intent_id'] = $intent->id;
+                    $updateData['payment_status'] = 'fully_paid';
+                    Log::info('✅ Remaining balance paid', ['booking_id' => $booking->id]);
+                } elseif ($typeMeta === 'deposit_hold' || $typeMeta === 'deposit_charge') {
+                    $updateData['damage_deposit_intent_id'] = $intent->id;
+                    Log::info('🔒 Deposit hold/charge processed', ['booking_id' => $booking->id]);
+                }
+
+                $booking->update($updateData);
+
+                Log::info("✅ Payment updated successfully for booking {$booking->id}");
+
 
                         // ✅ Optional: Sync transaction with SuperControl
                         Log::info('🌍 Syncing transaction with SuperControl', ['booking_ref' => $booking->booking_reference]);
