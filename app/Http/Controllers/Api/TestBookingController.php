@@ -517,6 +517,27 @@ Log::info("📩 Booking confirmation email sent to {$booking->email}");
         return response()->json(['error' => 'Booking not found'], 404);
     }
 
+    // ✅ FINAL CHECK: BEFORE MARKING AS PAID
+    $startDate = Carbon::parse($booking->start_date);
+    $endDate = $startDate->copy()->addDays($booking->nights);
+
+    $overlappingBooking = TestBooking::where('property_id', $booking->property_id)
+        ->where('payment_status', 'paid')
+        ->get()
+        ->filter(function ($existing) use ($startDate, $endDate) {
+            $existingStart = Carbon::parse($existing->start_date);
+            $existingEnd = $existingStart->copy()->addDays($existing->nights);
+            return $existingEnd->greaterThan($startDate) && $existingStart->lessThan($endDate);
+        })
+        ->isNotEmpty();
+
+    if ($overlappingBooking) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Sorry, this property has just been booked by another user for your selected dates.'
+        ], 409);
+    }
+
     try {
         \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
 
@@ -543,7 +564,6 @@ Log::info("📩 Booking confirmation email sent to {$booking->email}");
             'payment_status' => 1,
             'receipt_url' => $receiptUrl,
         ]);
-     
         
         // Step 4: Return success response
         return response()->json([
