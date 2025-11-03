@@ -511,73 +511,84 @@ Log::info("📩 Booking confirmation email sent to {$booking->email}");
         return response()->json(['error' => 'Validation failed: ' . $e->getMessage()], 400);
     }
 
-    $booking = TestBooking::where('booking_id', $data['booking_id'])->first();
-
-    if (!$booking) {
-        return response()->json(['error' => 'Booking not found'], 404);
-    }
-
-    // ✅ FINAL CHECK: BEFORE MARKING AS PAID
-    $startDate = Carbon::parse($booking->start_date);
-    $endDate = $startDate->copy()->addDays($booking->nights);
-
-    $overlappingBooking = TestBooking::where('property_id', $booking->property_id)
-        ->where('payment_status', 'paid')
-        ->get()
-        ->filter(function ($existing) use ($startDate, $endDate) {
-            $existingStart = Carbon::parse($existing->start_date);
-            $existingEnd = $existingStart->copy()->addDays($existing->nights);
-            return $existingEnd->greaterThan($startDate) && $existingStart->lessThan($endDate);
-        })
-        ->isNotEmpty();
-
-    if ($overlappingBooking) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Sorry, this property has just been booked by another user for your selected dates.'
-        ], 409);
-    }
+    DB::beginTransaction();
 
     try {
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        // Lock the booking row to prevent race conditions
+        $booking = TestBooking::where('booking_id', $data['booking_id'])
+            ->lockForUpdate()
+            ->first();
 
-        // Step 1: Retrieve the PaymentIntent
+        if (!$booking) {
+            DB::rollBack();
+            return response()->json(['error' => 'Booking not found'], 404);
+        }
+
+        // If already paid, no need to process further
+        if ($booking->payment_status === 'paid') {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'This booking has already been confirmed and paid for.'
+            ], 409);
+        }
+
+        $startDate = Carbon::parse($booking->start_date);
+        $endDate = $startDate->copy()->addDays($booking->nights);
+
+        // Check for overlapping paid bookings
+        $overlappingBooking = TestBooking::where('property_id', $booking->property_id)
+            ->where('payment_status', 'paid')
+            ->lockForUpdate()
+            ->get()
+            ->filter(function ($existing) use ($startDate, $endDate) {
+                $existingStart = Carbon::parse($existing->start_date);
+                $existingEnd = $existingStart->copy()->addDays($existing->nights);
+                return $existingEnd->greaterThan($startDate) && $existingStart->lessThan($endDate);
+            })
+            ->isNotEmpty();
+
+        if ($overlappingBooking) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, this property has just been booked by another user for your selected dates.'
+            ], 409);
+        }
+
+        // Retrieve payment details from Stripe
+        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
         $paymentIntent = \Stripe\PaymentIntent::retrieve($data['payment_intent_id']);
         $receiptUrl = null;
 
-        // Step 2: If it has a latest_charge, get receipt from that
         if (!empty($paymentIntent->latest_charge)) {
             $charge = \Stripe\Charge::retrieve($paymentIntent->latest_charge);
             $receiptUrl = $charge->receipt_url ?? null;
-
-            if ($receiptUrl) {
-                error_log("🧾 RECEIPT URL FETCHED from latest_charge: " . $receiptUrl);
-            } else {
-                error_log("⚠️ RECEIPT URL EMPTY in charge response");
-            }
-        } else {
-            error_log("⚠️ No latest_charge found in PaymentIntent");
         }
 
-        // Step 3: Update your booking table
+        // Update the booking as paid
         $booking->update([
-            'payment_status' => 1,
-            'receipt_url' => $receiptUrl,
+            'payment_status' => 'paid',
+            'receipt_url'    => $receiptUrl,
         ]);
-        
-        // Step 4: Return success response
+
+        DB::commit();
+
         return response()->json([
-            'status' => 'success',
-            'message' => 'Payment processed successfully',
+            'status' => true,
+            'message' => 'Booking confirmed successfully!',
             'data' => [
-                'payment_status' => 1,
+                'booking_reference' => $booking->booking_reference,
                 'receipt_url' => $receiptUrl,
-                'booking_reference' => $booking->booking_reference
+                'payment_status' => 'paid'
             ]
         ]);
 
     } catch (\Exception $e) {
-        return response()->json(['error' => 'Stripe error: ' . $e->getMessage()], 500);
+        DB::rollBack();
+        error_log("❌ FAILED TO CONFIRM PAYMENT: " . $e->getMessage());
+        return response()->json(['error' => 'Payment processing failed: ' . $e->getMessage()], 500);
     }
 }
+
 }
