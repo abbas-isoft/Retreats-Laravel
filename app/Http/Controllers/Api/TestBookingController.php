@@ -39,28 +39,31 @@ class TestBookingController extends Controller
     $testPropertyId = 659508; // ✅ Static for now
 
     // 🧩 Check overlapping bookings dynamically (no end_date column)
+// 🧩 Check overlapping bookings dynamically (no end_date column)
 $startDate = Carbon::parse($data['start_date']);
 $endDate = $startDate->copy()->addDays($data['nights']); // calculate end date
 
-$existingBooking = \App\Models\TestBooking::where('property_id', 659508)
-    ->get()
-    ->filter(function ($booking) {
-        // Calculate each booking's end date dynamically
-        $bookingStart = Carbon::parse($booking->start_date);
-        $bookingEnd = $bookingStart->copy()->addDays($booking->nights);
-
-        return $bookingEnd->greaterThan(Carbon::parse(request('start_date'))) &&
-               $bookingStart->lessThan(Carbon::parse(request('start_date'))->copy()->addDays(request('nights')));
+// ✅ Lock existing bookings to prevent race conditions
+$existingBooking = \App\Models\TestBooking::where('property_id', $testPropertyId)
+    ->where(function ($query) use ($startDate, $endDate) {
+        // Bookings where existing booking overlaps with new date range
+        $query->whereRaw('DATE_ADD(start_date, INTERVAL nights DAY) > ?', [$startDate])
+              ->where('start_date', '<', $endDate);
     })
-    ->isNotEmpty();
+    ->whereIn('payment_status', ['pending', 'paid']) // consider active payment bookings
+    ->lockForUpdate() // 🔒 Lock to prevent race condition
+    ->first();
 
 if ($existingBooking) {
     return response()->json([
         'status' => false,
-        'message' => 'Property is already booked for the selected dates.'
+        'message' => 'This property is already being booked for the selected dates.',
+        'existing_booking' => [
+            'booking_reference' => $existingBooking->booking_reference,
+            'payment_status' => $existingBooking->payment_status,
+        ]
     ], 409);
 }
-
     // ✅ Step 2: Mark old bookings as expired (freeing up property)
     TestBooking::where('property_id', $testPropertyId)
         ->where('payment_status', 'paid')
