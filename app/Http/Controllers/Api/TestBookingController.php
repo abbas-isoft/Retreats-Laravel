@@ -528,7 +528,7 @@ Log::info("📩 Booking confirmation email sent to {$booking->email}");
         if ($booking->payment_status === 'paid') {
             DB::rollBack();
             return response()->json([
-                'status' => false,
+                'status' => true,
                 'message' => 'This booking has already been confirmed and paid for.'
             ], 409);
         }
