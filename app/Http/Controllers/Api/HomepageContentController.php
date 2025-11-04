@@ -45,90 +45,42 @@ class HomepageContentController extends Controller
     $images = [];
 
     if ($request->hasFile('background_image')) {
-        foreach ($request->file('background_image') as $file) {
+    foreach ($request->file('background_image') as $file) {
 
-            $allowedExtensions = ['jpg', 'jpeg', 'png'];
-            $extension = strtolower($file->getClientOriginalExtension());
+        $allowedExtensions = ['jpg', 'jpeg', 'png'];
+        $extension = strtolower($file->getClientOriginalExtension());
 
-            // Validate type
-            if (!in_array($extension, $allowedExtensions)) {
-                continue; // Skip non-image type
-            }
-
-            // Dynamic WebP filename
-            $webpName = uniqid('img_') . '.webp';
-            $savePath = storage_path('app/public/images/' . $webpName);
-            $imagePath = $file->getRealPath();
-
-            try {
-                $src = false;
-                switch ($extension) {
-                    case 'jpeg':
-                    case 'jpg':
-                        $src = @imagecreatefromjpeg($imagePath);
-                        break;
-                    case 'png':
-                        $src = @imagecreatefrompng($imagePath);
-                        if ($src) {
-                            imagepalettetotruecolor($src); // ✅ True color
-                            imagealphablending($src, true);
-                            imagesavealpha($src, true);
-                        }
-                        break;
-                }
-
-                if ($src) {
-                    $width = imagesx($src);
-                    $height = imagesy($src);
-                    $maxWidth = 1920;
-                    $maxHeight = 1080;
-
-                    // Resize if too large
-                    if ($width > $maxWidth || $height > $maxHeight) {
-                        $ratio = min($maxWidth / $width, $maxHeight / $height);
-                        $newWidth = (int)($width * $ratio);
-                        $newHeight = (int)($height * $ratio);
-
-                        $resized = imagecreatetruecolor($newWidth, $newHeight);
-                        imagecopyresampled($resized, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-
-                        imagedestroy($src);
-                        $src = $resized;
-                    }
-
-                    // ✅ Save WebP
-                    if (!imagewebp($src, $savePath, 75)) {
-                        throw new \Exception('GD WebP conversion failed.');
-                    }
-
-                    imagedestroy($src);
-                } else {
-                    // ⚡ Fallback to Spatie Conversion
-                    Image::load($imagePath)
-                        ->fit(Fit::Max, 1920, 1080)
-                        ->format('webp')
-                        ->quality(80)
-                        ->save($savePath);
-                }
-
-                // ✅ Optimize (small size, great quality)
-                $optimizerChain = OptimizerChainFactory::create();
-                $optimizerChain->optimize($savePath);
-
-                $images[] = url('/storage/images/' . $webpName);
-
-            } catch (\Throwable $e) {
-                Log::warning('⚠️ WebP Conversion Failed: ' . $e->getMessage());
-
-                // Last fallback: save original as-is
-                $storedPath = $file->storeAs('images', $webpName, 'public');
-                $images[] = url('/storage/' . $storedPath);
-            }
+        if (!in_array($extension, $allowedExtensions)) {
+            continue;
         }
 
-        // Save image array as JSON
-        $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
+        $originalName = uniqid('img_') . '.' . $extension;
+        $originalPath = storage_path('app/public/images/' . $originalName);
+
+        // Save original file
+        $file->move(storage_path('app/public/images/'), $originalName);
+
+        // Create WebP filename
+        $webpName = uniqid('img_') . '.webp';
+        $webpPath = storage_path('app/public/images/' . $webpName);
+
+        // Convert to WebP using cwebp (quality 80)
+        $command = "cwebp -q 80 {$originalPath} -o {$webpPath}";
+        exec($command, $output, $returnVar);
+
+        if ($returnVar === 0 && file_exists($webpPath)) {
+            // Success: remove original
+            unlink($originalPath);
+
+            $images[] = url('/storage/images/' . $webpName);
+        } else {
+            // On error, keep original image
+            $images[] = url('/storage/images/' . $originalName);
+        }
     }
+
+    $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
+}
 
     // ✅ Video handling unchanged
     if ($request->hasFile('background_video')) {
