@@ -14,18 +14,20 @@ use Spatie\Image\Enums\Fit;
 class HomepageContentController extends Controller
 {
     public function index()
-    {
-        $content = HomepageContent::first();
+{
+    $content = HomepageContent::first();
 
-        if ($content && is_string($content->background_image)) {
-            $content->background_image = json_decode($content->background_image, true);
-        }
-
-        return response()->json([
-            'status' => true,
-            'data'   => new HomepageContentResource($content),
-        ]);
+    if ($content) {
+        $content->background_image = is_string($content->background_image)
+            ? json_decode($content->background_image, true)
+            : ($content->background_image ?? []);
     }
+
+    return response()->json([
+        'status' => true,
+        'data'   => new HomepageContentResource($content),
+    ]);
+}
 
     public function store(Request $request)
 {
