@@ -29,8 +29,8 @@ class HomepageContentController extends Controller
 
     public function store(Request $request)
 {
-    ini_set('memory_limit', '2048M'); // Increase memory
-    set_time_limit(300); // More time for large files
+    ini_set('memory_limit', '2048M');
+    set_time_limit(300);
 
     $validated = $request->validate([
         'title'            => 'required|string',
@@ -44,118 +44,110 @@ class HomepageContentController extends Controller
 
     if ($request->hasFile('background_image')) {
         foreach ($request->file('background_image') as $file) {
-    $extension = strtolower($file->getClientOriginalExtension());
-    $imagePath = $file->getRealPath();
-    $webpName = uniqid('img_') . '.webp';
-    $savePath = storage_path('app/public/images/' . $webpName);
 
-    try {
-        // ⚡ 1. Try GD for fast and safe resize
-        $src = false;
-        switch ($extension) {
-            case 'jpeg':
-            case 'jpg':
-                $src = @imagecreatefromjpeg($imagePath);
-                break;
-            case 'png':
-                $src = @imagecreatefrompng($imagePath);
-                if ($src) {
-                    imagepalettetotruecolor($src);
-                    imagealphablending($src, true);
-                    imagesavealpha($src, true);
-                }
-                break;
-            case 'gif':
-                $src = @imagecreatefromgif($imagePath);
-                break;
-            default:
+            $allowedExtensions = ['jpg', 'jpeg', 'png'];
+            $extension = strtolower($file->getClientOriginalExtension());
+
+            // Validate type
+            if (!in_array($extension, $allowedExtensions)) {
+                continue; // Skip non-image type
+            }
+
+            // Dynamic WebP filename
+            $webpName = uniqid('img_') . '.webp';
+            $savePath = storage_path('app/public/images/' . $webpName);
+            $imagePath = $file->getRealPath();
+
+            try {
                 $src = false;
-        }
+                switch ($extension) {
+                    case 'jpeg':
+                    case 'jpg':
+                        $src = @imagecreatefromjpeg($imagePath);
+                        break;
+                    case 'png':
+                        $src = @imagecreatefrompng($imagePath);
+                        if ($src) {
+                            imagepalettetotruecolor($src); // ✅ True color
+                            imagealphablending($src, true);
+                            imagesavealpha($src, true);
+                        }
+                        break;
+                }
 
-        if ($src) {
-            $width = imagesx($src);
-            $height = imagesy($src);
-            $maxWidth = 1920;
-            $maxHeight = 1080;
+                if ($src) {
+                    $width = imagesx($src);
+                    $height = imagesy($src);
+                    $maxWidth = 1920;
+                    $maxHeight = 1080;
 
-            if ($width > $maxWidth || $height > $maxHeight) {
-                $ratio = min($maxWidth / $width, $maxHeight / $height);
-                $newWidth = (int)($width * $ratio);
-                $newHeight = (int)($height * $ratio);
-                $resized = imagecreatetruecolor($newWidth, $newHeight);
-                imagecopyresampled($resized, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-                imagedestroy($src);
-                $src = $resized;
-            }
+                    // Resize if too large
+                    if ($width > $maxWidth || $height > $maxHeight) {
+                        $ratio = min($maxWidth / $width, $maxHeight / $height);
+                        $newWidth = (int)($width * $ratio);
+                        $newHeight = (int)($height * $ratio);
 
-            // ✅ Convert and save as WebP
-            if (function_exists('imagewebp') && imagewebp($src, $savePath, 75)) {
-                throw new \Exception('GD WebP conversion failed.');
-            }
-            imagedestroy($src);
-        } else {
-            // ⚡ 2. Fallback to Spatie if GD failed
-            Image::load($imagePath)
-                ->fit(Fit::Max, 2000, 2000)
-                ->format('webp')
-                ->quality(80)
-                ->save($savePath);
-        }
+                        $resized = imagecreatetruecolor($newWidth, $newHeight);
+                        imagecopyresampled($resized, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
 
-        // ✅ 3. Optimize the WebP file
-        $optimizerChain = OptimizerChainFactory::create();
-        $optimizerChain->optimize($savePath);
+                        imagedestroy($src);
+                        $src = $resized;
+                    }
 
-        $images[] = url('/storage/images/' . $webpName);
+                    // ✅ Save WebP
+                    if (!imagewebp($src, $savePath, 75)) {
+                        throw new \Exception('GD WebP conversion failed.');
+                    }
 
-    } catch (\Throwable $e) {
-        Log::warning('⚠️ Conversion failed, fallback to manual WebP: ' . $e->getMessage());
+                    imagedestroy($src);
+                } else {
+                    // ⚡ Fallback to Spatie Conversion
+                    Image::load($imagePath)
+                        ->fit(Fit::Max, 1920, 1080)
+                        ->format('webp')
+                        ->quality(80)
+                        ->save($savePath);
+                }
 
-        try {
-            // 🧩 Last fallback — always WebP (no matter what)
-            $originalData = file_get_contents($imagePath);
-            $img = @imagecreatefromstring($originalData);
-            if ($img) {
-                imagewebp($img, $savePath, 70);
-                imagedestroy($img);
+                // ✅ Optimize (small size, great quality)
+                $optimizerChain = OptimizerChainFactory::create();
+                $optimizerChain->optimize($savePath);
+
                 $images[] = url('/storage/images/' . $webpName);
-            } else {
-                // If still fails, save original but rename as .webp placeholder
+
+            } catch (\Throwable $e) {
+                Log::warning('⚠️ WebP Conversion Failed: ' . $e->getMessage());
+
+                // Last fallback: save original as-is
                 $storedPath = $file->storeAs('images', $webpName, 'public');
                 $images[] = url('/storage/' . $storedPath);
             }
-        } catch (\Throwable $final) {
-            // Absolute last resort
-            $storedPath = $file->store('images', 'public');
-            $images[] = url('/storage/' . $storedPath);
-            Log::error('🚨 Final fallback hit: ' . $final->getMessage());
-        }
-    }
         }
 
-        // Store all images
+        // Save image array as JSON
         $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
-
-        // Handle video
-        if ($request->hasFile('background_video')) {
-            $videoPath = $request->file('background_video')->store('videos', 'public');
-            $validated['background_video'] = url('/storage/' . $videoPath);
-        } elseif (is_string($request->background_video)) {
-            $validated['background_video'] = $request->background_video;
-        }
-
-        $validated['is_video'] = $request->boolean('is_video', false);
-
-        $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
-        $content->background_image = json_decode($content->background_image, true);
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Homepage content saved successfully (WebP + optimized)',
-            'data'    => $content,
-        ]);
     }
+
+    // ✅ Video handling unchanged
+    if ($request->hasFile('background_video')) {
+        $videoPath = $request->file('background_video')->store('videos', 'public');
+        $validated['background_video'] = url('/storage/' . $videoPath);
+    } elseif (is_string($request->background_video)) {
+        $validated['background_video'] = $request->background_video;
+    }
+
+    $validated['is_video'] = $request->boolean('is_video', false);
+
+    $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
+    $content->background_image = json_decode($content->background_image, true);
+
+    return response()->json([
+        'status'  => true,
+        'message' => 'Homepage content saved successfully (Auto WebP + Resize)',
+        'data'    => $content,
+    ]);
 }
+
 
     // 🆕 Added uploadImage() method with Spatie optimization
     public function uploadImage(Request $request)
