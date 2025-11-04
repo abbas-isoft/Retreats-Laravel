@@ -141,7 +141,9 @@ class HomepageContentController extends Controller
     $validated['is_video'] = $request->boolean('is_video', false);
 
     $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
-    $content->background_image = json_decode($content->background_image, true);
+    $content->background_image = is_string($content->background_image)
+    ? json_decode($content->background_image, true)
+    : ($content->background_image ?? []);
 
     return response()->json([
         'status'  => true,
