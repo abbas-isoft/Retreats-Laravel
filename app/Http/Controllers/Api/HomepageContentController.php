@@ -89,7 +89,7 @@ class HomepageContentController extends Controller
             }
 
             // ✅ Convert and save as WebP
-            if (!imagewebp($src, $savePath, 75)) {
+            if (function_exists('imagewebp') && imagewebp($src, $savePath, 75)) {
                 throw new \Exception('GD WebP conversion failed.');
             }
             imagedestroy($src);
