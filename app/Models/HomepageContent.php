@@ -10,13 +10,27 @@ class HomepageContent extends Model
         'title',
         'subtitle',
         'background_image',
-        'background_video',   // ✅ added
-        'is_active',          // ✅ added
+        'background_video',
+        'is_video',
+
+        // ✅ SEO Fields
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
+        'og_title',
+        'og_description',
+        'og_image',
+        'canonical_url',
+        'schema_markup',
+        'robots_txt',
+        'is_active',
     ];
 
-    // ✅ Optional: auto-cast JSON and boolean fields
     protected $casts = [
         'background_image' => 'array',
-        'is_active' => 'boolean',
+        'is_video'         => 'boolean',
+        'robots_txt'       => 'boolean',
+        'is_active'        => 'boolean',
+        'schema_markup'    => 'array', // ✅ auto JSON encode/decode
     ];
 }
