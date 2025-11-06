@@ -23,6 +23,24 @@ if ($request->filled('collection_id')) {
           ->select('property_contents.*');
 }
 
+$query = PropertyContent::query()
+    ->with(['images', 'regions']) // ✅ also load regions
+    ->where('active', 1);
+
+if ($request->filled('region_id')) {
+    $regionIds = is_array($request->region_id)
+        ? $request->region_id
+        : explode(',', $request->region_id);
+
+    $query->whereIn('id', function ($sub) use ($regionIds) {
+        $sub->select('pc.id')
+            ->from('property_contents as pc')
+            ->join('properties as p', 'p.id', '=', 'pc.property_id')
+            ->join('region_property as rp', 'rp.property_id', '=', 'p.id')
+            ->whereIn('rp.region_id', $regionIds);
+    });
+}
+
 // $properties = $query->select('property_contents.*')
 //                     ->take(5) // sirf 4 dikhane hain
 //                     ->get();

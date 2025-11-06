@@ -72,6 +72,16 @@ class PropertyContent extends Model
     return $this->hasOne(ContentListing::class, 'property_id', 'property_id');
 }
 
+public function regions()
+{
+    return $this->belongsToMany(
+        \App\Models\Region::class,
+        'region_property',
+        'property_id', // matches `properties.id`
+        'region_id'
+    );
+}
+
 public function availabilityRecords() 
 {
     return $this->hasMany(AvailabilityRecord::class, 'property_id');
