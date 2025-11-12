@@ -49,11 +49,23 @@ class ListPropertyResource extends JsonResource
         }
 
         return [
-            'title'                           => $this->title,
-            'subtitle'                        => $this->subtitle,
-            'section1'                        => $section1,
-            'section2'                        => $section2,
-            'why_partner_with_group_retreats' => $whyBoxesFormatted,
-        ];
+    'title'                           => $this->title,
+    'subtitle'                        => $this->subtitle,
+    'section1'                        => $section1,
+    'section2'                        => $section2,
+    'why_partner_with_group_retreats' => $whyBoxesFormatted,
+
+    // ✅ SEO Fields
+    'meta_title'       => $this->meta_title,
+    'meta_description' => $this->meta_description,
+    'meta_keywords'    => $this->meta_keywords,
+    'og_title'         => $this->og_title,
+    'og_description'   => $this->og_description,
+    'og_images'        => $this->og_images,
+    'canonical_url'    => $this->canonical_url,
+    'schema_markup'    => $this->schema_markup,
+    'robots_txt'       => $this->robots_txt,
+    'is_active'        => $this->is_active,
+];
     }
 }

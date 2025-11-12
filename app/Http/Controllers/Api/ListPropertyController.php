@@ -33,9 +33,23 @@ class ListPropertyController extends Controller
             'description' => 'nullable|string',
             'button_text' => 'nullable|string|max:100',
             'hero_image'  => 'nullable|string',
+
+            // ✅ SEO fields
+            'meta_title'       => 'required|string|max:255',
+            'meta_description' => 'required|string',
+            'meta_keywords'    => 'required|string',
+            'og_title'         => 'required|string|max:255',
+            'og_description'   => 'required|string',
+            'og_images'        => 'required|array',
+            'og_images.*'      => 'required|string',
+            'canonical_url'    => 'required|string|max:255',
+            'schema_markup'    => 'required|string',
+            'robots_txt'       => 'required|boolean',
+            'is_active'        => 'required|boolean',
         ]);
 
-        $page = ListProperty::firstOrCreate([]);
+
+        $page = ListProperty::updateOrCreate([]);
 
         // Upload hero_image
         if ($request->hasFile('hero_image')) {
@@ -106,7 +120,29 @@ class ListPropertyController extends Controller
             'testimonial_section.secondary_title'       => 'nullable|string|max:255',
             'testimonial_section.secondary_description' => 'nullable|string',
             'testimonial_section.image'                 => 'nullable|string',
+
+            // SEO Fields for List Property Page
+            'meta.meta_title'       => 'nullable|string|max:255',
+            'meta.meta_description' => 'nullable|string',
+            'meta.meta_keywords'    => 'nullable|string',
+            'meta.og_title'         => 'nullable|string|max:255',
+            'meta.og_description'   => 'nullable|string',
+            'meta.og_images'        => 'nullable|array',
+            'meta.og_images.*'      => 'nullable|string',
+            'meta.canonical_url'    => 'nullable|string|max:255',
+            'meta.schema_markup'    => 'nullable|string',
+            'meta.robots_txt'       => 'nullable|boolean',
+            'meta.is_active'        => 'nullable|boolean',
+
+
         ]);
+
+        // 2️⃣ Hero Section Data Flattening – yehi aapka code hai
+        $metaData = $request->input('meta', []);
+
+        $metaSection = ListProperty::firstOrCreate([]);
+        $metaSection->fill($metaData);
+        $metaSection->save();
 
         /*
     |--------------------------------------------------------------------------
