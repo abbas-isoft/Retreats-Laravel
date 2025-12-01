@@ -28,14 +28,14 @@ class PropertyContentController extends Controller
     public function index($propertyId): JsonResponse
     {
         try {
-            $property = Property::find($propertyId);
+            // $property = Property::find($propertyId);
 
-            if (! $property) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Property not found',
-                ]);
-            }
+            // if (! $property) {
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'Property not found',
+            //     ]);
+            // }
 
             $contents = PropertyContent::where('property_id', $propertyId)
                 ->latest()

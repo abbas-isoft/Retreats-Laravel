@@ -41,4 +41,9 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
 
     ],
+
+    'hostaway' => [
+        'token' => env('HOSTAWAY_API_TOKEN'),
+    ],
+
 ];

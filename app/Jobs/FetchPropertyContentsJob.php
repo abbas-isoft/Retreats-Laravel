@@ -2,12 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\Account;
-use App\Models\Property;
-use App\Models\PriceConfiguration;
-use App\Models\PriceFee;
-use App\Models\PriceLosEntry;
-use App\Models\PropertyPrice;
 use App\Models\PropertyContent;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,108 +10,162 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class FetchPropertyContentsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct()
-    {
-        //
-    }
+    /**
+     * Handle the job.
+     */
+    public function handle(): void
+{
+    try {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            'Cache-Control' => 'no-cache',
+        ])->get("https://api.hostaway.com/v1/listings");
 
-     public function handle(): void
-    {
-        foreach (\App\Models\Property::all() as $property) {
-            $response = Http::withHeaders([
-                'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
-            ])->get('https://api.supercontrol.co.uk/v3/Properties/Listing/' . $property->id);
+        if (!$response->successful()) {
+            Log::error('Hostaway API request failed', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+            return;
+        }
 
-            $data = $response->json();
+        $properties = $response->json('result', []);
 
-            if (!isset($data['propertyId'])) {
-                Log::warning("No valid property data for property ID: {$property->id}");
-                continue;
-            }
+        if (empty($properties)) {
+            Log::warning('No properties returned from Hostaway API.');
+            return;
+        }
 
-            $ad = $data['adContent'] ?? [];
-            $location = $data['location'] ?? [];
-            $address = $location['address'] ?? [];
-            $geoCode = $location['geoCode'] ?? [];
-            $propertyDetails = $data['property'] ?? [];
-            $images = $data['images'] ?? [];
-            $rooms = $propertyDetails['rooms'] ?? [];
-          
+        foreach ($properties as $propertyData) {
 
-            // Update or create main property content
-            $propertyContent = PropertyContent::updateOrCreate(
-                ['property_id' => $data['propertyId']],
+            $images = $propertyData['listingImages'] ?? [];
+            $beds   = $propertyData['listingBedTypes'] ?? [];
+
+            // Amenities (if coming)
+            $listingAmenities = $propertyData['listingAmenities'] ?? [];
+            $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
+
+            // CREATE OR UPDATE PROPERTY CONTENT
+            $content = PropertyContent::updateOrCreate(
+                ['hostaway_id' => $propertyData['id']],
                 [
-                    'customer_property_id'    => $data['customerPropertyId'] ?? null,
-                    'active'                  => $data['active'] ?? false,
-                    'property_name'           => $ad['propertyName'] ?? null,
-                    'subcaption'              => $ad['subcaption'] ?? null,
-                    'description'             => $ad['description'] ?? null,
-                    'accommodations_summary'  => $ad['accommodationsSummary'] ?? null,
-                    'location_description'    => isset($ad['location']) ? strip_tags($ad['location']) : null,
-                    'changeover'              => $ad['changeover'] ?? null,
-                    'second'                  => $ad['second'] ?? null,
-
-                    'address_line'            => $address['addressLine'] ?? null,
-                    'city'                    => $address['city'] ?? null,
-                    'country'                 => $address['country'] ?? null,
-                    'post_code'               => $address['postCode'] ?? null,
-
-                    'latitude'                => $geoCode['latitude'] ?? null,
-                    'longitude'               => $geoCode['longitude'] ?? null,
-                    'property_type'           => $propertyDetails['propertyType'] ?? null,
-                    'registration_number'     => $propertyDetails['registrationNumber'] ?? null,
-                    'epcRating'               => $propertyDetails['epcRating'] ?? null,
-
-                    'bedroom_count'           => is_array($propertyDetails['bedrooms'] ?? null) ? count($propertyDetails['bedrooms']) : 0,
-                    'bathroom_count'          => is_array($propertyDetails['bathrooms'] ?? null) ? count($propertyDetails['bathrooms']) : 0,
-                    'area'                    => $propertyDetails['area'] ?? 0,
-                    'area_unit'               => $propertyDetails['areaUnit'] ?? null,
-                    'amenities'               => json_encode($propertyDetails['amenities'] ?? []),
+                    'property_id'          => $propertyData['id'],
+                    'customer_property_id' => $propertyData['id'],
+                    'property_type'        => $propertyData['propertyTypeId'] ?? null,
+                    'latitude'             => $propertyData['lat'] ?? null,
+                    'longitude'            => $propertyData['lng'] ?? null,
+                    'active'               => true,
+                    'property_name'        => $propertyData['name'] ?? null,
+                    'subcaption'           => $propertyData['externalListingName'] ?? null,
+                    'description'          => $propertyData['description'] ?? null,
+                    'address_line'         => $propertyData['street'] ?? null,
+                    'city'                 => $propertyData['city'] ?? null,
+                    'country'              => $propertyData['country'] ?? null,
+                    'post_code'            => $propertyData['zipcode'] ?? null,
+                    'bedroom_count'        => $propertyData['bedroomsNumber'] ?? 0,
+                    'bathroom_count'       => $propertyData['bathroomsNumber'] ?? 0,
+                    'area'                 => $propertyData['squareMeters'] ?? 0,
+                    'area_unit'            => 'sqm',
+                    'amenities'            => json_encode($amenities),
                 ]
             );
 
-            //  Handle images only if response has images
+
+            /*
+            |--------------------------------------------------------------------------
+            | SAVE LISTING IMAGES
+            |--------------------------------------------------------------------------
+            */
             if (!empty($images)) {
-            // delete old images
-            $propertyContent->images()->delete();
 
-          // insert fresh ones
-          foreach ($images as $image) {
-          $propertyContent->images()->create([
-            'photo_id' => $image['photoId'] ?? null,
-            'url'      => $image['url'] ?? null,
-        ]);
-    }
-}       else {
-        // No images in response → delete only photo_id (not full record)
-        $propertyContent->images()->update(['photo_id' => null]);
-}
+                // Delete old images
+                $content->images()->delete();
 
-            // Handle rooms and beds
-            $propertyContent->rooms()->delete(); // delete old rooms (cascade should delete beds if set)
-
-            foreach ($rooms as $roomData) {
-                $room = $propertyContent->rooms()->create([
-                    'name' => $roomData['name'] ?? null,
-                ]);
-
-                $beds = $roomData['beds'] ?? [];
-                foreach ($beds as $bedData) {
-                    $room->beds()->create([
-                        'bed_type' => $bedData['bedType'] ?? null,
-                        'quantity' => $bedData['quantity'] ?? 0,
+                foreach ($images as $img) {
+                    $content->images()->create([
+                        'photo_id' => $img['id'] ?? null,
+                        'url'      => $img['url'] ?? null,
                     ]);
                 }
             }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | SAVE ROOM + BEDS
+            |--------------------------------------------------------------------------
+            */
+
+            // Hostaway may have rooms structure in future
+$roomsFromApi = $propertyData['rooms'] ?? [];  // if Hostaway sends rooms array
+
+// Step 1: Delete old rooms & beds completely
+$content->rooms()->each(function($room) {
+    $room->beds()->delete();
+});
+$content->rooms()->delete();
+
+// Step 2: Create rooms from Hostaway (if any)
+if (!empty($roomsFromApi)) {
+
+    foreach ($roomsFromApi as $r) {
+
+        // Create Room
+        $room = $content->rooms()->create([
+            'name' => $r['name'] ?? 'Room',
+            'type' => $r['type'] ?? null,
+        ]);
+
+        // Beds for this room
+        if (!empty($r['beds'])) {
+            foreach ($r['beds'] as $bed) {
+                $room->beds()->create([
+                    'bed_type' => $bed['bedTypeId'] ?? null,
+                    'quantity' => $bed['quantity'] ?? 1,
+                ]);
+            }
+        }
+    }
+
+} else {
+
+    // Step 3: If Hostaway sends only listingBedTypes (not rooms)
+    if (!empty($beds)) {
+
+        // Create one room with beds
+        $room = $content->rooms()->create([
+            'name' => 'Bedroom',
+            'type' => 'bedroom',
+        ]);
+
+        foreach ($beds as $bed) {
+            $room->beds()->create([
+                'bed_type' => $bed['bedTypeId'] ?? null,
+                'quantity' => $bed['quantity'] ?? 1,
+            ]);
+        }
+    }
+}
+
+
+            Log::info("Hostaway property updated: {$content->id}", [
+                'name'           => $content->property_name,
+                'images_count'   => count($images),
+                'beds_count'     => count($beds),
+                'amenities_count'=> count($amenities),
+            ]);
         }
 
-        Log::info("✅ Property content fetch complete!");
+    } catch (\Exception $e) {
+        Log::error('Exception while fetching Hostaway properties', [
+            'message' => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+        ]);
     }
+}
 }

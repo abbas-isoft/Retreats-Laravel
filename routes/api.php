@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\AdminRegionController;
 use App\Http\Controllers\Api\VideoUploadController;
 use App\Http\Controllers\Api\IconUploadController;
 use App\Http\Controllers\Api\AdminFeaturedArrivalController;
+use App\Http\Controllers\CalendarController;
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
 
@@ -70,6 +71,7 @@ Route::get('availabilities/{accountid}', [AvailabilityController::class, 'index'
 Route::get('/booking/success/{booking}', [TestBookingController::class, 'checkoutSuccess'])->name('booking.success');
 Route::get('/booking/cancel/{booking}', [TestBookingController::class, 'checkoutCancel'])->name('booking.cancel');
 // Route::post('/stripe/webhook', [TestBookingController::class, 'handleStripeWebhook']);
+Route::post('/calendar/fetch', [CalendarController::class, 'fetchCalendar']);
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);
