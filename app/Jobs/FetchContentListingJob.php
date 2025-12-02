@@ -2,10 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Models\PropertyConfiguration;
-use App\Models\AccountConfiguration;
-use App\Models\Account;
-use App\Models\Property;
+use App\Models\PropertyContent;
+use App\Models\ContentListing;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -13,55 +11,68 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\ContentListing;
 
-class FetchContentListingJob implements ShouldQueue{
-
+class FetchContentListingJob implements ShouldQueue
+{
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct()
+    public function handle(): void
     {
-        //
-    }
+        // Loop through all PropertyContent
+        foreach (PropertyContent::all() as $propertyContent) {
 
-   public function handle(): void
-    {
-        foreach (Property::all() as $property) {
-            $response = Http::withHeaders([
-                'SC-TOKEN' => 'cddc35d0-1491-4b04-969c-9f8419ef0e99',
-            ])->get('https://api.supercontrol.co.uk/v3/properties/PropertyConfiguration/' . $property->id);
+            // Use hostaway_id if present and not empty, otherwise fallback to property_id
+            $hostawayId = !empty($propertyContent->hostaway_id) 
+                ? $propertyContent->hostaway_id 
+                : $propertyContent->property_id;
 
-            $data = $response->json();
-
-            if (!isset($data['propertyId'])) {
-                Log::warning("No content listing data found for property ID: {$property->property_id}");
+            if (!$hostawayId) {
+                Log::warning("Both Hostaway ID and Property ID missing for PropertyContent ID: {$propertyContent->id}");
                 continue;
             }
 
-            $configuration = $data['configuration'] ?? [];
-            $acceptedPaymentForms = $configuration['acceptedPaymentForms'] ?? [];
-            $acceptedPaymentFormsJson = json_encode($acceptedPaymentForms);
+            // Fetch listing data from Hostaway API
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Cache-Control' => 'no-cache',
+            ])->get("https://api.hostaway.com/v1/listings/" . $hostawayId);
 
+            $data = $response->json();
+
+            if (!isset($data['result']) || !$data['result']) {
+                Log::warning("Hostaway: No result found for ID: {$hostawayId}", [
+                    'response' => $data
+                ]);
+                continue;
+            }
+
+            $listing = $data['result'];
+
+            // Update or create ContentListing
             ContentListing::updateOrCreate(
-                ['property_id' => $data['propertyId']],
+                ['property_id' => $propertyContent->property_id], // match by property_id
                 [
-                    'property_url' => $data['propertyUrl'] ?? null,
-                    'customer_property_id' => $data['customerPropertyId'] ?? null,
-                    'accepted_payment_forms' => $acceptedPaymentFormsJson,
-                    'cancellation_policy' => $configuration['cancellationPolicy']['policy'] ?? null,
-                    'check_in_time' => $configuration['checkInTime'] ?? null,
-                    'check_out_time' => $configuration['checkOutTime'] ?? null,
-                    'children_allowed' => $configuration['childrenAllowed'] ?? false,
-                    'maximum_adults' => $configuration['maximumAdults'] ?? ($configuration['maximumOccupancy']['adults'] ?? 0),
-                    'maximum_guests' => $configuration['maximumGuests'] ?? ($configuration['maximumOccupancy']['guests'] ?? 0),
-                    'maximum_children' => $configuration['maximumChildren'] ?? ($configuration['maximumOccupancy']['children'] ?? 0),
-                    'merchant_name' => $configuration['merchantName'] ?? null,
-                    'pets_allowed' => $configuration['petsAllowed'] ?? false,
-                    'smoking_allowed' => $configuration['smokingAllowed'] ?? false,
-                    'allow_bookings' => $configuration['allowBookings'] ?? false,
-                    'allow_enquiries' => $configuration['allowEnquiries'] ?? false,
+                    'property_url'          => $listing['publicAddress'] ?? null,
+                    'customer_property_id'  => $listing['internalListingName'] ?? null,
+                    'accepted_payment_forms' => $listing['acceptedPaymentForms'] ?? '[]', // default empty JSON array
+                    'cancellation_policy'   => $listing['cancellationPolicy'] ?? null,
+                    'check_in_time'         => $listing['checkInTimeStart'] ?? null,
+                    'check_out_time'        => $listing['checkOutTime'] ?? null,
+                    'children_allowed'      => true,
+                    'maximum_adults'        => $listing['personCapacity'] ?? 0,
+                    'maximum_guests'        => $listing['personCapacity'] ?? 0,
+                    'maximum_children'      => $listing['maxChildrenAllowed'] ?? 0,
+                    'maximum_infants'       => $listing['maxInfantsAllowed'] ?? 0,
+                    'maximum_pets'          => $listing['maxPetsAllowed'] ?? 0,
+                    'merchant_name'         => $listing['merchantName'] ?? '', // <-- fix applied
+                    'pets_allowed'          => ($listing['maxPetsAllowed'] ?? 0) > 0,
+                    'smoking_allowed'       => $listing['smokingAllowed'] ?? false,
+                    'allow_bookings'        => $listing['instantBookable'] ?? false,
+                    'allow_enquiries'       => true,
                 ]
             );
+
+            Log::info("ContentListing updated for PropertyContent ID: {$propertyContent->id}, using ID: {$hostawayId}");
         }
     }
 }
