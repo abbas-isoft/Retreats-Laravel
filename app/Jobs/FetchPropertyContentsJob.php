@@ -15,46 +15,46 @@ class FetchPropertyContentsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * Handle the job.
-     */
     public function handle(): void
-{
-    try {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Cache-Control' => 'no-cache',
-        ])->get("https://api.hostaway.com/v1/listings");
+    {
+        try {
 
-        if (!$response->successful()) {
-            Log::error('Hostaway API request failed', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
-            ]);
-            return;
-        }
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Cache-Control' => 'no-cache',
+            ])->get("https://api.hostaway.com/v1/listings");
 
-        $properties = $response->json('result', []);
+            if (!$response->successful()) {
+                Log::error('Hostaway API request failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return;
+            }
 
-        if (empty($properties)) {
-            Log::warning('No properties returned from Hostaway API.');
-            return;
-        }
+            $properties = $response->json('result', []);
 
-        foreach ($properties as $propertyData) {
+            if (empty($properties)) {
+                Log::warning('No properties returned from Hostaway API.');
+                return;
+            }
 
-            $images = $propertyData['listingImages'] ?? [];
-            $beds   = $propertyData['listingBedTypes'] ?? [];
+            foreach ($properties as $propertyData) {
 
-            // Amenities (if coming)
-            $listingAmenities = $propertyData['listingAmenities'] ?? [];
-            $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
+                // Extract arrays
+                $images = $propertyData['listingImages'] ?? [];
+                $beds   = $propertyData['listingBedTypes'] ?? [];
 
-            // CREATE OR UPDATE PROPERTY CONTENT
-            $content = PropertyContent::updateOrCreate(
-                ['hostaway_id' => $propertyData['id']],
-                [
-                    'property_id'          => $propertyData['id'],
+                // Amenities
+                $listingAmenities = $propertyData['listingAmenities'] ?? [];
+                $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
+
+                // Check if record exists
+                $content = PropertyContent::where('property_id', $propertyData['id'])->first();
+
+                // Data for update/insert
+                $data = [
+                    'hostaway_id'          => $propertyData['id'],
                     'customer_property_id' => $propertyData['id'],
                     'property_type'        => $propertyData['propertyTypeId'] ?? null,
                     'latitude'             => $propertyData['lat'] ?? null,
@@ -72,100 +72,107 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'area'                 => $propertyData['squareMeters'] ?? 0,
                     'area_unit'            => 'sqm',
                     'amenities'            => json_encode($amenities),
-                ]
-            );
+                ];
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE LISTING IMAGES
-            |--------------------------------------------------------------------------
-            */
-            if (!empty($images)) {
-
-                // Delete old images
-                $content->images()->delete();
-
-                foreach ($images as $img) {
-                    $content->images()->create([
-                        'photo_id' => $img['id'] ?? null,
-                        'url'      => $img['url'] ?? null,
-                    ]);
+                /*
+                |--------------------------------------------------------------------------
+                | INSERT OR UPDATE RECORD
+                |--------------------------------------------------------------------------
+                */
+                if ($content) {
+                    // UPDATE
+                    $content->update($data);
+                    Log::info("Updated Existing PropertyContent: {$propertyData['id']}");
+                } else {
+                    // INSERT
+                    $content = PropertyContent::create(array_merge($data, [
+                        'property_id' => $propertyData['id']
+                    ]));
+                    Log::info("Inserted New PropertyContent: {$propertyData['id']}");
                 }
-            }
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE ROOM + BEDS
-            |--------------------------------------------------------------------------
-            */
+                /*
+                |--------------------------------------------------------------------------
+                | SAVE IMAGES
+                |--------------------------------------------------------------------------
+                */
+                if (!empty($images)) {
+                    // delete old
+                    $content->images()->delete();
 
-            // Hostaway may have rooms structure in future
-$roomsFromApi = $propertyData['rooms'] ?? [];  // if Hostaway sends rooms array
+                    foreach ($images as $img) {
+                        $content->images()->create([
+                            'photo_id' => $img['id'] ?? null,
+                            'url'      => $img['url'] ?? null,
+                        ]);
+                    }
+                }
 
-// Step 1: Delete old rooms & beds completely
-$content->rooms()->each(function($room) {
-    $room->beds()->delete();
-});
-$content->rooms()->delete();
 
-// Step 2: Create rooms from Hostaway (if any)
-if (!empty($roomsFromApi)) {
+                /*
+                |--------------------------------------------------------------------------
+                | SAVE ROOMS + BEDS
+                |--------------------------------------------------------------------------
+                */
+                $roomsFromApi = $propertyData['rooms'] ?? [];
 
-    foreach ($roomsFromApi as $r) {
+                // Remove old rooms and beds
+                $content->rooms()->each(function ($room) {
+                    $room->beds()->delete();
+                });
+                $content->rooms()->delete();
 
-        // Create Room
-        $room = $content->rooms()->create([
-            'name' => $r['name'] ?? 'Room',
-            'type' => $r['type'] ?? null,
-        ]);
+                // If Hostaway sends rooms
+                if (!empty($roomsFromApi)) {
 
-        // Beds for this room
-        if (!empty($r['beds'])) {
-            foreach ($r['beds'] as $bed) {
-                $room->beds()->create([
-                    'bed_type' => $bed['bedTypeId'] ?? null,
-                    'quantity' => $bed['quantity'] ?? 1,
+                    foreach ($roomsFromApi as $r) {
+                        $room = $content->rooms()->create([
+                            'name' => $r['name'] ?? 'Room',
+                            'type' => $r['type'] ?? null,
+                        ]);
+
+                        if (!empty($r['beds'])) {
+                            foreach ($r['beds'] as $bed) {
+                                $room->beds()->create([
+                                    'bed_type' => $bed['bedTypeId'] ?? null,
+                                    'quantity' => $bed['quantity'] ?? 1,
+                                ]);
+                            }
+                        }
+                    }
+
+                } else {
+                    // If only bedTypes exist
+                    if (!empty($beds)) {
+                        $room = $content->rooms()->create([
+                            'name' => 'Bedroom',
+                            'type' => 'bedroom',
+                        ]);
+
+                        foreach ($beds as $bed) {
+                            $room->beds()->create([
+                                'bed_type' => $bed['bedTypeId'] ?? null,
+                                'quantity' => $bed['quantity'] ?? 1,
+                            ]);
+                        }
+                    }
+                }
+
+
+                Log::info("Property sync completed", [
+                    'property_id'      => $content->property_id,
+                    'images_count'     => count($images),
+                    'beds_count'       => count($beds),
+                    'amenities_count'  => count($amenities),
                 ]);
             }
-        }
-    }
 
-} else {
-
-    // Step 3: If Hostaway sends only listingBedTypes (not rooms)
-    if (!empty($beds)) {
-
-        // Create one room with beds
-        $room = $content->rooms()->create([
-            'name' => 'Bedroom',
-            'type' => 'bedroom',
-        ]);
-
-        foreach ($beds as $bed) {
-            $room->beds()->create([
-                'bed_type' => $bed['bedTypeId'] ?? null,
-                'quantity' => $bed['quantity'] ?? 1,
+        } catch (\Exception $e) {
+            Log::error('Exception while fetching Hostaway properties', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
             ]);
         }
     }
-}
-
-
-            Log::info("Hostaway property updated: {$content->id}", [
-                'name'           => $content->property_name,
-                'images_count'   => count($images),
-                'beds_count'     => count($beds),
-                'amenities_count'=> count($amenities),
-            ]);
-        }
-
-    } catch (\Exception $e) {
-        Log::error('Exception while fetching Hostaway properties', [
-            'message' => $e->getMessage(),
-            'trace'   => $e->getTraceAsString(),
-        ]);
-    }
-}
 }
