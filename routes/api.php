@@ -86,6 +86,7 @@ Route::get('/properties/{propertyId}/extras', [PropertyExtraController::class, '
 // Route::get('content-listing/{id}', [ContentListingController::class, 'index']);
 Route::get('content-listing/{propertyId}', [ContentListingController::class, 'index']);
 Route::get('/properties/{propertyId}/booking-info', [PropertyContentController::class, 'GetBookingInfo']);
+Route::get('/properties/{propertyId}/booking-info', [PriceCalculationController::class, 'calculatePrice']);
 
 // Property Content
 // Route::get('property-content/{propertyId}', [PropertyContentController::class, 'index']);
