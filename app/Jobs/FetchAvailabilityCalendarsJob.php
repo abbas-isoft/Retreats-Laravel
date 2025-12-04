@@ -86,20 +86,19 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
             // Update or create single row per property
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
             AvailabilityCalendar::updateOrCreate(
-                [
-                    'property_id' => $propertyId,
-                    'source'      => 'hostaway', // unique key combination
-                ],
-                [
-                    'start_date'       => $startDate->format('Y-m-d'),
-                    'end_date'         => $endDate->format('Y-m-d'),
-                    'availability'     => $availabilityString,
-                    'change_over'      => $lastDayData['status'] ?? null,
-                    'max_stay'         => $lastDayData['maximumStay'] ?? null,
-                    'min_stay'         => $lastDayData['minimumStay'] ?? null,
-                    'min_prior_notify' => 0,
-                ]
-            );
+    [
+        'property_id' => $propertyId,   // 👈 Unique row only by property_id
+    ],
+    [
+        'start_date'       => $startDate->format('Y-m-d'),
+        'end_date'         => $endDate->format('Y-m-d'),
+        'availability'     => $availabilityString,
+        'change_over'      => $lastDayData['status'] ?? null,
+        'max_stay'         => $lastDayData['maximumStay'] ?? null,
+        'min_stay'         => $lastDayData['minimumStay'] ?? null,
+        'min_prior_notify' => 0,
+    ]
+);
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
             Log::info("✅ Hostaway calendar updateOrCreate completed for PropertyContent ID: {$propertyContent->id}");
