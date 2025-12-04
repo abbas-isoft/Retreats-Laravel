@@ -13,11 +13,10 @@ class PriceCalculationController extends Controller
     public function calculatePrice(Request $request)
     {
         $propertyId = $request->property_id;
-        $guests = $request->guests ?? 1; // optional guests param
         $checkIn = Carbon::parse(trim($request->check_in))->startOfDay();
         $checkOut = Carbon::parse(trim($request->check_out))->startOfDay();
-
         $nights = $checkIn->diffInDays($checkOut);
+
         if ($nights < 1) {
             return response()->json([
                 'status' => false,
@@ -25,28 +24,46 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // Step 1: Fetch property listing from Hostaway API
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Content-Type' => 'application/json',
-        ])->get("https://api.hostaway.com/v1/listings/{$propertyId}");
+        // Step 1: Fetch property listing from Hostaway API with error handling
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Content-Type' => 'application/json',
+            ])->get("https://api.hostaway.com/v1/listings/{$propertyId}");
 
-        $data = $response->json();
-        if (!isset($data['result']) || !$data['result']) {
+            if ($response->failed()) {
+                // If Hostaway returns 401, 403, or other error
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Hostaway API request failed',
+                    'http_status' => $response->status(),
+                    'response_body' => $response->json(),
+                ]);
+            }
+
+            $data = $response->json();
+            if (!isset($data['result']) || !$data['result']) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Property not found or access denied in Hostaway API.',
+                    'response' => $data
+                ]);
+            }
+
+            $listing = $data['result'];
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Property not found in Hostaway API.',
-                'response' => $data
+                'message' => 'Error connecting to Hostaway API.',
+                'error' => $e->getMessage(),
             ]);
         }
 
-        $listing = $data['result'];
-
-        // Step 2: Get price per night
+        // Step 2: Get price per night & calculate total
         $pricePerNight = $listing['price'] ?? 0;
         $totalPrice = $pricePerNight * $nights;
 
-        // Step 3: Check availability calendar
+        // Step 3: Get availability calendar from DB
         $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
         if (!$calendar) {
             return response()->json([
@@ -55,7 +72,7 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        $availability = $calendar->availability;
+        $availability = $calendar->availability; // "NYYNNYY..."
         $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
         $calendarEnd = Carbon::parse($calendar->end_date)->startOfDay();
 
@@ -66,7 +83,7 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // Step 4: Check each date availability
+        // Step 4: Check availability
         $allDates = [];
         $currentDate = $checkIn->copy();
         $available = true;
@@ -89,7 +106,8 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // ✅ Step 5: Return response exactly like your example
+        // Step 5: Return total price + available dates in your requested format
+        $guests = $request->guests ?? 1;
         return response()->json([
             'status' => true,
             'message' => 'Price calculated successfully',
