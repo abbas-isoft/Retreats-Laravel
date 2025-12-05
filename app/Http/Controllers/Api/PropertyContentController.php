@@ -534,13 +534,12 @@ public function getOtherProperties(Request $request)
     $checkOut = Carbon::parse($request->check_out)->startOfDay();
     $nights = $checkIn->diffInDays($checkOut);
 
-    // MAIN PROPERTY CHECK
+    // MAIN PROPERTY CALENDAR CHECK
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
         return response()->json([
             'status' => false,
-            'message' => 'Property Not Available for the selected dates',
-            'unavailable_date' => $checkIn->toDateString()
+            'message' => 'Property Not Available for the selected dates'
         ]);
     }
 
@@ -551,35 +550,34 @@ public function getOtherProperties(Request $request)
     if ($checkIn < $calendarStart || $checkOut > $calendarEnd) {
         return response()->json([
             'status' => false,
-            'message' => 'Property Not Available for the selected dates',
-            'unavailable_date' => $checkIn->toDateString()
+            'message' => 'Property Not Available for the selected dates'
         ]);
     }
 
-    // Day-by-day check
+    // CHECK DAY-BY-DAY
     $currentDate = $checkIn->copy();
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
-
-        // FIXED INDEX: NO -1
         $status = $availability[$dayIndex] ?? 'N';
 
         if ($status === 'N') {
             return response()->json([
                 'status' => false,
-                'message' => 'Property Not Available for the selected dates',
-                'unavailable_date' => $currentDate->toDateString()
+                'message' => 'Property Not Available for the selected dates'
             ]);
         }
         $currentDate->addDay();
     }
 
-    // FETCH OTHER PROPERTIES
-    $otherProperties = Property::where('id', '!=', $propertyId)->get();
+    // FETCH OTHER PROPERTIES (FROM PROPERTY_CONTENTS)
+    $otherProperties = PropertyContent::where('property_id', '!=', $propertyId)->get();
     $availableProperties = [];
 
-    foreach ($otherProperties as $property) {
-        $calendar = AvailabilityCalendar::where('property_id', $property->id)->first();
+    foreach ($otherProperties as $content) {
+
+        $pid = $content->property_id; // hostaway id
+
+        $calendar = AvailabilityCalendar::where('property_id', $pid)->first();
         if (!$calendar) continue;
 
         $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
@@ -593,28 +591,25 @@ public function getOtherProperties(Request $request)
 
         while ($currentDate < $checkOut) {
             $dayIndex = $calendarStart->diffInDays($currentDate);
-
-            // FIXED INDEX: NO -1
             $status = $availability[$dayIndex] ?? 'N';
 
             if ($status === 'N') {
                 $isAvailable = false;
                 break;
             }
+
             $currentDate->addDay();
         }
 
         if ($isAvailable) {
-            $content = PropertyContent::where('property_id', $property->id)->first();
-            $propertyName = $content ? $content->property_name : null;
 
-            $images = $content
-                ? PropertyContentImage::where('property_content_id', $content->id)
-                    ->pluck('url')
-                    ->toArray()
-                : [];
+            // Images
+            $images = PropertyContentImage::where('property_content_id', $content->id)
+                ->pluck('url')
+                ->toArray();
 
-            $config = PriceConfiguration::where('property_id', $property->id)->first();
+            // Price
+            $config = PriceConfiguration::where('property_id', $pid)->first();
             $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
                 ->where('date', $checkIn->toDateString())
                 ->first() : null;
@@ -627,8 +622,8 @@ public function getOtherProperties(Request $request)
             }
 
             $availableProperties[] = [
-                'id' => $property->id,
-                'name' => $propertyName,
+                'id' => $pid,
+                'name' => $content->property_name,
                 'total_price' => $totalPrice,
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
