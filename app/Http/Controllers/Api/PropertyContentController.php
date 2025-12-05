@@ -644,7 +644,7 @@ public function getOtherProperties(Request $request)
             $availableProperties[] = [
                 'id' => $pid,
                 'name' => $content->property_name,
-                'total_price' => round($totalPrice, 2),
+                'total_price' => round($totalPrice),
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
                 'check_out' => $checkOut->toDateString(),
