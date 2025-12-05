@@ -616,9 +616,11 @@ public function getOtherProperties(Request $request)
 
             $totalPrice = 0;
             if ($entry) {
-                $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
-                $price = array_slice($prices, 2)[$nights - 1] ?? 0;
-                $totalPrice = $price;
+               $pricesString = trim($entry->length_of_stay_prices, '"');
+$prices = array_map('floatval', explode(',', $pricesString));
+
+$price = $prices[$nights - 1] ?? 0;
+$totalPrice = $price;
             }
 
             $availableProperties[] = [
