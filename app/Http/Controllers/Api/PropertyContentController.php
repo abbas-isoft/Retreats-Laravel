@@ -612,46 +612,46 @@ public function getOtherProperties(Request $request)
                 ->pluck('url')
                 ->toArray();
 
-            // FETCH PRICE FROM HOSTAWAY API - Fresh calculation for each property
-            $propertyTotalPrice = 0;
-            $dailyPrices = 0;
+            // FETCH PRICE FROM HOSTAWAY API
+            $totalPrice = 0;
             
             try {
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . config('services.hostaway.token'),
                     'Content-Type'  => 'application/json',
-                ])->timeout(30)->retry(2, 1000)
+                ])->timeout(30)
                   ->get("https://api.hostaway.com/v1/listings/{$listingId}/calendar", [
                       'startDate' => $checkIn->format('Y-m-d'),
                       'endDate'   => $checkOut->format('Y-m-d'),
                   ]);
 
-                if ($response->successful()) {
+                if ($response->successful() && isset($response->json()['result'])) {
                     $data = $response->json();
                     
-                    if (isset($data['result']) && is_array($data['result'])) {
-                        // Fresh calculation - reset for each property
+                    if (is_array($data['result'])) {
+                        // Calculate total price from all days
                         foreach ($data['result'] as $day) {
-                            // Only add if date is within check-in to check-out range
-                            $dayDate = Carbon::parse($day['date']);
-                            if ($dayDate >= $checkIn && $dayDate < $checkOut) {
-                                if (isset($day['price']) && $day['price'] > 0) {
-                                    $dailyPrices += (float) $day['price'];
-                                }
+                            if (isset($day['price']) && is_numeric($day['price'])) {
+                                $totalPrice += (float) $day['price'];
                             }
                         }
-                        $propertyTotalPrice = $dailyPrices;
                     }
                 }
+                
+                // Agar API se price nahi mili, to silently continue (don't log error to avoid spam)
+                
             } catch (\Exception $e) {
-                Log::error("Failed to fetch price for listing {$listingId}: " . $e->getMessage());
-                $propertyTotalPrice = 0;
+                // Silently handle error, price will remain 0
+                // Only log critical errors
+                if (app()->environment('local')) {
+                    Log::debug("Price fetch skipped for listing {$listingId}");
+                }
             }
 
             $availableProperties[] = [
                 'id' => $pid,
                 'name' => $content->property_name,
-                'total_price' => round($propertyTotalPrice, 2),
+                'total_price' => round($totalPrice, 2),
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
                 'check_out' => $checkOut->toDateString(),
