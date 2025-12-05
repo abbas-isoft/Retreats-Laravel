@@ -524,7 +524,7 @@ return response()->json([
 public function getOtherProperties(Request $request)
 {
     $request->validate([
-        'property_id' => 'required|integer|exists:properties,id',
+        'property_id' => 'required|integer|exists:property_contents,property_id',
         'check_in'    => 'required|date',
         'check_out'   => 'required|date|after:check_in',
     ]);
@@ -534,7 +534,7 @@ public function getOtherProperties(Request $request)
     $checkOut = Carbon::parse($request->check_out)->startOfDay();
     $nights = $checkIn->diffInDays($checkOut);
 
-    // Check availability for the requested property first
+    // MAIN PROPERTY CHECK
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
         return response()->json([
@@ -556,11 +556,14 @@ public function getOtherProperties(Request $request)
         ]);
     }
 
-    // Check day-by-day availability
+    // Day-by-day check
     $currentDate = $checkIn->copy();
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
-        $status = $availability[$dayIndex - 1] ?? 'N';
+
+        // FIXED INDEX: NO -1
+        $status = $availability[$dayIndex] ?? 'N';
+
         if ($status === 'N') {
             return response()->json([
                 'status' => false,
@@ -571,7 +574,7 @@ public function getOtherProperties(Request $request)
         $currentDate->addDay();
     }
 
-    // If available, fetch other properties
+    // FETCH OTHER PROPERTIES
     $otherProperties = Property::where('id', '!=', $propertyId)->get();
     $availableProperties = [];
 
@@ -587,9 +590,13 @@ public function getOtherProperties(Request $request)
 
         $currentDate = $checkIn->copy();
         $isAvailable = true;
+
         while ($currentDate < $checkOut) {
             $dayIndex = $calendarStart->diffInDays($currentDate);
-            $status = $availability[$dayIndex - 1] ?? 'N';
+
+            // FIXED INDEX: NO -1
+            $status = $availability[$dayIndex] ?? 'N';
+
             if ($status === 'N') {
                 $isAvailable = false;
                 break;
@@ -637,6 +644,7 @@ public function getOtherProperties(Request $request)
         'data' => $availableProperties
     ]);
 }
+
 
 }
 
