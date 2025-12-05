@@ -534,7 +534,7 @@ public function getOtherProperties(Request $request)
     $checkOut = Carbon::parse($request->check_out)->startOfDay();
     $nights = $checkIn->diffInDays($checkOut);
 
-    // MAIN PROPERTY CALENDAR CHECK
+    // MAIN PROPERTY CHECK (keep existing logic)
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
         return response()->json([
@@ -554,12 +554,10 @@ public function getOtherProperties(Request $request)
         ]);
     }
 
-    // CHECK DAY-BY-DAY FOR MAIN PROPERTY
     $currentDate = $checkIn->copy();
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
         $status = $availability[$dayIndex] ?? 'N';
-
         if ($status === 'N') {
             return response()->json([
                 'status' => false,
@@ -569,7 +567,7 @@ public function getOtherProperties(Request $request)
         $currentDate->addDay();
     }
 
-    // FETCH OTHER PROPERTIES — simplified for direct price retrieval
+    // FETCH OTHER PROPERTIES — Direct price retrieval, skip availability check
     $otherProperties = PropertyContent::where('property_id', '!=', $propertyId)->get();
     $availableProperties = [];
 
@@ -581,7 +579,7 @@ public function getOtherProperties(Request $request)
             ->pluck('url')
             ->toArray();
 
-        // Price — fetch directly
+        // Direct Price — fetch PriceLosEntry if exists
         $config = PriceConfiguration::where('property_id', $pid)->first();
         $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
             ->where('date', $checkIn->toDateString())
@@ -611,7 +609,6 @@ public function getOtherProperties(Request $request)
         'data' => $availableProperties
     ]);
 }
-
 
 }
 
