@@ -554,7 +554,7 @@ public function getOtherProperties(Request $request)
         ]);
     }
 
-    // CHECK DAY-BY-DAY
+    // CHECK DAY-BY-DAY FOR MAIN PROPERTY
     $currentDate = $checkIn->copy();
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
@@ -569,68 +569,40 @@ public function getOtherProperties(Request $request)
         $currentDate->addDay();
     }
 
-    // FETCH OTHER PROPERTIES (FROM PROPERTY_CONTENTS)
+    // FETCH OTHER PROPERTIES — simplified for direct price retrieval
     $otherProperties = PropertyContent::where('property_id', '!=', $propertyId)->get();
     $availableProperties = [];
 
     foreach ($otherProperties as $content) {
+        $pid = $content->property_id;
 
-        $pid = $content->property_id; // hostaway id
+        // Images
+        $images = PropertyContentImage::where('property_content_id', $content->id)
+            ->pluck('url')
+            ->toArray();
 
-        $calendar = AvailabilityCalendar::where('property_id', $pid)->first();
-        if (!$calendar) continue;
+        // Price — fetch directly
+        $config = PriceConfiguration::where('property_id', $pid)->first();
+        $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
+            ->where('date', $checkIn->toDateString())
+            ->first() : null;
 
-        $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
-        $calendarEnd = Carbon::parse($calendar->end_date)->startOfDay();
-        $availability = $calendar->availability;
-
-        if ($checkIn < $calendarStart || $checkOut > $calendarEnd) continue;
-
-        $currentDate = $checkIn->copy();
-        $isAvailable = true;
-
-        while ($currentDate < $checkOut) {
-            $dayIndex = $calendarStart->diffInDays($currentDate);
-            $status = $availability[$dayIndex] ?? 'N';
-
-            if ($status === 'N') {
-                $isAvailable = false;
-                break;
-            }
-
-            $currentDate->addDay();
+        $totalPrice = 0;
+        if ($entry) {
+            $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
+            $price = array_slice($prices, 2)[$nights - 1] ?? 0;
+            $totalPrice = $price;
         }
 
-        if ($isAvailable) {
-
-            // Images
-            $images = PropertyContentImage::where('property_content_id', $content->id)
-                ->pluck('url')
-                ->toArray();
-
-            // Price
-            $config = PriceConfiguration::where('property_id', $pid)->first();
-            $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
-                ->where('date', $checkIn->toDateString())
-                ->first() : null;
-
-            $totalPrice = 0;
-            if ($entry) {
-                $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
-                $price = array_slice($prices, 2)[$nights - 1] ?? 0;
-                $totalPrice = $price;
-            }
-
-            $availableProperties[] = [
-                'id' => $pid,
-                'name' => $content->property_name,
-                'total_price' => $totalPrice,
-                'nights' => $nights,
-                'check_in' => $checkIn->toDateString(),
-                'check_out' => $checkOut->toDateString(),
-                'images' => $images,
-            ];
-        }
+        $availableProperties[] = [
+            'id' => $pid,
+            'name' => $content->property_name,
+            'total_price' => $totalPrice,
+            'nights' => $nights,
+            'check_in' => $checkIn->toDateString(),
+            'check_out' => $checkOut->toDateString(),
+            'images' => $images,
+        ];
     }
 
     return response()->json([
