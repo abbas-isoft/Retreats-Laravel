@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use App\Models\AvailabilityCalendar;
 
 class PriceCalculationController extends Controller
@@ -13,7 +14,7 @@ class PriceCalculationController extends Controller
     public function calculatePrice(Request $request)
     {
         $propertyId = $request->property_id;
-        $guests = $request->guests ?? 1; // optional guests param
+        $guests = $request->guests ?? 1;
         $checkIn = Carbon::parse(trim($request->check_in))->startOfDay();
         $checkOut = Carbon::parse(trim($request->check_out))->startOfDay();
 
@@ -25,28 +26,7 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // Step 1: Fetch property listing from Hostaway API (dynamic price)
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Content-Type' => 'application/json',
-        ])->get("https://api.hostaway.com/v1/listings/{$propertyId}");
-
-        $data = $response->json();
-        if (!isset($data['result']) || !$data['result']) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Property not found in Hostaway API.',
-                'response' => $data
-            ]);
-        }
-
-        $listing = $data['result'];
-
-        // Step 2: Get price per night dynamically
-        $pricePerNight = $listing['price'] ?? 0;
-        $totalPrice = $pricePerNight * $nights;
-
-        // Step 3: Check availability calendar (same as before)
+        // Step 1: Check availability calendar first
         $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
         if (!$calendar) {
             return response()->json([
@@ -66,17 +46,20 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // Step 4: Check each date availability
+        // Step 2: Check each date availability
         $allDates = [];
         $currentDate = $checkIn->copy();
         $available = true;
+        
         while ($currentDate < $checkOut) {
             $dayIndex = $calendarStart->diffInDays($currentDate);
-            $status = $availability[$dayIndex] ?? 'N'; // corrected indexing
+            $status = $availability[$dayIndex] ?? 'N';
+            
             if ($status === 'N') {
                 $available = false;
                 break;
             }
+            
             $allDates[] = $currentDate->toDateString();
             $currentDate->addDay();
         }
@@ -89,12 +72,78 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // ✅ Step 5: Return response exactly like your example
+        // Step 3: Fetch DAILY prices from Hostaway Calendar API
+        $totalPrice = 0;
+        $pricePerNight = 0;
+        
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Content-Type' => 'application/json',
+            ])->timeout(30)
+              ->get("https://api.hostaway.com/v1/listings/{$propertyId}/calendar", [
+                  'startDate' => $checkIn->format('Y-m-d'),
+                  'endDate'   => $checkOut->format('Y-m-d'),
+              ]);
+
+            if ($response->successful() && isset($response->json()['result'])) {
+                $calendarData = $response->json()['result'];
+                
+                if (is_array($calendarData)) {
+                    $dailyPrices = [];
+                    
+                    // Har date ki individual price fetch karo
+                    foreach ($calendarData as $day) {
+                        $dayDate = Carbon::parse($day['date'])->startOfDay();
+                        
+                        // Sirf selected range ke dates ki price lo
+                        if ($dayDate >= $checkIn && $dayDate < $checkOut) {
+                            if (isset($day['price']) && is_numeric($day['price'])) {
+                                $dailyPrice = (float) $day['price'];
+                                $dailyPrices[] = $dailyPrice;
+                                $totalPrice += $dailyPrice;
+                            }
+                        }
+                    }
+                    
+                    // Average price per night calculate karo
+                    if (count($dailyPrices) > 0) {
+                        $pricePerNight = $totalPrice / count($dailyPrices);
+                    }
+                }
+            }
+            
+        } catch (\Exception $e) {
+            if (app()->environment('local')) {
+                Log::debug("Price fetch error for property {$propertyId}: " . $e->getMessage());
+            }
+        }
+
+        // Agar Hostaway se price nahi mili to fallback
+        if ($totalPrice == 0) {
+            // Fallback: Try to get base price from listing endpoint
+            try {
+                $listingResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                    'Content-Type' => 'application/json',
+                ])->timeout(20)->get("https://api.hostaway.com/v1/listings/{$propertyId}");
+
+                $listingData = $listingResponse->json();
+                if (isset($listingData['result']['price'])) {
+                    $pricePerNight = (float) $listingData['result']['price'];
+                    $totalPrice = $pricePerNight * $nights;
+                }
+            } catch (\Exception $e) {
+                // Silently fail
+            }
+        }
+
+        // Step 4: Return response with dynamic prices
         return response()->json([
             'status' => true,
             'message' => 'Price calculated successfully',
             'data' => [
-                'total_price' => $totalPrice,
+                'total_price' => round($totalPrice, 2),
                 'per_day' => round($pricePerNight, 2),
                 'nights' => $nights,
                 'guest' => $guests,
