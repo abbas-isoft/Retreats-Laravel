@@ -619,39 +619,32 @@ public function getOtherProperties(Request $request)
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . config('services.hostaway.token'),
                     'Content-Type'  => 'application/json',
-                ])->timeout(30)
+                ])->timeout(30)->retry(2, 1000)
                   ->get("https://api.hostaway.com/v1/listings/{$listingId}/calendar", [
                       'startDate' => $checkIn->format('Y-m-d'),
                       'endDate'   => $checkOut->format('Y-m-d'),
                   ]);
 
-                if ($response->successful() && isset($response->json()['result'])) {
+                if ($response->successful()) {
                     $data = $response->json();
                     
-                    if (is_array($data['result'])) {
+                    if (isset($data['result']) && is_array($data['result'])) {
                         // Calculate total price from all days
                         foreach ($data['result'] as $day) {
-                            if (isset($day['price']) && is_numeric($day['price'])) {
+                            if (isset($day['price'])) {
                                 $totalPrice += (float) $day['price'];
                             }
                         }
                     }
                 }
-                
-                // Agar API se price nahi mili, to silently continue (don't log error to avoid spam)
-                
             } catch (\Exception $e) {
-                // Silently handle error, price will remain 0
-                // Only log critical errors
-                if (app()->environment('local')) {
-                    Log::debug("Price fetch skipped for listing {$listingId}");
-                }
+                Log::error("Failed to fetch price for listing {$listingId}: " . $e->getMessage());
             }
 
             $availableProperties[] = [
                 'id' => $pid,
                 'name' => $content->property_name,
-                'total_price' => round($totalPrice, 2),
+                'total_price' => round($totalPrice),
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
                 'check_out' => $checkOut->toDateString(),
