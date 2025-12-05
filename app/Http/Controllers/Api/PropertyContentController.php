@@ -612,8 +612,9 @@ public function getOtherProperties(Request $request)
                 ->pluck('url')
                 ->toArray();
 
-            // FETCH PRICE FROM HOSTAWAY API
-            $totalPrice = 0;
+            // FETCH PRICE FROM HOSTAWAY API - Fresh calculation for each property
+            $propertyTotalPrice = 0;
+            $dailyPrices = 0;
             
             try {
                 $response = Http::withHeaders([
@@ -629,22 +630,28 @@ public function getOtherProperties(Request $request)
                     $data = $response->json();
                     
                     if (isset($data['result']) && is_array($data['result'])) {
-                        // Calculate total price from all days
+                        // Fresh calculation - reset for each property
                         foreach ($data['result'] as $day) {
-                            if (isset($day['price'])) {
-                                $totalPrice += (float) $day['price'];
+                            // Only add if date is within check-in to check-out range
+                            $dayDate = Carbon::parse($day['date']);
+                            if ($dayDate >= $checkIn && $dayDate < $checkOut) {
+                                if (isset($day['price']) && $day['price'] > 0) {
+                                    $dailyPrices += (float) $day['price'];
+                                }
                             }
                         }
+                        $propertyTotalPrice = $dailyPrices;
                     }
                 }
             } catch (\Exception $e) {
                 Log::error("Failed to fetch price for listing {$listingId}: " . $e->getMessage());
+                $propertyTotalPrice = 0;
             }
 
             $availableProperties[] = [
                 'id' => $pid,
                 'name' => $content->property_name,
-                'total_price' => round($totalPrice),
+                'total_price' => round($propertyTotalPrice, 2),
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
                 'check_out' => $checkOut->toDateString(),
