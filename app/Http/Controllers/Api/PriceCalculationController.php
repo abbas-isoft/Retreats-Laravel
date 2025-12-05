@@ -25,7 +25,7 @@ class PriceCalculationController extends Controller
             ]);
         }
 
-        // Step 1: Fetch property listing from Hostaway API
+        // Step 1: Fetch property listing from Hostaway API (dynamic price)
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Content-Type' => 'application/json',
@@ -42,11 +42,11 @@ class PriceCalculationController extends Controller
 
         $listing = $data['result'];
 
-        // Step 2: Get price per night
+        // Step 2: Get price per night dynamically
         $pricePerNight = $listing['price'] ?? 0;
         $totalPrice = $pricePerNight * $nights;
 
-        // Step 3: Check availability calendar
+        // Step 3: Check availability calendar (same as before)
         $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
         if (!$calendar) {
             return response()->json([
@@ -72,7 +72,7 @@ class PriceCalculationController extends Controller
         $available = true;
         while ($currentDate < $checkOut) {
             $dayIndex = $calendarStart->diffInDays($currentDate);
-            $status = $availability[$dayIndex - 1] ?? 'N';
+            $status = $availability[$dayIndex] ?? 'N'; // corrected indexing
             if ($status === 'N') {
                 $available = false;
                 break;
