@@ -613,7 +613,7 @@ public function getOtherProperties(Request $request)
                 ->toArray();
 
             // FETCH PRICE FROM HOSTAWAY API
-            $totalPrice = 0;
+            $propertyTotalPrice = 0;
             
             try {
                 $response = Http::withHeaders([
@@ -629,22 +629,25 @@ public function getOtherProperties(Request $request)
                     $data = $response->json();
                     
                     if (isset($data['result']) && is_array($data['result'])) {
-                        // Calculate total price from all days
+                        // Calculate total price from all days for THIS property only
+                        $dailyPrices = 0;
                         foreach ($data['result'] as $day) {
-                            if (isset($day['price'])) {
-                                $totalPrice += (float) $day['price'];
+                            if (isset($day['price']) && $day['price'] > 0) {
+                                $dailyPrices += (float) $day['price'];
                             }
                         }
+                        $propertyTotalPrice = $dailyPrices;
                     }
                 }
             } catch (\Exception $e) {
                 Log::error("Failed to fetch price for listing {$listingId}: " . $e->getMessage());
+                $propertyTotalPrice = 0;
             }
 
             $availableProperties[] = [
                 'id' => $pid,
                 'name' => $content->property_name,
-                'total_price' => round($totalPrice),
+                'total_price' => round($propertyTotalPrice, 2),
                 'nights' => $nights,
                 'check_in' => $checkIn->toDateString(),
                 'check_out' => $checkOut->toDateString(),
