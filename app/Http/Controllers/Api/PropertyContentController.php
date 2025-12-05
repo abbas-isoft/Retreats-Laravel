@@ -569,15 +569,14 @@ public function getOtherProperties(Request $request)
         $currentDate->addDay();
     }
 
-    // FETCH OTHER PROPERTIES FROM PROPERTY_CONTENTS
+    // FETCH OTHER PROPERTIES (FROM PROPERTY_CONTENTS)
     $otherProperties = PropertyContent::where('property_id', '!=', $propertyId)->get();
     $availableProperties = [];
 
     foreach ($otherProperties as $content) {
 
-        $pid = $content->property_id;
+        $pid = $content->property_id; // hostaway id
 
-        // CALENDAR CHECK FOR OTHER PROPERTY
         $calendar = AvailabilityCalendar::where('property_id', $pid)->first();
         if (!$calendar) continue;
 
@@ -602,42 +601,36 @@ public function getOtherProperties(Request $request)
             $currentDate->addDay();
         }
 
-        if (!$isAvailable) continue;
+        if ($isAvailable) {
 
-        // IMAGES
-        $images = PropertyContentImage::where('property_content_id', $content->id)
-            ->pluck('url')
-            ->toArray();
+            // Images
+            $images = PropertyContentImage::where('property_content_id', $content->id)
+                ->pluck('url')
+                ->toArray();
 
-        // PRICE (Fixed logic: closest LOS date <= check-in)
-        $config = PriceConfiguration::where('property_id', $pid)->first();
+            // Price
+            $config = PriceConfiguration::where('property_id', $pid)->first();
+            $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
+                ->where('date', $checkIn->toDateString())
+                ->first() : null;
 
-        $entry = null;
-        if ($config) {
-            $entry = PriceLosEntry::where('price_configuration_id', $config->id)
-                ->where('date', '<=', $checkIn->toDateString())
-                ->orderBy('date', 'desc')
-                ->first();
+            $totalPrice = 0;
+            if ($entry) {
+                $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
+                $price = array_slice($prices, 2)[$nights - 1] ?? 0;
+                $totalPrice = $price;
+            }
+
+            $availableProperties[] = [
+                'id' => $pid,
+                'name' => $content->property_name,
+                'total_price' => $totalPrice,
+                'nights' => $nights,
+                'check_in' => $checkIn->toDateString(),
+                'check_out' => $checkOut->toDateString(),
+                'images' => $images,
+            ];
         }
-
-        $totalPrice = 0;
-
-        if ($entry) {
-            $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
-            $prices = array_slice($prices, 2); // remove metadata
-
-            $totalPrice = $prices[$nights - 1] ?? 0;
-        }
-
-        $availableProperties[] = [
-            'id' => $pid,
-            'name' => $content->property_name,
-            'total_price' => $totalPrice,
-            'nights' => $nights,
-            'check_in' => $checkIn->toDateString(),
-            'check_out' => $checkOut->toDateString(),
-            'images' => $images,
-        ];
     }
 
     return response()->json([
@@ -646,7 +639,6 @@ public function getOtherProperties(Request $request)
         'data' => $availableProperties
     ]);
 }
-
 
 
 }
