@@ -612,8 +612,9 @@ public function getOtherProperties(Request $request)
                 ->pluck('url')
                 ->toArray();
 
-            // FETCH PRICE FROM HOSTAWAY API
+            // FETCH PRICE FROM HOSTAWAY API - Fresh calculation for each property
             $propertyTotalPrice = 0;
+            $dailyPrices = 0;
             
             try {
                 $response = Http::withHeaders([
@@ -629,11 +630,14 @@ public function getOtherProperties(Request $request)
                     $data = $response->json();
                     
                     if (isset($data['result']) && is_array($data['result'])) {
-                        // Calculate total price from all days for THIS property only
-                        $dailyPrices = 0;
+                        // Fresh calculation - reset for each property
                         foreach ($data['result'] as $day) {
-                            if (isset($day['price']) && $day['price'] > 0) {
-                                $dailyPrices += (float) $day['price'];
+                            // Only add if date is within check-in to check-out range
+                            $dayDate = Carbon::parse($day['date']);
+                            if ($dayDate >= $checkIn && $dayDate < $checkOut) {
+                                if (isset($day['price']) && $day['price'] > 0) {
+                                    $dailyPrices += (float) $day['price'];
+                                }
                             }
                         }
                         $propertyTotalPrice = $dailyPrices;
