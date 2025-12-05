@@ -22,6 +22,7 @@ use Carbon\Carbon;
 use App\Models\PriceConfiguration;
 use App\Models\PriceLosEntry;
 use App\Models\PropertyExtra;
+use Illuminate\Support\Facades\Http;
 class PropertyContentController extends Controller
 {
 
@@ -534,7 +535,7 @@ public function getOtherProperties(Request $request)
     $checkOut = Carbon::parse($request->check_out)->startOfDay();
     $nights = $checkIn->diffInDays($checkOut);
 
-    // MAIN PROPERTY CHECK (keep existing logic)
+    // MAIN PROPERTY CALENDAR CHECK
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
         return response()->json([
@@ -554,10 +555,12 @@ public function getOtherProperties(Request $request)
         ]);
     }
 
+    // CHECK DAY-BY-DAY
     $currentDate = $checkIn->copy();
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
         $status = $availability[$dayIndex] ?? 'N';
+
         if ($status === 'N') {
             return response()->json([
                 'status' => false,
@@ -567,40 +570,87 @@ public function getOtherProperties(Request $request)
         $currentDate->addDay();
     }
 
-    // FETCH OTHER PROPERTIES — Direct price retrieval, skip availability check
+    // FETCH OTHER PROPERTIES (FROM PROPERTY_CONTENTS)
     $otherProperties = PropertyContent::where('property_id', '!=', $propertyId)->get();
     $availableProperties = [];
 
     foreach ($otherProperties as $content) {
+
         $pid = $content->property_id;
+        
+        // Hostaway listing ID (prefer hostaway_id if available)
+        $listingId = !empty($content->hostaway_id) ? $content->hostaway_id : $pid;
 
-        // Images
-        $images = PropertyContentImage::where('property_content_id', $content->id)
-            ->pluck('url')
-            ->toArray();
+        $calendar = AvailabilityCalendar::where('property_id', $pid)->first();
+        if (!$calendar) continue;
 
-        // Direct Price — fetch PriceLosEntry if exists
-        $config = PriceConfiguration::where('property_id', $pid)->first();
-        $entry = $config ? PriceLosEntry::where('price_configuration_id', $config->id)
-            ->where('date', $checkIn->toDateString())
-            ->first() : null;
+        $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
+        $calendarEnd = Carbon::parse($calendar->end_date)->startOfDay();
+        $availability = $calendar->availability;
 
-        $totalPrice = 0;
-        if ($entry) {
-            $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
-            $price = array_slice($prices, 2)[$nights - 1] ?? 0;
-            $totalPrice = $price;
+        if ($checkIn < $calendarStart || $checkOut > $calendarEnd) continue;
+
+        $currentDate = $checkIn->copy();
+        $isAvailable = true;
+
+        while ($currentDate < $checkOut) {
+            $dayIndex = $calendarStart->diffInDays($currentDate);
+            $status = $availability[$dayIndex] ?? 'N';
+
+            if ($status === 'N') {
+                $isAvailable = false;
+                break;
+            }
+
+            $currentDate->addDay();
         }
 
-        $availableProperties[] = [
-            'id' => $pid,
-            'name' => $content->property_name,
-            'total_price' => $totalPrice,
-            'nights' => $nights,
-            'check_in' => $checkIn->toDateString(),
-            'check_out' => $checkOut->toDateString(),
-            'images' => $images,
-        ];
+        if ($isAvailable) {
+
+            // Images
+            $images = PropertyContentImage::where('property_content_id', $content->id)
+                ->pluck('url')
+                ->toArray();
+
+            // FETCH PRICE FROM HOSTAWAY API
+            $totalPrice = 0;
+            
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                    'Content-Type'  => 'application/json',
+                ])->timeout(30)->retry(2, 1000)
+                  ->get("https://api.hostaway.com/v1/listings/{$listingId}/calendar", [
+                      'startDate' => $checkIn->format('Y-m-d'),
+                      'endDate'   => $checkOut->format('Y-m-d'),
+                  ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    
+                    if (isset($data['result']) && is_array($data['result'])) {
+                        // Calculate total price from all days
+                        foreach ($data['result'] as $day) {
+                            if (isset($day['price'])) {
+                                $totalPrice += (float) $day['price'];
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error("Failed to fetch price for listing {$listingId}: " . $e->getMessage());
+            }
+
+            $availableProperties[] = [
+                'id' => $pid,
+                'name' => $content->property_name,
+                'total_price' => round($totalPrice, 2),
+                'nights' => $nights,
+                'check_in' => $checkIn->toDateString(),
+                'check_out' => $checkOut->toDateString(),
+                'images' => $images,
+            ];
+        }
     }
 
     return response()->json([
