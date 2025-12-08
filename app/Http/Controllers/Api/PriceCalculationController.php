@@ -11,10 +11,10 @@ use App\Models\AvailabilityCalendar;
 
 class PriceCalculationController extends Controller
 {
-    public function calculatePrice(Request $request, $propertyId)
+    public function calculatePrice(Request $request, $propertyId = null)
 {
-    // Property ID from URL param
-    $propertyId = intval($propertyId);
+    // Property ID from URL param OR request query
+    $propertyId = $propertyId ?? intval($request->property_id ?? $request->query('property_id'));
 
     $guests = $request->guests ?? 1;
     $checkIn = Carbon::parse(trim($request->check_in))->startOfDay();
