@@ -408,6 +408,7 @@ public function GetBookingInfo(Request $request, $propertyId)
     if (!$calendar) {
         return response()->json([
             'status' => false,
+            'property_id' => $propertyId,
             'message' => 'No availability calendar found.'
         ]);
     }
