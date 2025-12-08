@@ -371,14 +371,6 @@ public function GetBookingInfo(Request $request, $propertyId)
         'allow_enquiries' => $contentListing->allow_enquiries ?? null,
     ];
 
-    //  Billing (from price_configurations)
-    $priceConfig = \App\Models\PriceConfiguration::where('property_id', $propertyId)->first();
-
-    $balanceDueDays  = $priceConfig->balance_due_days ?? 0;
-    $depositType     = $priceConfig->deposit_type ?? null;
-    $depositValue    = $priceConfig->deposit_value ?? 0;
-    $securityDeposit = $priceConfig->security_deposit ?? 0;
-
     //  Booking Inputs (from frontend)
     $checkIn  = Carbon::parse(trim($request->check_in))->startOfDay();
     $checkOut = Carbon::parse(trim($request->check_out))->startOfDay();
@@ -391,18 +383,6 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    //  Calculate price (same logic as calculatePrice)
-    $entry = PriceLosEntry::where('price_configuration_id', $priceConfig->id)
-        ->where('date', $checkIn->toDateString())
-        ->first();
-
-    if (!$entry) {
-        return response()->json([
-            'status' => false,
-            'message' => 'No pricing data found for this date'
-        ]);
-    }
-
     // Availability check
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
@@ -412,7 +392,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    $availability = $calendar->availability; // "NYYNNYY..." string
+    $availability = $calendar->availability;
     $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
     $calendarEnd   = Carbon::parse($calendar->end_date)->startOfDay();
 
@@ -427,7 +407,7 @@ public function GetBookingInfo(Request $request, $propertyId)
     $available = true;
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
-        $status   = $availability[$dayIndex - 1] ?? 'N';
+        $status   = $availability[$dayIndex] ?? 'N';
         if ($status === 'N') {
             $available = false;
             break;
@@ -442,11 +422,66 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    // Price extraction
-    $prices = explode(',', trim($entry->length_of_stay_prices, '"'));
-    $guests = $prices[1] ?? 0;
-    $prices = array_slice($prices, 2);
-    $totalPrice = $prices[$nights - 1] ?? 0;
+    // Fetch pricing and deposit data from Hostaway API
+    $totalPrice = 0;
+    $depositAmount = 0;
+    $balanceAmount = 0;
+    $depositType = null;
+    $depositValue = 0;
+    $securityDeposit = 0;
+    $balanceDueDays = 0;
+    $depositLabel = "Due Now";
+    $balanceLabel = null;
+
+    try {
+        // Get pricing from calendar API
+        $calendarResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->get("https://api.hostaway.com/v1/listings/{$propertyId}/calendar", [
+            'startDate' => $checkIn->format('Y-m-d'),
+            'endDate'   => $checkOut->format('Y-m-d'),
+        ]);
+
+        if ($calendarResponse->successful() && isset($calendarResponse->json()['result'])) {
+            $calendarData = $calendarResponse->json()['result'];
+            
+            // Calculate total price from daily prices
+            foreach ($calendarData as $day) {
+                $dayDate = Carbon::parse($day['date'])->startOfDay();
+                if ($dayDate >= $checkIn && $dayDate < $checkOut) {
+                    if (isset($day['price']) && is_numeric($day['price'])) {
+                        $totalPrice += (float) $day['price'];
+                    }
+                }
+            }
+        }
+
+        // Get listing details for deposit settings
+        $listingResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->get("https://api.hostaway.com/v1/listings/{$propertyId}");
+
+        if ($listingResponse->successful() && isset($listingResponse->json()['result'])) {
+            $listing = $listingResponse->json()['result'];
+            
+            // Security deposit
+            $securityDeposit = $listing['securityDepositAmount'] ?? 0;
+            
+            // Deposit settings
+            $depositType = isset($listing['isDepositPercentage']) && $listing['isDepositPercentage'] 
+                ? 'Percentage' 
+                : 'Fixed';
+            $depositValue = $listing['depositAmount'] ?? 0;
+            
+            // Balance due days
+            $balanceDueDays = $listing['balanceDueDays'] ?? 0;
+        }
+
+    } catch (\Exception $e) {
+        Log::error("Hostaway API error for property {$propertyId}: " . $e->getMessage());
+    }
 
     if ($totalPrice == 0) {
         return response()->json([
@@ -462,64 +497,57 @@ public function GetBookingInfo(Request $request, $propertyId)
     $daysUntilArrival = now()->diffInDays($checkIn, false);
 
     //  Deposit & Balance Calculation
-    //  Deposit & Balance Calculation
-$depositAmount = 0;
-$balanceAmount = 0;
-$depositLabel  = "Due Now";
-$balanceLabel  = null;
+    if ($daysUntilArrival > 60) {
+        if ($depositType === 'Percentage') {
+            $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
+        } else {
+            $depositAmount = $depositValue;
+        }
 
-if ($daysUntilArrival > 60) {
-    if ($depositType === 'Percentage') {
-        $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
+        if ($depositAmount <= 0) {
+            $depositAmount = round(0.25 * $totalPrice, 2);
+        }
+
+        $balanceAmount = $totalPrice - $depositAmount;
+
+        $depositLabel = "Due Now";
+        $balanceLabel = "Charged on " . $balanceDueDate;
     } else {
-        $depositAmount = $depositValue;
+        // Booking within 60 days: deposit = 0, full balance due now
+        $depositAmount = 0;
+        $balanceAmount = $totalPrice;
+
+        $depositLabel = "Due Now";
+        $balanceLabel = "Due Now";
     }
 
-    if ($depositAmount <= 0) {
-        $depositAmount = round(0.25 * $totalPrice, 2);
-    }
-
-    $balanceAmount = $totalPrice - $depositAmount;
-
-    $depositLabel = "Due Now";
-    $balanceLabel = "Charged on " . $balanceDueDate;
-} else {
-    // Booking within 60 days: deposit = 0, full balance due now
-    $depositAmount = 0;
-    $balanceAmount = $totalPrice;
-
-    $depositLabel = "Due Now";
-    $balanceLabel = "Due Now"; // <-- Added this line
-}
-
-//  Final Response
-return response()->json([
-    'status'  => true,
-    'message' => 'Booking info fetched successfully',
-    'data'    => [
-        'property_id' => $propertyId,
-        'extras'      => PropertyExtra::where('property_id', $propertyId)->get(),
-        'settings'    => $settings,
-        'billing'     => [
-            'deposit_type'     => $depositType,
-            'deposit_value'    => $depositValue,
-            'security_deposit' => $securityDeposit,
-            'total_price'      => $totalPrice,
-            'nights'           => $nights,
-            'deposit' => [
-                'label'  => $depositLabel,
-                'amount' => $depositAmount
-            ],
-            'balance' => [
-                'label'    => $balanceLabel, // <-- now dynamically set
-                'due_date' => $balanceAmount > 0 && $daysUntilArrival > 60 ? $balanceDueDate : null,
-                'amount'   => $balanceAmount
+    //  Final Response
+    return response()->json([
+        'status'  => true,
+        'message' => 'Booking info fetched successfully',
+        'data'    => [
+            'property_id' => $propertyId,
+            'extras'      => PropertyExtra::where('property_id', $propertyId)->get(),
+            'settings'    => $settings,
+            'billing'     => [
+                'deposit_type'     => $depositType,
+                'deposit_value'    => $depositValue,
+                'security_deposit' => $securityDeposit,
+                'total_price'      => $totalPrice,
+                'nights'           => $nights,
+                'deposit' => [
+                    'label'  => $depositLabel,
+                    'amount' => $depositAmount
+                ],
+                'balance' => [
+                    'label'    => $balanceLabel,
+                    'due_date' => $balanceAmount > 0 && $daysUntilArrival > 60 ? $balanceDueDate : null,
+                    'amount'   => $balanceAmount
+                ]
             ]
         ]
-    ]
-]);
+    ]);
 }
-
 
 
 public function getOtherProperties(Request $request)
