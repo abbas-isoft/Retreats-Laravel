@@ -344,26 +344,21 @@ public function getPropertyPrice(Request $request, $propertyId)
 
 public function GetBookingInfo(Request $request, $propertyId)
 {
-    //  Property record
-    // $property = Property::findOrFail($propertyId);
-
+    // 1️⃣ Get extras from local DB (rooms/beds)
     $contentListing = \App\Models\ContentListing::where('property_id', $propertyId)->first();
 
     if (!$contentListing) {
         $extras = collect(); // empty collection
     } else {
-        // Step 2: get all property_rooms for this content listing
         $roomIds = \App\Models\PropertyRoom::where('property_content_id', $contentListing->id)
             ->pluck('id');
 
-        // Step 3: get all beds for those rooms
         $extras = \App\Models\PropertyRoomBed::whereIn('property_room_id', $roomIds)->get();
     }
 
-    // Step 4: map to resource
     $extras = PropertyRoomBedsResource::collection($extras);
 
-    //  Settings (from contents_listing)
+    // 2️⃣ Settings
     $settings = [
         'pets_allowed'    => $contentListing->pets_allowed ?? null,
         'smoking_allowed' => $contentListing->smoking_allowed ?? null,
@@ -371,7 +366,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         'allow_enquiries' => $contentListing->allow_enquiries ?? null,
     ];
 
-    //  Booking Inputs (from frontend)
+    // 3️⃣ Booking Inputs
     $checkIn  = Carbon::parse(trim($request->check_in))->startOfDay();
     $checkOut = Carbon::parse(trim($request->check_out))->startOfDay();
     $nights   = $checkIn->diffInDays($checkOut);
@@ -383,7 +378,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    // Availability check
+    // 4️⃣ Availability Check
     $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
     if (!$calendar) {
         return response()->json([
@@ -392,9 +387,11 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    $availability = $calendar->availability;
-    $calendarStart = Carbon::parse($calendar->start_date)->startOfDay();
-    $calendarEnd   = Carbon::parse($calendar->end_date)->startOfDay();
+    $availability   = $calendar->availability;
+    $calendarStart  = Carbon::parse($calendar->start_date)->startOfDay();
+    $calendarEnd    = Carbon::parse($calendar->end_date)->startOfDay();
+    $currentDate    = $checkIn->copy();
+    $available      = true;
 
     if ($checkIn < $calendarStart || $checkOut > $calendarEnd) {
         return response()->json([
@@ -403,8 +400,6 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    $currentDate = $checkIn->copy();
-    $available = true;
     while ($currentDate < $checkOut) {
         $dayIndex = $calendarStart->diffInDays($currentDate);
         $status   = $availability[$dayIndex] ?? 'N';
@@ -422,7 +417,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    // Fetch pricing and deposit data from Hostaway API
+    // 5️⃣ Fetch pricing and deposit data from Hostaway
     $totalPrice = 0;
     $depositAmount = 0;
     $balanceAmount = 0;
@@ -434,7 +429,7 @@ public function GetBookingInfo(Request $request, $propertyId)
     $balanceLabel = null;
 
     try {
-        // Get pricing from calendar API
+        // Calendar prices
         $calendarResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Content-Type' => 'application/json',
@@ -444,10 +439,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
 
         if ($calendarResponse->successful() && isset($calendarResponse->json()['result'])) {
-            $calendarData = $calendarResponse->json()['result'];
-            
-            // Calculate total price from daily prices
-            foreach ($calendarData as $day) {
+            foreach ($calendarResponse->json()['result'] as $day) {
                 $dayDate = Carbon::parse($day['date'])->startOfDay();
                 if ($dayDate >= $checkIn && $dayDate < $checkOut) {
                     if (isset($day['price']) && is_numeric($day['price'])) {
@@ -457,7 +449,7 @@ public function GetBookingInfo(Request $request, $propertyId)
             }
         }
 
-        // Get listing details for deposit settings
+        // Listing details (Deposit + Security Deposit)
         $listingResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Content-Type' => 'application/json',
@@ -465,22 +457,29 @@ public function GetBookingInfo(Request $request, $propertyId)
 
         if ($listingResponse->successful() && isset($listingResponse->json()['result'])) {
             $listing = $listingResponse->json()['result'];
-            
-            // Security deposit
-            $securityDeposit = $listing['securityDepositAmount'] ?? 0;
-            
-            // Deposit settings
-            $depositType = isset($listing['isDepositPercentage']) && $listing['isDepositPercentage'] 
-                ? 'Percentage' 
-                : 'Fixed';
-            $depositValue = $listing['depositAmount'] ?? 0;
-            
-            // Balance due days
+
+            // Some Hostaway accounts return securityDepositAmount or securityDeposit as string
+            $securityDeposit = isset($listing['securityDepositAmount']) 
+                ? (float)$listing['securityDepositAmount'] 
+                : (isset($listing['securityDeposit']) ? (float)$listing['securityDeposit'] : 0);
+
+            $depositType  = isset($listing['isDepositPercentage']) && $listing['isDepositPercentage'] 
+                             ? 'Percentage' 
+                             : 'Fixed';
+
+            $depositValue = isset($listing['depositAmount']) && $listing['depositAmount'] > 0
+                             ? (float)$listing['depositAmount'] 
+                             : ($depositType === 'Percentage' ? 25 : round(0.25 * $totalPrice, 2)); // fallback 25% if 0
+
             $balanceDueDays = $listing['balanceDueDays'] ?? 0;
         }
 
     } catch (\Exception $e) {
         Log::error("Hostaway API error for property {$propertyId}: " . $e->getMessage());
+        return response()->json([
+            'status'  => false,
+            'message' => 'Unable to fetch property pricing from Hostaway.'
+        ]);
     }
 
     if ($totalPrice == 0) {
@@ -490,13 +489,10 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    //  Balance Due Date
+    // 6️⃣ Calculate deposit & balance
     $balanceDueDate = $checkIn->copy()->subDays($balanceDueDays)->format('Y-m-d');
-
-    //  Days until arrival
     $daysUntilArrival = now()->diffInDays($checkIn, false);
 
-    //  Deposit & Balance Calculation
     if ($daysUntilArrival > 60) {
         if ($depositType === 'Percentage') {
             $depositAmount = round(($depositValue / 100) * $totalPrice, 2);
@@ -504,30 +500,25 @@ public function GetBookingInfo(Request $request, $propertyId)
             $depositAmount = $depositValue;
         }
 
-        if ($depositAmount <= 0) {
-            $depositAmount = round(0.25 * $totalPrice, 2);
-        }
+        if ($depositAmount <= 0) $depositAmount = round(0.25 * $totalPrice, 2);
 
         $balanceAmount = $totalPrice - $depositAmount;
-
-        $depositLabel = "Due Now";
-        $balanceLabel = "Charged on " . $balanceDueDate;
+        $depositLabel  = "Due Now";
+        $balanceLabel  = "Charged on " . $balanceDueDate;
     } else {
-        // Booking within 60 days: deposit = 0, full balance due now
         $depositAmount = 0;
         $balanceAmount = $totalPrice;
-
-        $depositLabel = "Due Now";
-        $balanceLabel = "Due Now";
+        $depositLabel  = "Due Now";
+        $balanceLabel  = "Due Now";
     }
 
-    //  Final Response
+    // 7️⃣ Final Response
     return response()->json([
         'status'  => true,
         'message' => 'Booking info fetched successfully',
         'data'    => [
             'property_id' => $propertyId,
-            'extras'      => PropertyExtra::where('property_id', $propertyId)->get(),
+            'extras'      => $extras,
             'settings'    => $settings,
             'billing'     => [
                 'deposit_type'     => $depositType,
@@ -548,6 +539,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]
     ]);
 }
+
 
 
 public function getOtherProperties(Request $request)
