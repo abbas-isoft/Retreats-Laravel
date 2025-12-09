@@ -595,82 +595,77 @@ class TestBookingController extends Controller
 
 public function bookTestProperty(Request $request)
 {
-    // ✅ Validate frontend input
-    $data = $request->validate([
-        'property_id'      => 'required|integer',
-        'start_date'       => 'required|date',
-        'nights'           => 'required|integer',
-        'guest_firstname'  => 'required|string',
-        'guest_lastname'   => 'required|string',
-        'email'            => 'required|email',
-        'phone'            => 'required|string',
-        'card_token'       => 'required|string', // frontend se Stripe card token
-        'extras'           => 'nullable|array',  // optional extras
-    ]);
+    // 🔥 Dynamic listingMapId (no need to pass property_id in request)
+    $propertyId = $request->propertyId ?? 457543; // fallback test property
 
-    $checkIn  = Carbon::parse($data['start_date']);
-    $checkOut = $checkIn->copy()->addDays($data['nights']);
+    $startDate  = $request->start_date ?? $request->startDate ?? now()->format('Y-m-d');
+    $nights     = $request->nights ?? $request->numberOfNights ?? 1;
+    $guests     = $request->guests ?? $request->numberOfGuests ?? 1;
 
-    // ✅ Prepare Hostaway payload dynamically
+    $firstName  = $request->guest_firstname ?? $request->firstName ?? "Test";
+    $lastName   = $request->guest_lastname ?? $request->lastName ?? "User";
+    $email      = $request->email ?? "test@example.com";
+    $phone      = $request->phone ?? "+0000000000";
+
+    $checkIn  = Carbon::parse($startDate);
+    $checkOut = $checkIn->copy()->addDays($nights);
+
     $payload = [
-        "propertyId"   => $data['property_id'],
-        "checkInDate"  => $checkIn->format('Y-m-d'),
-        "checkOutDate" => $checkOut->format('Y-m-d'),
-        "guest" => [
-            "firstName" => $data['guest_firstname'],
-            "lastName"  => $data['guest_lastname'],
-            "email"     => $data['email'],
-            "phone"     => $data['phone'],
-        ],
-        "payment" => [
-            "cardToken" => $data['card_token'], // frontend se token
-        ],
-        "extras" => $data['extras'] ?? [],
-        "notes"  => "Booking via web frontend",
+        "listingMapId"     => $propertyId, // ✅ dynamic
+        "arrivalDate"      => $checkIn->format('Y-m-d'),
+        "departureDate"    => $checkOut->format('Y-m-d'),
+        "numberOfGuests"   => $guests,
+        "guestFirstName"   => $firstName,
+        "guestLastName"    => $lastName,
+        "guestEmail"       => $email,
+        "guestPhone"       => $phone,
+        "channelId"        => 2000,
+        "comment"          => "Created from website"
     ];
 
+    Log::info('Hostaway Booking Payload', $payload);
+
     try {
-        // ✅ Call Hostaway API
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
+            'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxNzMyODYiLCJqdGkiOiI1NWM0YTc1NzI1YzhhZDc2ODkyMDM2OTZmZTk5OWUxNWQ4ZmI0MDQxYTRlNTU3NmY5MGE2YzZhZTMzNjJhOGMyYzYwY2VlZjEwM2I1OWE2OSIsImlhdCI6MTc2NDcwMTcxOC4yMTYwODQsIm5iZiI6MTc2NDcwMTcxOC4yMTYwODUsImV4cCI6MjA4MDIzNDUxOC4yMTYwODksInN1YiI6IiIsInNjb3BlcyI6WyJnZW5lcmFsIl0sInNlY3JldElkIjo3NjQ4M30.VJ807dt-1KN8eHxMpKG85NOW5UcWu0T2_5uO-RLMYVR7U2sh-z4-RLMCDmdfHzjMTcc7SaYAkA_-HSze17hLQDiwNE4UWXfEPRxic6zQK868l44H1tFfVwQ8YiP8vN_noy7xvDrHUrXR0q3zAhEb-KB1jPGhLqQ51trO3cMYyHYkFUao5K8Dbwhq2MBr1szba0DcPKGQYKMv993spyXlwmy8Id3Z8aiAOJj__ZR3xU0Z6zlZ228AR4dlSOKdMmGJ9I8pCuYB67PeKEme1tw5z05mxySQH7TAVzxT3anRleqqsvkFIe-D08SNIZFlFOdsghDNsLqX_UbQ0rBJ3r_EIg',
             'Accept'        => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
-        if (!$response->successful()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Failed to create booking in Hostaway',
-                'error'   => $response->body()
-            ], 422);
-        }
-
         $reservation = $response->json();
+        $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
+        $bookingIdLocal = $reservation['data']['id'] ?? "";
 
-        // ✅ Optional: save Hostaway reservation in local DB for logging
-        $localBooking = \App\Models\TestBooking::create([
-            'property_id'       => $data['property_id'],
-            'start_date'        => $data['start_date'],
-            'nights'            => $data['nights'],
-            'guest_firstname'   => $data['guest_firstname'],
-            'guest_lastname'    => $data['guest_lastname'],
-            'email'             => $data['email'],
-            'phone'             => $data['phone'],
-            'value'             => $reservation['totalAmount'] ?? 0,
-            'booking_reference' => $reservation['reservationId'] ?? strtoupper(uniqid('HA-')),
-            'supercontrol_response' => json_encode($reservation),
-            'payment_status'    => $reservation['paymentStatus'] ?? 'pending',
+        \App\Models\TestBooking::create([
+            'booking_id'             => $bookingIdLocal,
+            'property_id'            => $propertyId,
+            'start_date'             => $startDate,
+            'nights'                 => $nights,
+            'guest_firstname'        => $firstName,
+            'guest_lastname'         => $lastName,
+            'email'                  => $email,
+            'phone'                  => $phone,
+            'value'                  => $reservation['data']['price'] ?? 0,
+            'booking_reference'      => $reference,
+            'supercontrol_response'  => json_encode($reservation),
+            'payment_status'         => 'pending',
         ]);
 
         return response()->json([
-            'status'  => true,
-            'message' => 'Booking created successfully via Hostaway',
+            'status'  => $response->successful(),
+            'message' => $response->successful() ? 'Booking success' : 'Hostaway returned an error',
             'data'    => $reservation
         ]);
 
     } catch (\Exception $e) {
+        Log::error('Hostaway Booking Failed', [
+            'property_id' => $propertyId,
+            'payload'     => $payload,
+            'exception'   => $e->getMessage()
+        ]);
+
         return response()->json([
             'status'  => false,
-            'message' => 'Error creating booking: ' . $e->getMessage()
+            'message' => 'Error: ' . $e->getMessage()
         ], 500);
     }
 }
