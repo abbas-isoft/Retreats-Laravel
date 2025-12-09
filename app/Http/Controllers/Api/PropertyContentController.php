@@ -417,19 +417,9 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    // 5️⃣ Fetch pricing and deposit data from Hostaway
+    // 5️⃣ Fetch total_price from calendar API
     $totalPrice = 0;
-    $depositAmount = 0;
-    $balanceAmount = 0;
-    $depositType = null;
-    $depositValue = 0;
-    $securityDeposit = 0;
-    $balanceDueDays = 0;
-    $depositLabel = "Due Now";
-    $balanceLabel = null;
-
     try {
-        // Calendar prices
         $calendarResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Content-Type' => 'application/json',
@@ -448,38 +438,9 @@ public function GetBookingInfo(Request $request, $propertyId)
                 }
             }
         }
-
-        // Listing details (Deposit + Security Deposit)
-        $listingResponse = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Content-Type' => 'application/json',
-        ])->timeout(30)->get("https://api.hostaway.com/v1/listings/{$propertyId}");
-
-        if ($listingResponse->successful() && isset($listingResponse->json()['result'])) {
-            $listing = $listingResponse->json()['result'];
-
-            // Some Hostaway accounts return securityDepositAmount or securityDeposit as string
-            $securityDeposit = isset($listing['securityDepositAmount']) 
-                ? (float)$listing['securityDepositAmount'] 
-                : (isset($listing['securityDeposit']) ? (float)$listing['securityDeposit'] : 0);
-
-            $depositType  = isset($listing['isDepositPercentage']) && $listing['isDepositPercentage'] 
-                             ? 'Percentage' 
-                             : 'Fixed';
-
-            $depositValue = isset($listing['depositAmount']) && $listing['depositAmount'] > 0
-                             ? (float)$listing['depositAmount'] 
-                             : ($depositType === 'Percentage' ? 25 : round(0.25 * $totalPrice, 2)); // fallback 25% if 0
-
-            $balanceDueDays = $listing['balanceDueDays'] ?? 0;
-        }
-
     } catch (\Exception $e) {
-        Log::error("Hostaway API error for property {$propertyId}: " . $e->getMessage());
-        return response()->json([
-            'status'  => false,
-            'message' => 'Unable to fetch property pricing from Hostaway.'
-        ]);
+        Log::error("Hostaway calendar API error for property {$propertyId}: " . $e->getMessage());
+        $totalPrice = 0;
     }
 
     if ($totalPrice == 0) {
@@ -489,8 +450,21 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]);
     }
 
-    // 6️⃣ Calculate deposit & balance
-    $balanceDueDate = $checkIn->copy()->subDays($balanceDueDays)->format('Y-m-d');
+    // 6️⃣ Fetch deposit & security deposit from PriceConfiguration table
+    $priceConfig = \App\Models\PriceConfiguration::where('property_id', $propertyId)->first();
+
+    $depositType      = $priceConfig->deposit_type ?? 'percentage';
+    $depositValue     = $priceConfig->deposit_value ?? 0;
+    $securityDeposit  = $priceConfig->security_deposit ?? 0;
+    $balanceDueDays   = $priceConfig->balance_due_days ?? 0;
+
+    // 7️⃣ Calculate deposit & balance
+    $depositAmount = 0;
+    $balanceAmount = 0;
+    $depositLabel  = "Due Now";
+    $balanceLabel  = null;
+
+    $balanceDueDate   = $checkIn->copy()->subDays($balanceDueDays)->format('Y-m-d');
     $daysUntilArrival = now()->diffInDays($checkIn, false);
 
     if ($daysUntilArrival > 60) {
@@ -512,7 +486,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         $balanceLabel  = "Due Now";
     }
 
-    // 7️⃣ Final Response
+    // 8️⃣ Final Response
     return response()->json([
         'status'  => true,
         'message' => 'Booking info fetched successfully',
@@ -539,6 +513,7 @@ public function GetBookingInfo(Request $request, $propertyId)
         ]
     ]);
 }
+
 
 
 

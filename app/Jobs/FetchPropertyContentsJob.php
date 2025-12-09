@@ -45,6 +45,22 @@ class FetchPropertyContentsJob implements ShouldQueue
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
 
+                $securityDeposit = 0;
+                if (isset($propertyData['customFieldValues'])) {
+                    foreach ($propertyData['customFieldValues'] as $customField) {
+                        // Check if custom field name is "Security Deposit"
+                        if (
+                            isset($customField['customField']['name']) &&
+                            strtolower($customField['customField']['name']) === 'security deposit' &&
+                            isset($customField['value'])
+                        ) {
+                            $securityDeposit = (float) $customField['value'];
+
+                            break; // Found it, no need to continue
+                        }
+                    }
+                }
+
                 // Amenities
                 $listingAmenities = $propertyData['listingAmenities'] ?? [];
                 $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
@@ -59,6 +75,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'property_type'        => $propertyData['propertyTypeId'] ?? null,
                     'latitude'             => $propertyData['lat'] ?? null,
                     'longitude'            => $propertyData['lng'] ?? null,
+                    'security_deposit'     => $securityDeposit ?? 0,
                     'active'               => true,
                     'property_name'        => $propertyData['name'] ?? null,
                     'subcaption'           => $propertyData['externalListingName'] ?? null,
@@ -141,7 +158,6 @@ class FetchPropertyContentsJob implements ShouldQueue
                             }
                         }
                     }
-
                 } else {
                     // If only bedTypes exist
                     if (!empty($beds)) {
@@ -167,7 +183,6 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'amenities_count'  => count($amenities),
                 ]);
             }
-
         } catch (\Exception $e) {
             Log::error('Exception while fetching Hostaway properties', [
                 'message' => $e->getMessage(),
