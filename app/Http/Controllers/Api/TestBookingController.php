@@ -596,45 +596,56 @@ class TestBookingController extends Controller
 
     public function bookTestProperty(Request $request)
 {
-    $propertyId = $request->propertyId; // 🔥 DYNAMIC
-    if (!$propertyId) {
-        return response()->json([
-            'status' => false,
-            'message' => 'propertyId missing'
-        ], 400);
-    }
-
-    $startDate = $request->start_date;
-    $nights    = $request->nights ?? 1;
-    $guests    = $request->guests ?? 1;
-    $firstName = $request->guest_firstname;
-    $lastName  = $request->guest_lastname;
-    $email     = $request->email;
-    $phone     = $request->phone;
-
-    $checkIn  = Carbon::parse($startDate);
-    $checkOut = $checkIn->copy()->addDays($nights);
-
-    // 🔥 FIXED — MAKE SURE listingMapId NEVER GOES NULL
-    $payload = [
-        "listingMapId"   => (int) $propertyId,
-        "arrivalDate"    => $checkIn->format('Y-m-d'),
-        "departureDate"  => $checkOut->format('Y-m-d'),
-        "numberOfGuests" => $guests,
-        "guestFirstName" => $firstName,
-        "guestLastName"  => $lastName,
-        "guestEmail"     => $email,
-        "guestPhone"     => $phone,
-        "channelId"      => 2000,
-        "comment"        => "Created from website"
-    ];
-
     try {
 
+        // 🔥 Property ID backend me auto (pehlay se fetch ho raha hoga)
+        $propertyId = $request->route('propertyId'); // URL se ayega
+        if (!$propertyId) {
+            return response()->json([
+                'status' => false,
+                'message' => 'propertyId missing from URL'
+            ], 400);
+        }
+
+        $startDate = $request->start_date;
+        $nights    = $request->nights ?? 1;
+        $guests    = ($request->adults ?? 0) + ($request->children ?? 0);
+
+        $firstName = $request->guest_firstname;
+        $lastName  = $request->guest_lastname;
+        $email     = $request->email;
+        $phone     = $request->phone;
+
+        $checkIn  = Carbon::parse($startDate);
+        $checkOut = $checkIn->copy()->addDays($nights);
+
+        // 🔥 NEW Updated Payload (same structure as your original code style)
+        $payload = [
+            "listingMapId"   => (int) $propertyId,
+            "arrivalDate"    => $checkIn->format('Y-m-d'),
+            "departureDate"  => $checkOut->format('Y-m-d'),
+            "numberOfGuests" => $guests,
+            "guestFirstName" => $firstName,
+            "guestLastName"  => $lastName,
+            "guestEmail"     => $email,
+            "guestPhone"     => $phone,
+            "channelId"      => 2000,
+            "comment"        => $request->special_requests ?? "Created from website",
+
+            "guestAddress" => [
+                "address1" => $request->address1,
+                "town"     => $request->town,
+                "postcode" => $request->postcode,
+                "country"  => $request->country
+            ],
+
+            "extras" => $request->extras ?? []
+        ];
+
         /*
-        |--------------------------------------------------------------------------
-        | STEP 1 → Create Hostaway SetupIntent (Dynamic Property)
-        |--------------------------------------------------------------------------
+        |--------------------------------------------------------------
+        | STEP 1 — Hostaway SetupIntent (same as your code)
+        |--------------------------------------------------------------
         */
         $setupIntentResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
@@ -653,11 +664,10 @@ class TestBookingController extends Controller
 
         $clientSecret = $setupData['result']['clientSecret'];
 
-
         /*
-        |--------------------------------------------------------------------------
-        | STEP 2 → Create Reservation (Dynamic listingMapId working 100%)
-        |--------------------------------------------------------------------------
+        |--------------------------------------------------------------
+        | STEP 2 — Reservation Create
+        |--------------------------------------------------------------
         */
         $reservationResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
@@ -668,34 +678,32 @@ class TestBookingController extends Controller
 
         if (!isset($reservation['result']['id'])) {
             return response()->json([
-                'status'  => false,
+                'status' => false,
                 'message' => 'Hostaway booking failed',
-                'data'    => $reservation
+                'data' => $reservation
             ], 500);
         }
 
-        $reservationId = $reservation['result']['id'];
-
-
         /*
-        |--------------------------------------------------------------------------
-        | STEP 3 → Final Response (same as your existing)
-        |--------------------------------------------------------------------------
+        |--------------------------------------------------------------
+        | FINAL RESPONSE — same output structure you want
+        |--------------------------------------------------------------
         */
         return response()->json([
             'status'         => true,
             'message'        => 'SetupIntent + Reservation created successfully',
             'client_secret'  => $clientSecret,
-            'reservation_id' => $reservationId,
+            'reservation_id' => $reservation['result']['id'],
             'setup_intent'   => $setupData,
             'reservation'    => $reservation
         ], 200);
 
 
     } catch (\Exception $e) {
+
         return response()->json([
             'status'  => false,
-            'message' => 'Error: '.$e->getMessage()
+            'message' => 'Error: ' . $e->getMessage()
         ], 500);
     }
 }
