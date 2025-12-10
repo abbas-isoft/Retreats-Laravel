@@ -621,26 +621,15 @@ public function bookTestProperty(Request $request)
     ];
 
     try {
-        // Step 1: Create booking in Hostaway
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
             'Accept' => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
         $reservation = $response->json();
+        $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
+        $bookingIdLocal = $reservation['data']['id'] ?? "";
 
-        if (!isset($reservation['data']['id'])) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Hostaway booking failed',
-                'data' => $reservation
-            ], 500);
-        }
-
-        $reference = $reservation['data']['id'];
-        $bookingIdLocal = $reservation['data']['id'];
-
-        // Step 2: Save locally
         $booking = \App\Models\TestBooking::create([
             'booking_id' => $bookingIdLocal,
             'property_id' => $propertyId,
@@ -656,36 +645,28 @@ public function bookTestProperty(Request $request)
             'payment_status' => 'pending',
         ]);
 
+        Stripe::setApiKey(config('services.stripe.secret'));
+
         $amountCents = intval(($reservation['data']['price'] ?? 0) * 100);
 
-        $clientSecret = null;
-
-        // Step 3: Use Hostaway Stripe SetupIntent if amount < minimum Stripe
         if ($amountCents < 50) {
-            $setupIntentResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
-                'Accept' => 'application/json',
-            ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
-
-            $setupData = $setupIntentResponse->json();
-
-            if (isset($setupData['result']['clientSecret'])) {
-                $clientSecret = $setupData['result']['clientSecret'];
-
-                $booking->update([
-                    'stripe_setup_intent_id' => $clientSecret
-                ]);
-            } else {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Hostaway SetupIntent creation failed',
-                    'data' => $setupData
-                ], 500);
-            }
+            // If price is 0 or below Stripe minimum, use SetupIntent
+            $intent = \Stripe\SetupIntent::create([
+                'customer' => \Stripe\Customer::create([
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'phone' => $phone,
+                    'metadata' => [
+                        'booking_id' => $booking->id,
+                        'property_id' => $propertyId,
+                        'booking_reference' => $reference
+                    ]
+                ])->id,
+                'payment_method_types' => ['card'],
+            ]);
+            $booking->update(['stripe_setup_intent_id' => $intent->id]);
         } else {
-            // Normal Stripe PaymentIntent on client Stripe account
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-
+            // Normal payment with PaymentIntent
             $customer = \Stripe\Customer::create([
                 'name' => $firstName . ' ' . $lastName,
                 'email' => $email,
@@ -708,16 +689,14 @@ public function bookTestProperty(Request $request)
                     'booking_reference' => $reference
                 ]
             ]);
-
             $booking->update(['stripe_payment_intent_id' => $intent->id]);
-            $clientSecret = $intent->client_secret;
         }
 
         return response()->json([
             'status' => true,
             'message' => 'Booking created. Render Stripe form on frontend.',
             'data' => [
-                'client_secret' => $clientSecret,
+                'client_secret' => $intent->client_secret,
                 'booking_reference' => $reference,
                 'booking_id' => $booking->id
             ]
@@ -730,7 +709,6 @@ public function bookTestProperty(Request $request)
         ], 500);
     }
 }
-
 
 
 
