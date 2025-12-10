@@ -621,6 +621,7 @@ public function bookTestProperty(Request $request)
     ];
 
     try {
+        // Step 1: Create booking in Hostaway
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
             'Accept' => 'application/json',
@@ -630,6 +631,7 @@ public function bookTestProperty(Request $request)
         $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
         $bookingIdLocal = $reservation['data']['id'] ?? "";
 
+        // Step 2: Save locally
         $booking = \App\Models\TestBooking::create([
             'booking_id' => $bookingIdLocal,
             'property_id' => $propertyId,
@@ -645,28 +647,24 @@ public function bookTestProperty(Request $request)
             'payment_status' => 'pending',
         ]);
 
-        Stripe::setApiKey(config('services.stripe.secret'));
-
         $amountCents = intval(($reservation['data']['price'] ?? 0) * 100);
 
+        // Step 3: Use Hostaway Stripe SetupIntent if amount < minimum Stripe
         if ($amountCents < 50) {
-            // If price is 0 or below Stripe minimum, use SetupIntent
-            $intent = \Stripe\SetupIntent::create([
-                'customer' => \Stripe\Customer::create([
-                    'name' => $firstName . ' ' . $lastName,
-                    'email' => $email,
-                    'phone' => $phone,
-                    'metadata' => [
-                        'booking_id' => $booking->id,
-                        'property_id' => $propertyId,
-                        'booking_reference' => $reference
-                    ]
-                ])->id,
-                'payment_method_types' => ['card'],
+            $setupIntentResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
+                'Accept' => 'application/json',
+            ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
+
+            $clientSecret = $setupIntentResponse->json()['result']['clientSecret'] ?? null;
+
+            $booking->update([
+                'stripe_setup_intent_id' => $clientSecret
             ]);
-            $booking->update(['stripe_setup_intent_id' => $intent->id]);
         } else {
-            // Normal payment with PaymentIntent
+            // Normal Stripe PaymentIntent on client Stripe account
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+
             $customer = \Stripe\Customer::create([
                 'name' => $firstName . ' ' . $lastName,
                 'email' => $email,
@@ -689,14 +687,16 @@ public function bookTestProperty(Request $request)
                     'booking_reference' => $reference
                 ]
             ]);
+
             $booking->update(['stripe_payment_intent_id' => $intent->id]);
+            $clientSecret = $intent->client_secret;
         }
 
         return response()->json([
             'status' => true,
             'message' => 'Booking created. Render Stripe form on frontend.',
             'data' => [
-                'client_secret' => $intent->client_secret,
+                'client_secret' => $clientSecret,
                 'booking_reference' => $reference,
                 'booking_id' => $booking->id
             ]
