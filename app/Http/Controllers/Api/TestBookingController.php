@@ -595,23 +595,33 @@ class TestBookingController extends Controller
 
 public function bookTestProperty(Request $request)
 {
+    // ✅ Validation
+    $request->validate([
+        'propertyId'       => 'required|integer', // fallback test property, optional DB check if needed
+        'start_date'       => 'required|date|after_or_equal:today',
+        'nights'           => 'required|integer|min:1',
+        'guests'           => 'required|integer|min:1',
+        'guest_firstname'  => 'required|string|max:50',
+        'guest_lastname'   => 'required|string|max:50',
+        'email'            => 'required|email|max:100',
+        'phone'            => 'required|string|max:20',
+    ]);
+
     // 🔥 Dynamic listingMapId (no need to pass property_id in request)
     $propertyId = $request->propertyId; // fallback test property
-
-    $startDate  = $request->start_date ?? $request->startDate ?? now()->format('Y-m-d');
-    $nights     = $request->nights ?? $request->numberOfNights ?? 1;
-    $guests     = $request->guests ?? $request->numberOfGuests ?? 1;
-
-    $firstName  = $request->guest_firstname ?? $request->firstName ?? "Test";
-    $lastName   = $request->guest_lastname ?? $request->lastName ?? "User";
-    $email      = $request->email ?? "test@example.com";
-    $phone      = $request->phone ?? "+0000000000";
+    $startDate  = $request->start_date;
+    $nights     = $request->nights;
+    $guests     = $request->guests;
+    $firstName  = $request->guest_firstname;
+    $lastName   = $request->guest_lastname;
+    $email      = $request->email;
+    $phone      = $request->phone;
 
     $checkIn  = Carbon::parse($startDate);
     $checkOut = $checkIn->copy()->addDays($nights);
 
     $payload = [
-        "listingMapId"     => $propertyId, // ✅ dynamic
+        "listingMapId"     => $propertyId,
         "arrivalDate"      => $checkIn->format('Y-m-d'),
         "departureDate"    => $checkOut->format('Y-m-d'),
         "numberOfGuests"   => $guests,
@@ -627,7 +637,7 @@ public function bookTestProperty(Request $request)
 
     try {
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxNzMyODYiLCJqdGkiOiI1NWM0YTc1NzI1YzhhZDc2ODkyMDM2OTZmZTk5OWUxNWQ4ZmI0MDQxYTRlNTU3NmY5MGE2YzZhZTMzNjJhOGMyYzYwY2VlZjEwM2I1OWE2OSIsImlhdCI6MTc2NDcwMTcxOC4yMTYwODQsIm5iZiI6MTc2NDcwMTcxOC4yMTYwODUsImV4cCI6MjA4MDIzNDUxOC4yMTYwODksInN1YiI6IiIsInNjb3BlcyI6WyJnZW5lcmFsIl0sInNlY3JldElkIjo3NjQ4M30.VJ807dt-1KN8eHxMpKG85NOW5UcWu0T2_5uO-RLMYVR7U2sh-z4-RLMCDmdfHzjMTcc7SaYAkA_-HSze17hLQDiwNE4UWXfEPRxic6zQK868l44H1tFfVwQ8YiP8vN_noy7xvDrHUrXR0q3zAhEb-KB1jPGhLqQ51trO3cMYyHYkFUao5K8Dbwhq2MBr1szba0DcPKGQYKMv993spyXlwmy8Id3Z8aiAOJj__ZR3xU0Z6zlZ228AR4dlSOKdMmGJ9I8pCuYB67PeKEme1tw5z05mxySQH7TAVzxT3anRleqqsvkFIe-D08SNIZFlFOdsghDNsLqX_UbQ0rBJ3r_EIg',
+            'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
             'Accept'        => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
