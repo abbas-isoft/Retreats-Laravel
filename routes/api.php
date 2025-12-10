@@ -75,7 +75,7 @@ Route::post('/calendar/fetch', [CalendarController::class, 'fetchCalendar']);
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook']);
 Route::post('/bookings/{booking}/deposit/release', [TestBookingController::class, 'releaseDeposit']);
 Route::post('/bookings/{booking}/deposit/capture', [TestBookingController::class, 'captureDeposit']);
 // single property listing
