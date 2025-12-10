@@ -596,7 +596,7 @@ class TestBookingController extends Controller
 public function bookTestProperty(Request $request)
 {
     // 🔥 Dynamic listingMapId (no need to pass property_id in request)
-   $propertyId = $request->propertyId ?? '452891'; // fallback test property
+   $propertyId = $request->propertyId ?? '463824'; // fallback test property
 
 $startDate  = $request->start_date;
 $nights     = $request->nights;
