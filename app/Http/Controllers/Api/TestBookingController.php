@@ -628,8 +628,17 @@ public function bookTestProperty(Request $request)
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
         $reservation = $response->json();
-        $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
-        $bookingIdLocal = $reservation['data']['id'] ?? "";
+
+        if (!isset($reservation['data']['id'])) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Hostaway booking failed',
+                'data' => $reservation
+            ], 500);
+        }
+
+        $reference = $reservation['data']['id'];
+        $bookingIdLocal = $reservation['data']['id'];
 
         // Step 2: Save locally
         $booking = \App\Models\TestBooking::create([
@@ -649,6 +658,8 @@ public function bookTestProperty(Request $request)
 
         $amountCents = intval(($reservation['data']['price'] ?? 0) * 100);
 
+        $clientSecret = null;
+
         // Step 3: Use Hostaway Stripe SetupIntent if amount < minimum Stripe
         if ($amountCents < 50) {
             $setupIntentResponse = Http::withHeaders([
@@ -656,11 +667,21 @@ public function bookTestProperty(Request $request)
                 'Accept' => 'application/json',
             ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
 
-            $clientSecret = $setupIntentResponse->json()['result']['clientSecret'] ?? null;
+            $setupData = $setupIntentResponse->json();
 
-            $booking->update([
-                'stripe_setup_intent_id' => $clientSecret
-            ]);
+            if (isset($setupData['result']['clientSecret'])) {
+                $clientSecret = $setupData['result']['clientSecret'];
+
+                $booking->update([
+                    'stripe_setup_intent_id' => $clientSecret
+                ]);
+            } else {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Hostaway SetupIntent creation failed',
+                    'data' => $setupData
+                ], 500);
+            }
         } else {
             // Normal Stripe PaymentIntent on client Stripe account
             \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
@@ -709,6 +730,7 @@ public function bookTestProperty(Request $request)
         ], 500);
     }
 }
+
 
 
 
