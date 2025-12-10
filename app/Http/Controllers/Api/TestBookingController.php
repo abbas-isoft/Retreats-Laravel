@@ -595,109 +595,112 @@ class TestBookingController extends Controller
 
 
     public function bookTestProperty(Request $request)
-{
-    $propertyId = $request->propertyId ?? 463824; // 🔥 DYNAMIC
-    if (!$propertyId) {
-        return response()->json([
-            'status' => false,
-            'message' => 'propertyId missing'
-        ], 400);
-    }
+    {
+        $propertyId = $request->propertyId ?? 463824; // 🔥 DYNAMIC
+        if (!$propertyId) {
+            return response()->json([
+                'status' => false,
+                'message' => 'propertyId missing'
+            ], 400);
+        }
 
-    $startDate = $request->start_date;
-    $nights    = $request->nights ?? 1;
-    $guests    = $request->guests ?? 1;
-    $firstName = $request->guest_firstname;
-    $lastName  = $request->guest_lastname;
-    $email     = $request->email;
-    $phone     = $request->phone;
+        $startDate = $request->start_date;
+        $nights    = $request->nights ?? 1;
+        $guests    = $request->guests ?? 1;
+        $firstName = $request->guest_firstname;
+        $lastName  = $request->guest_lastname;
+        $email     = $request->email;
+        $phone     = $request->phone;
 
-    $checkIn  = Carbon::parse($startDate);
-    $checkOut = $checkIn->copy()->addDays($nights);
+        $checkIn  = Carbon::parse($startDate);
+        $checkOut = $checkIn->copy()->addDays($nights);
 
-    // 🔥 FIXED — MAKE SURE listingMapId NEVER GOES NULL
-    $payload = [
-        "listingMapId"   => (int) $propertyId,
-        "arrivalDate"    => $checkIn->format('Y-m-d'),
-        "departureDate"  => $checkOut->format('Y-m-d'),
-        "numberOfGuests" => $guests,
-        "guestFirstName" => $firstName,
-        "guestLastName"  => $lastName,
-        "guestEmail"     => $email,
-        "guestPhone"     => $phone,
-        "channelId"      => 2000,
-        "comment"        => "Created from website"
-    ];
+        // 🔥 FIXED — MAKE SURE listingMapId NEVER GOES NULL
+        $payload = [
+            "listingMapId"   => (int) $propertyId,
+            "arrivalDate"    => $checkIn->format('Y-m-d'),
+            "departureDate"  => $checkOut->format('Y-m-d'),
+            "numberOfGuests" => $guests,
+            "guestFirstName" => $firstName,
+            "guestLastName"  => $lastName,
+            "guestEmail"     => $email,
+            "guestPhone"     => $phone,
+            "channelId"      => 2000,
+            "comment"        => "Created from website"
+        ];
 
-    try {
+        try {
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | STEP 1 → Create Hostaway SetupIntent (Dynamic Property)
         |--------------------------------------------------------------------------
         */
-        $setupIntentResponse = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept'        => 'application/json',
-        ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
+            $setupIntentResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Accept'        => 'application/json',
+            ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
 
-        $setupData = $setupIntentResponse->json();
+            $setupData = $setupIntentResponse->json();
 
-        if (!isset($setupData['result']['clientSecret'])) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Hostaway SetupIntent failed',
-                'data'    => $setupData
-            ], 500);
-        }
+            if (!isset($setupData['result']['clientSecret'])) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Hostaway SetupIntent failed',
+                    'data'    => $setupData
+                ], 500);
+            }
 
-        $clientSecret = $setupData['result']['clientSecret'];
+            $clientSecret = $setupData['result']['clientSecret'];
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | STEP 2 → Create Reservation (Dynamic listingMapId working 100%)
         |--------------------------------------------------------------------------
         */
-        $reservationResponse = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept'        => 'application/json',
-        ])->post('https://api.hostaway.com/v1/reservations', $payload);
+            $reservationResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Accept'        => 'application/json',
+            ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
-        $reservation = $reservationResponse->json();
+            $reservation = $reservationResponse->json();
 
-        if (!isset($reservation['result']['id'])) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Hostaway booking failed',
-                'data'    => $reservation
-            ], 500);
-        }
+            if (!isset($reservation['result']['id'])) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Hostaway booking failed',
+                    'data'    => $reservation
+                ], 500);
+            }
 
-        $reservationId = $reservation['result']['id'];
+            $reservationId = $reservation['result']['id'];
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | STEP 3 → Final Response (same as your existing)
         |--------------------------------------------------------------------------
         */
-        return response()->json([
-            'status'         => true,
-            'message'        => 'SetupIntent + Reservation created successfully',
-            'client_secret'  => $clientSecret,
-            'reservation_id' => $reservationId,
-            'setup_intent'   => $setupData,
-            'reservation'    => $reservation
-        ], 200);
-
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'status'  => false,
-            'message' => 'Error: '.$e->getMessage()
-        ], 500);
+            return response()->json([
+                'status'         => true,
+                'message'        => 'SetupIntent + Reservation created successfully',
+                'data'           => [
+                    'client_secret'  => $clientSecret,
+                    'reservation_id' => $reservationId,
+                    'setup_intent'   => $setupData,
+                    'reservation'    => $reservation
+                ],
+                // 'client_secret'  => $clientSecret,
+                // 'reservation_id' => $reservationId,
+                // 'setup_intent'   => $setupData,
+                // 'reservation'    => $reservation
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
-
 }
