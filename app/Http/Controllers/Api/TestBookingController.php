@@ -645,29 +645,58 @@ public function bookTestProperty(Request $request)
             'payment_status' => 'pending',
         ]);
 
-        // ✅ Stripe PaymentIntent
         Stripe::setApiKey(config('services.stripe.secret'));
 
-        $paymentIntent = PaymentIntent::create([
-            'amount' => intval(($reservation['data']['price'] ?? 0) * 100), // in cents
-            'currency' => 'gbp',
-            'payment_method_types' => ['card'], // Stripe auto-enables Apple/Google Pay
-            'metadata' => [
-                'booking_id' => $booking->id,
-                'property_id' => $propertyId,
-                'booking_reference' => $reference
-            ]
-        ]);
+        $amountCents = intval(($reservation['data']['price'] ?? 0) * 100);
 
-        $booking->update([
-            'stripe_payment_intent_id' => $paymentIntent->id
-        ]);
+        if ($amountCents < 50) {
+            // If price is 0 or below Stripe minimum, use SetupIntent
+            $intent = \Stripe\SetupIntent::create([
+                'customer' => \Stripe\Customer::create([
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'phone' => $phone,
+                    'metadata' => [
+                        'booking_id' => $booking->id,
+                        'property_id' => $propertyId,
+                        'booking_reference' => $reference
+                    ]
+                ])->id,
+                'payment_method_types' => ['card'],
+            ]);
+            $booking->update(['stripe_setup_intent_id' => $intent->id]);
+        } else {
+            // Normal payment with PaymentIntent
+            $customer = \Stripe\Customer::create([
+                'name' => $firstName . ' ' . $lastName,
+                'email' => $email,
+                'phone' => $phone,
+                'metadata' => [
+                    'booking_id' => $booking->id,
+                    'property_id' => $propertyId,
+                    'booking_reference' => $reference
+                ]
+            ]);
+
+            $intent = \Stripe\PaymentIntent::create([
+                'amount' => $amountCents,
+                'currency' => 'gbp',
+                'customer' => $customer->id,
+                'payment_method_types' => ['card'],
+                'metadata' => [
+                    'booking_id' => $booking->id,
+                    'property_id' => $propertyId,
+                    'booking_reference' => $reference
+                ]
+            ]);
+            $booking->update(['stripe_payment_intent_id' => $intent->id]);
+        }
 
         return response()->json([
             'status' => true,
             'message' => 'Booking created. Render Stripe form on frontend.',
             'data' => [
-                'client_secret' => $paymentIntent->client_secret,
+                'client_secret' => $intent->client_secret,
                 'booking_reference' => $reference,
                 'booking_id' => $booking->id
             ]
@@ -680,6 +709,7 @@ public function bookTestProperty(Request $request)
         ], 500);
     }
 }
+
 
 
 
