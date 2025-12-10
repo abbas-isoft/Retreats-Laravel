@@ -629,7 +629,7 @@ public function bookTestProperty(Request $request)
     // 3: HOSTAWAY BOOKING PAYLOAD
     // -----------------------------
     $payload = [
-        "listingId"        => $propertyId,   // <--- Correct field for Hostaway
+        "listingMapId"        => $propertyId,   // <--- Correct field for Hostaway
         "arrivalDate"      => $checkIn->format('Y-m-d'),
         "departureDate"    => $checkOut->format('Y-m-d'),
         "numberOfGuests"   => $guests,
