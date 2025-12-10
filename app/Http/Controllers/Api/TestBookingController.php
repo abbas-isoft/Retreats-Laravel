@@ -596,36 +596,44 @@ class TestBookingController extends Controller
 
     public function bookTestProperty(Request $request)
 {
-    $propertyId = $request->propertyId;
-    $startDate = $request->start_date;
-    $nights = $request->nights;
-    $guests = $request->guests;
-    $firstName = $request->guest_firstname;
-    $lastName = $request->guest_lastname;
-    $email = $request->email;
-    $phone = $request->phone;
+    $propertyId = $request->propertyId; // 🔥 DYNAMIC
+    if (!$propertyId) {
+        return response()->json([
+            'status' => false,
+            'message' => 'propertyId missing'
+        ], 400);
+    }
 
-    $checkIn = Carbon::parse($startDate);
+    $startDate = $request->start_date;
+    $nights    = $request->nights ?? 1;
+    $guests    = $request->guests ?? 1;
+    $firstName = $request->guest_firstname;
+    $lastName  = $request->guest_lastname;
+    $email     = $request->email;
+    $phone     = $request->phone;
+
+    $checkIn  = Carbon::parse($startDate);
     $checkOut = $checkIn->copy()->addDays($nights);
 
+    // 🔥 FIXED — MAKE SURE listingMapId NEVER GOES NULL
     $payload = [
-        "listingMapId" => $propertyId,
-        "arrivalDate" => $checkIn->format('Y-m-d'),
-        "departureDate" => $checkOut->format('Y-m-d'),
+        "listingMapId"   => (int) $propertyId,
+        "arrivalDate"    => $checkIn->format('Y-m-d'),
+        "departureDate"  => $checkOut->format('Y-m-d'),
         "numberOfGuests" => $guests,
         "guestFirstName" => $firstName,
-        "guestLastName" => $lastName,
-        "guestEmail" => $email,
-        "guestPhone" => $phone,
-        "channelId" => 2000,
-        "comment" => "Created from website"
+        "guestLastName"  => $lastName,
+        "guestEmail"     => $email,
+        "guestPhone"     => $phone,
+        "channelId"      => 2000,
+        "comment"        => "Created from website"
     ];
 
     try {
 
         /*
         |--------------------------------------------------------------------------
-        | STEP 1: CREATE HOSTAWAY SETUP INTENT
+        | STEP 1 → Create Hostaway SetupIntent (Dynamic Property)
         |--------------------------------------------------------------------------
         */
         $setupIntentResponse = Http::withHeaders([
@@ -637,9 +645,9 @@ class TestBookingController extends Controller
 
         if (!isset($setupData['result']['clientSecret'])) {
             return response()->json([
-                'status'   => false,
-                'message'  => 'Hostaway SetupIntent creation failed',
-                'data'     => $setupData,
+                'status'  => false,
+                'message' => 'Hostaway SetupIntent failed',
+                'data'    => $setupData
             ], 500);
         }
 
@@ -648,8 +656,7 @@ class TestBookingController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | STEP 2: CREATE RESERVATION IN HOSTAWAY
-        | (NOTE: ideally after payment confirmation, but you requested directly)
+        | STEP 2 → Create Reservation (Dynamic listingMapId working 100%)
         |--------------------------------------------------------------------------
         */
         $reservationResponse = Http::withHeaders([
@@ -672,7 +679,7 @@ class TestBookingController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | STEP 3: RETURN SUCCESS RESPONSE
+        | STEP 3 → Final Response (same as your existing)
         |--------------------------------------------------------------------------
         */
         return response()->json([
@@ -688,7 +695,7 @@ class TestBookingController extends Controller
     } catch (\Exception $e) {
         return response()->json([
             'status'  => false,
-            'message' => 'Error: ' . $e->getMessage()
+            'message' => 'Error: '.$e->getMessage()
         ], 500);
     }
 }
