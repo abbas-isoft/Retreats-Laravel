@@ -607,43 +607,77 @@ public function bookTestProperty(Request $request)
     $checkIn = Carbon::parse($startDate);
     $checkOut = $checkIn->copy()->addDays($nights);
 
-    // Save booking locally with pending status
-    $booking = \App\Models\TestBooking::create([
-        'property_id' => $propertyId,
-        'start_date' => $startDate,
-        'nights' => $nights,
-        'guest_firstname' => $firstName,
-        'guest_lastname' => $lastName,
-        'email' => $email,
-        'phone' => $phone,
-        'value' => $request->amount ?? 0,
-        'booking_reference' => strtoupper(uniqid('HA-')),
-        'payment_status' => 'pending',
-    ]);
+    $payload = [
+        "listingMapId" => $propertyId,
+        "arrivalDate" => $checkIn->format('Y-m-d'),
+        "departureDate" => $checkOut->format('Y-m-d'),
+        "numberOfGuests" => $guests,
+        "guestFirstName" => $firstName,
+        "guestLastName" => $lastName,
+        "guestEmail" => $email,
+        "guestPhone" => $phone,
+        "channelId" => 2000,
+        "comment" => "Created from website"
+    ];
 
     try {
-        Stripe::setApiKey(config('services.stripe.secret'));
-        $amountCents = intval(($request->amount ?? 0) * 100);
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
+            'Accept' => 'application/json',
+        ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
-        $customer = \Stripe\Customer::create([
-            'name' => $firstName . ' ' . $lastName,
+        $reservation = $response->json();
+        $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
+        $bookingIdLocal = $reservation['data']['id'] ?? "";
+
+        $booking = \App\Models\TestBooking::create([
+            'booking_id' => $bookingIdLocal,
+            'property_id' => $propertyId,
+            'start_date' => $startDate,
+            'nights' => $nights,
+            'guest_firstname' => $firstName,
+            'guest_lastname' => $lastName,
             'email' => $email,
             'phone' => $phone,
-            'metadata' => [
-                'booking_id' => $booking->id,
-                'property_id' => $propertyId,
-            ]
+            'value' => $reservation['data']['price'] ?? 0,
+            'booking_reference' => $reference,
+            'supercontrol_response' => json_encode($reservation),
+            'payment_status' => 'pending',
         ]);
 
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        $amountCents = intval(($reservation['data']['price'] ?? 0) * 100);
+
         if ($amountCents < 50) {
-            // SetupIntent for very small/zero amounts
+            // If price is 0 or below Stripe minimum, use SetupIntent
             $intent = \Stripe\SetupIntent::create([
-                'customer' => $customer->id,
+                'customer' => \Stripe\Customer::create([
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'phone' => $phone,
+                    'metadata' => [
+                        'booking_id' => $booking->id,
+                        'property_id' => $propertyId,
+                        'booking_reference' => $reference
+                    ]
+                ])->id,
                 'payment_method_types' => ['card'],
             ]);
             $booking->update(['stripe_setup_intent_id' => $intent->id]);
         } else {
-            // Normal PaymentIntent
+            // Normal payment with PaymentIntent
+            $customer = \Stripe\Customer::create([
+                'name' => $firstName . ' ' . $lastName,
+                'email' => $email,
+                'phone' => $phone,
+                'metadata' => [
+                    'booking_id' => $booking->id,
+                    'property_id' => $propertyId,
+                    'booking_reference' => $reference
+                ]
+            ]);
+
             $intent = \Stripe\PaymentIntent::create([
                 'amount' => $amountCents,
                 'currency' => 'gbp',
@@ -652,6 +686,7 @@ public function bookTestProperty(Request $request)
                 'metadata' => [
                     'booking_id' => $booking->id,
                     'property_id' => $propertyId,
+                    'booking_reference' => $reference
                 ]
             ]);
             $booking->update(['stripe_payment_intent_id' => $intent->id]);
@@ -662,7 +697,7 @@ public function bookTestProperty(Request $request)
             'message' => 'Booking created. Render Stripe form on frontend.',
             'data' => [
                 'client_secret' => $intent->client_secret,
-                'booking_reference' => $booking->booking_reference,
+                'booking_reference' => $reference,
                 'booking_id' => $booking->id
             ]
         ]);
@@ -674,7 +709,6 @@ public function bookTestProperty(Request $request)
         ], 500);
     }
 }
-
 
 
 
