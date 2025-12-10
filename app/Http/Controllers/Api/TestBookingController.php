@@ -595,30 +595,23 @@ class TestBookingController extends Controller
 
 public function bookTestProperty(Request $request)
 {
-    // STEP 1: REMOVE PAYMENT VALIDATION (always allow booking)
-    // --------------------------------------------------------
-    // No payment_status check. Booking will always proceed.
+    // 🔥 Dynamic listingMapId (no need to pass property_id in request)
+    $propertyId = $request->propertyId; // fallback test property
 
+    $startDate  = $request->start_date ?? $request->startDate ?? now()->format('Y-m-d');
+    $nights     = $request->nights ?? $request->numberOfNights ?? 1;
+    $guests     = $request->guests ?? $request->numberOfGuests ?? 1;
 
-    // STEP 2: Dynamic listingMapId
-    $propertyId = $request->propertyId;
-
-    $startDate  = $request->start_date ?? now()->format('Y-m-d');
-    $nights     = $request->nights ?? 1;
-    $guests     = $request->guests ?? 1;
-
-    $firstName  = $request->guest_firstname ?? "Test";
-    $lastName   = $request->guest_lastname ?? "User";
+    $firstName  = $request->guest_firstname ?? $request->firstName ?? "Test";
+    $lastName   = $request->guest_lastname ?? $request->lastName ?? "User";
     $email      = $request->email ?? "test@example.com";
     $phone      = $request->phone ?? "+0000000000";
 
-    // Dates
     $checkIn  = Carbon::parse($startDate);
     $checkOut = $checkIn->copy()->addDays($nights);
 
-    // Hostaway payload
     $payload = [
-        "listingMapId"     => $propertyId,
+        "listingMapId"     => $propertyId, // ✅ dynamic
         "arrivalDate"      => $checkIn->format('Y-m-d'),
         "departureDate"    => $checkOut->format('Y-m-d'),
         "numberOfGuests"   => $guests,
@@ -627,28 +620,21 @@ public function bookTestProperty(Request $request)
         "guestEmail"       => $email,
         "guestPhone"       => $phone,
         "channelId"        => 2000,
-        "comment"          => "Booking created after payment",
+        "comment"          => "Created from website"
     ];
 
+    Log::info('Hostaway Booking Payload', $payload);
+
     try {
-        // STEP 3: Hostaway API call
         $response = Http::withHeaders([
             'Authorization' => 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxNzMyODYiLCJqdGkiOiI1NWM0YTc1NzI1YzhhZDc2ODkyMDM2OTZmZTk5OWUxNWQ4ZmI0MDQxYTRlNTU3NmY5MGE2YzZhZTMzNjJhOGMyYzYwY2VlZjEwM2I1OWE2OSIsImlhdCI6MTc2NDcwMTcxOC4yMTYwODQsIm5iZiI6MTc2NDcwMTcxOC4yMTYwODUsImV4cCI6MjA4MDIzNDUxOC4yMTYwODksInN1YiI6IiIsInNjb3BlcyI6WyJnZW5lcmFsIl0sInNlY3JldElkIjo3NjQ4M30.VJ807dt-1KN8eHxMpKG85NOW5UcWu0T2_5uO-RLMYVR7U2sh-z4-RLMCDmdfHzjMTcc7SaYAkA_-HSze17hLQDiwNE4UWXfEPRxic6zQK868l44H1tFfVwQ8YiP8vN_noy7xvDrHUrXR0q3zAhEb-KB1jPGhLqQ51trO3cMYyHYkFUao5K8Dbwhq2MBr1szba0DcPKGQYKMv993spyXlwmy8Id3Z8aiAOJj__ZR3xU0Z6zlZ228AR4dlSOKdMmGJ9I8pCuYB67PeKEme1tw5z05mxySQH7TAVzxT3anRleqqsvkFIe-D08SNIZFlFOdsghDNsLqX_UbQ0rBJ3r_EIg',
             'Accept'        => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
         $reservation = $response->json();
+        $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
         $bookingIdLocal = $reservation['data']['id'] ?? "";
 
-        if (!$response->successful()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Hostaway returned an error',
-                'data' => $reservation
-            ]);
-        }
-
-        // STEP 4: Save to DB only if Hostaway success
         \App\Models\TestBooking::create([
             'booking_id'             => $bookingIdLocal,
             'property_id'            => $propertyId,
@@ -659,25 +645,30 @@ public function bookTestProperty(Request $request)
             'email'                  => $email,
             'phone'                  => $phone,
             'value'                  => $reservation['data']['price'] ?? 0,
-            'booking_reference'      => strtoupper(uniqid('HA-')),
+            'booking_reference'      => $reference,
             'supercontrol_response'  => json_encode($reservation),
-            'payment_status'         => 'paid',  
+            'payment_status'         => 'pending',
         ]);
 
         return response()->json([
-            'status' => true,
-            'message' => 'Booking completed successfully',
-            'data' => $reservation
+            'status'  => $response->successful(),
+            'message' => $response->successful() ? 'Booking success' : 'Hostaway returned an error',
+            'data'    => $reservation
         ]);
 
     } catch (\Exception $e) {
+        Log::error('Hostaway Booking Failed', [
+            'property_id' => $propertyId,
+            'payload'     => $payload,
+            'exception'   => $e->getMessage()
+        ]);
+
         return response()->json([
-            "status" => false,
-            "message" => "Error: " . $e->getMessage()
+            'status'  => false,
+            'message' => 'Error: ' . $e->getMessage()
         ], 500);
     }
 }
-
 
 
 
