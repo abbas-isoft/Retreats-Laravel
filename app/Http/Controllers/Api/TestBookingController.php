@@ -654,28 +654,28 @@ public function bookTestProperty(Request $request)
         \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
 
         $checkoutSession = \Stripe\Checkout\Session::create([
-            'payment_method_types' => ['card', 'apple_pay', 'google_pay'], // automatically enabled in Stripe Checkout
-            'line_items' => [[
-                'price_data' => [
-                    'currency' => 'gbp',
-                    'unit_amount' => intval(($reservation['data']['price'] ?? 0) * 100),
-                    'product_data' => [
-                        'name' => "Booking for Property {$propertyId}",
-                        'description' => "Guest: {$firstName} {$lastName}"
-                    ],
-                ],
-                'quantity' => 1,
-            ]],
-            'mode' => 'payment',
-            'customer_email' => $email,
-            'success_url' => route('booking.success', ['booking' => $booking->id]),
-            'cancel_url' => route('booking.cancel', ['booking' => $booking->id]),
-            'metadata' => [
-                'booking_id' => $booking->id,
-                'property_id' => $propertyId,
-                'booking_reference' => $reference
-            ]
-        ]);
+    'payment_method_types' => ['card'], // ✅ just 'card' is enough
+    'line_items' => [[
+        'price_data' => [
+            'currency' => 'gbp',
+            'unit_amount' => intval(($reservation['data']['price'] ?? 0) * 100),
+            'product_data' => [
+                'name' => "Booking for Property {$propertyId}",
+                'description' => "Guest: {$firstName} {$lastName}"
+            ],
+        ],
+        'quantity' => 1,
+    ]],
+    'mode' => 'payment',
+    'customer_email' => $email,
+    'success_url' => route('booking.success', ['booking' => $booking->id]),
+    'cancel_url' => route('booking.cancel', ['booking' => $booking->id]),
+    'metadata' => [
+        'booking_id' => $booking->id,
+        'property_id' => $propertyId,
+        'booking_reference' => $reference
+    ]
+]);
 
         $booking->update(['stripe_session_id' => $checkoutSession->id]);
 
