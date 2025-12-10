@@ -596,7 +596,7 @@ class TestBookingController extends Controller
 
     public function bookTestProperty(Request $request)
 {
-    $propertyId = $request->propertyId; // 🔥 DYNAMIC
+    $propertyId = $request->propertyId ?? 463824; // 🔥 DYNAMIC
     if (!$propertyId) {
         return response()->json([
             'status' => false,
