@@ -595,7 +595,6 @@ class TestBookingController extends Controller
 
 public function bookTestProperty(Request $request)
 {
-    // 🔥 Dynamic listingMapId
     $propertyId = $request->propertyId ?? '463824';
     $startDate = $request->start_date;
     $nights = $request->nights;
@@ -621,10 +620,7 @@ public function bookTestProperty(Request $request)
         "comment" => "Created from website"
     ];
 
-    Log::info('Hostaway Booking Payload', $payload);
-
     try {
-        // 🔹 Create Hostaway booking
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('HOSTAWAY_API_KEY'),
             'Accept' => 'application/json',
@@ -634,7 +630,6 @@ public function bookTestProperty(Request $request)
         $reference = $reservation['data']['id'] ?? strtoupper(uniqid('HA-'));
         $bookingIdLocal = $reservation['data']['id'] ?? "";
 
-        // 🔹 Save local booking with pending payment
         $booking = \App\Models\TestBooking::create([
             'booking_id' => $bookingIdLocal,
             'property_id' => $propertyId,
@@ -650,58 +645,41 @@ public function bookTestProperty(Request $request)
             'payment_status' => 'pending',
         ]);
 
-        // 🔹 Stripe Checkout Setup
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        // ✅ Stripe PaymentIntent
+        Stripe::setApiKey(config('services.stripe.secret'));
 
-        $checkoutSession = \Stripe\Checkout\Session::create([
-    'payment_method_types' => ['card'], // ✅ just 'card' is enough
-    'line_items' => [[
-        'price_data' => [
+        $paymentIntent = PaymentIntent::create([
+            'amount' => intval(($reservation['data']['price'] ?? 0) * 100), // in cents
             'currency' => 'gbp',
-            'unit_amount' => intval(($reservation['data']['price'] ?? 0) * 100),
-            'product_data' => [
-                'name' => "Booking for Property {$propertyId}",
-                'description' => "Guest: {$firstName} {$lastName}"
-            ],
-        ],
-        'quantity' => 1,
-    ]],
-    'mode' => 'payment',
-    'customer_email' => $email,
-    'success_url' => route('booking.success', ['booking' => $booking->id]),
-    'cancel_url' => route('booking.cancel', ['booking' => $booking->id]),
-    'metadata' => [
-        'booking_id' => $booking->id,
-        'property_id' => $propertyId,
-        'booking_reference' => $reference
-    ]
-]);
+            'payment_method_types' => ['card'], // Stripe auto-enables Apple/Google Pay
+            'metadata' => [
+                'booking_id' => $booking->id,
+                'property_id' => $propertyId,
+                'booking_reference' => $reference
+            ]
+        ]);
 
-        $booking->update(['stripe_session_id' => $checkoutSession->id]);
+        $booking->update([
+            'stripe_payment_intent_id' => $paymentIntent->id
+        ]);
 
-        // 🔹 Return Checkout URL to frontend
         return response()->json([
             'status' => true,
-            'message' => 'Booking created. Proceed to payment.',
+            'message' => 'Booking created. Render Stripe form on frontend.',
             'data' => [
+                'client_secret' => $paymentIntent->client_secret,
                 'booking_reference' => $reference,
-                'stripe_checkout_url' => $checkoutSession->url
+                'booking_id' => $booking->id
             ]
         ]);
 
     } catch (\Exception $e) {
-        Log::error('Booking Failed', [
-            'property_id' => $propertyId,
-            'payload' => $payload,
-            'exception' => $e->getMessage()
-        ]);
         return response()->json([
             'status' => false,
             'message' => 'Error: ' . $e->getMessage()
         ], 500);
     }
 }
-
 
 
 
