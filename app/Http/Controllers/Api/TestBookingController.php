@@ -596,34 +596,34 @@ class TestBookingController extends Controller
 public function bookTestProperty(Request $request)
 {
     // 🔥 Dynamic listingMapId (no need to pass property_id in request)
-    $propertyId = $request->propertyId; // fallback test property
+   $propertyId = $request->propertyId ?? '452891'; // fallback test property
 
-    $startDate  = $request->start_date;
-    $nights     = $request->nights;
-    $guests     = $request->guests;
+$startDate  = $request->start_date;
+$nights     = $request->nights;
+$guests     = $request->guests;
 
-    $firstName  = $request->guest_firstname;
-    $lastName   = $request->guest_lastname;
-    $email      = $request->email;
-    $phone      = $request->phone ;
+$firstName  = $request->guest_firstname;
+$lastName   = $request->guest_lastname;
+$email      = $request->email;
+$phone      = $request->phone;
 
-    $checkIn  = Carbon::parse($startDate);
-    $checkOut = $checkIn->copy()->addDays($nights);
+$checkIn  = Carbon::parse($startDate);
+$checkOut = $checkIn->copy()->addDays($nights);
 
-    $payload = [
-        "listingMapId"     => $propertyId, // ✅ dynamic
-        "arrivalDate"      => $checkIn->format('Y-m-d'),
-        "departureDate"    => $checkOut->format('Y-m-d'),
-        "numberOfGuests"   => $guests,
-        "guestFirstName"   => $firstName,
-        "guestLastName"    => $lastName,
-        "guestEmail"       => $email,
-        "guestPhone"       => $phone,
-        "channelId"        => 2000,
-        "comment"          => "Created from website"
-    ];
+$payload = [
+    "listingMapId"     => $propertyId, // ✅ now guaranteed
+    "arrivalDate"      => $checkIn->format('Y-m-d'),
+    "departureDate"    => $checkOut->format('Y-m-d'),
+    "numberOfGuests"   => $guests,
+    "guestFirstName"   => $firstName,
+    "guestLastName"    => $lastName,
+    "guestEmail"       => $email,
+    "guestPhone"       => $phone,
+    "channelId"        => 2000,
+    "comment"          => "Created from website"
+];
 
-    Log::info('Hostaway Booking Payload', $payload);
+Log::info('Hostaway Booking Payload', $payload);
 
     try {
         $response = Http::withHeaders([
