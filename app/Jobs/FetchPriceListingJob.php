@@ -51,42 +51,45 @@ class FetchPriceListingJob implements ShouldQueue
         }
     }
 
-    private function savePriceConfiguration($propertyId, $listing)
-    {
-        try {
-            // Extract values from new Hostaway structure
-            $currency = $listing['currency'] ?? 'EUR';
-            $balanceDueDays = $listing['billing']['balance']['due_days'] ?? 0;
+   private function savePriceConfiguration($propertyId, $listing)
+{
+    try {
+        // 🔹 Log the listing for debugging
+        Log::info('Processing Listing Data for Property '.$propertyId, $listing);
 
-            // Deposit info: now using 'billing.deposit' structure
-            $depositType = $listing['billing']['deposit']['type'] ?? 'percentage';
-            $depositValue = $listing['billing']['deposit']['amount'] ?? 0;
+        // Currency from Hostaway 'currencyCode'
+        $currency = $listing['currencyCode'] ?? 'EUR';
 
-            // Security deposit: first check billing, then custom field override
-            $securityDeposit = $listing['billing']['security_deposit'] ?? 0;
-            foreach ($listing['customFieldValues'] ?? [] as $customField) {
-                $name = strtolower($customField['customField']['name'] ?? '');
-                if ($name === 'security deposit') {
-                    $securityDeposit = $customField['value'] ?? $securityDeposit;
-                    break;
-                }
-            }
+        // Balance due days
+        $balanceDueDays = $listing['billing']['balance']['due_days'] ?? 0;
 
-            // Save or update PriceConfiguration
-            PriceConfiguration::updateOrCreate(
-                ['property_id' => $propertyId],
-                [
-                    'currency' => $currency,
-                    'deposit_type' => $depositType,
-                    'deposit_value' => $depositValue,
-                    'security_deposit' => $securityDeposit,
-                    'balance_due_days' => $balanceDueDays,
-                ]
-            );
+        // Deposit info
+        $depositType = $listing['billing']['deposit']['type'] ?? 'percentage';
+        $depositValue = $listing['billing']['deposit']['amount'] ?? 0;
 
-            Log::info("✅ Price configuration saved for property ID: {$propertyId}");
-        } catch (\Exception $e) {
-            Log::error("❌ Exception saving price for property ID {$propertyId}: " . $e->getMessage());
+        // Security deposit: use refundableDamageDeposit only
+        $securityDeposit = 0;
+        if (isset($listing['refundableDamageDeposit'])) {
+            $securityDeposit = floatval($listing['refundableDamageDeposit']);
         }
+
+        // Save or update PriceConfiguration
+        PriceConfiguration::updateOrCreate(
+            ['property_id' => $propertyId],
+            [
+                'currency' => $currency,                     // ✅ from currencyCode
+                'deposit_type' => $depositType,
+                'deposit_value' => $depositValue,
+                'security_deposit' => $securityDeposit,     // ✅ from refundableDamageDeposit
+                'balance_due_days' => $balanceDueDays,
+            ]
+        );
+
+        Log::info("✅ Price configuration saved for property ID: {$propertyId} with security deposit: {$securityDeposit} and currency: {$currency}");
+    } catch (\Exception $e) {
+        Log::error("❌ Exception saving price for property ID {$propertyId}: " . $e->getMessage());
     }
+}
+
+
 }
