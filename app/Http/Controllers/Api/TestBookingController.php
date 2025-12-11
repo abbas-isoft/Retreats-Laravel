@@ -604,126 +604,116 @@ class TestBookingController extends Controller
         ], 400);
     }
 
+    $startDate = $request->start_date;
+    $nights    = $request->nights ?? 1;
+    $guests    = $request->guests ?? 1;
+    $firstName = $request->guest_firstname;
+    $lastName  = $request->guest_lastname;
+    $email     = $request->email;
+    $phone     = $request->phone;
+
+    $checkIn  = Carbon::parse($startDate);
+    $checkOut = $checkIn->copy()->addDays($nights);
+
+    // 🔥 FIXED — listingMapId dynamic
+    $payload = [
+        "listingMapId"   => (int) $propertyId,
+        "arrivalDate"    => $checkIn->format('Y-m-d'),
+        "departureDate"  => $checkOut->format('Y-m-d'),
+        "numberOfGuests" => $guests,
+        "guestFirstName" => $firstName,
+        "guestLastName"  => $lastName,
+        "guestEmail"     => $email,
+        "guestPhone"     => $phone,
+        "channelId"      => 2000,
+        "comment"        => "Created from website"
+    ];
+
     try {
-        // STEP 1 → CREATE HOSTAWAY STRIPE SETUP INTENT ONLY
+
+        /*
+        |--------------------------------------------------------------------------
+        | STEP 1 → CREATE HOSTAWAY STRIPE SETUP INTENT
+        |--------------------------------------------------------------------------
+        */
         $setupIntentResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept' => 'application/json',
+            'Accept'        => 'application/json',
         ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
 
         $setupData = $setupIntentResponse->json();
-        $clientSecret = $setupData['result']['clientSecret'] ?? null;
-        $setupIntentId = $setupData['result']['id'] ?? null;
 
-        if (!$clientSecret || !$setupIntentId) {
+        if (!isset($setupData['result']['clientSecret'])) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Hostaway SetupIntent failed',
-                'data' => $setupData
+                'data'    => $setupData
             ], 500);
         }
 
-        // RETURN client_secret → frontend will show Google Pay / Apple Pay / Card
-        return response()->json([
-            'status' => true,
-            'message' => 'SetupIntent created. Render Stripe payment form.',
-            'data' => [
-                'client_secret' => $clientSecret,
-                'setup_intent_id' => $setupIntentId
-            ]
-        ], 200);
+        $clientSecret = $setupData['result']['clientSecret'];
 
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => false,
-            'message' => 'Error: ' . $e->getMessage()
-        ], 500);
-    }
-}
 
-/*
-|--------------------------------------------------------------------------
-| CONFIRM PAYMENT & CREATE RESERVATION
-|--------------------------------------------------------------------------
-| Call this endpoint from frontend AFTER Stripe payment is successful
-*/
-public function confirmPayment(Request $request)
-{
-    $setupIntentId = $request->setup_intent_id;
-    $propertyId    = $request->property_id;
-    $startDate     = $request->start_date;
-    $nights        = $request->nights ?? 1;
-
-    if (!$setupIntentId || !$propertyId || !$startDate) {
-        return response()->json(['status' => false, 'message' => 'Required data missing'], 400);
-    }
-
-    try {
-        // STEP 1 → VERIFY PAYMENT STATUS
-        $setupResponse = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept' => 'application/json',
-        ])->get("https://api.hostaway.com/v1/stripe/getSetupIntent/{$setupIntentId}");
-
-        $setupData = $setupResponse->json();
-        $paymentStatus = $setupData['result']['status'] ?? null;
-
-        if ($paymentStatus !== 'succeeded') {
-            return response()->json([
-                'status' => false,
-                'message' => 'Payment not completed yet',
-                'data' => $setupData
-            ], 400);
-        }
-
-        // STEP 2 → CREATE HOSTAWAY RESERVATION
-        $checkIn  = Carbon::parse($startDate);
-        $checkOut = $checkIn->copy()->addDays($nights);
-
-        $payload = [
-            "listingMapId"   => (int)$propertyId,
-            "arrivalDate"    => $checkIn->format('Y-m-d'),
-            "departureDate"  => $checkOut->format('Y-m-d'),
-            "numberOfGuests" => $request->guests ?? 1,
-            "guestFirstName" => $request->guest_firstname,
-            "guestLastName"  => $request->guest_lastname,
-            "guestEmail"     => $request->email,
-            "guestPhone"     => $request->phone,
-            "channelId"      => 2000,
-            "comment"        => "Payment completed"
-        ];
-
+        /*
+        |--------------------------------------------------------------------------
+        | STEP 2 → CREATE RESERVATION
+        |--------------------------------------------------------------------------
+        */
         $reservationResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept' => 'application/json',
+            'Accept'        => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
         $reservation = $reservationResponse->json();
-        $reservationId = $reservation['result']['id'] ?? null;
 
-        if (!$reservationId) {
+        if (!isset($reservation['result']['id'])) {
             return response()->json([
-                'status' => false,
-                'message' => 'Hostaway reservation failed',
-                'data' => $reservation
+                'status'  => false,
+                'message' => 'Hostaway booking failed',
+                'data'    => $reservation
             ], 500);
         }
 
-        // STEP 3 → SAVE BOOKING IN DB
+        $reservationId = $reservation['result']['id'];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | STEP 3 → SAVE BOOKING INTO test_bookings TABLE
+        |--------------------------------------------------------------------------
+        */
         $booking = \App\Models\TestBooking::create([
             'property_id' => $propertyId,
             'start_date' => $startDate,
             'nights' => $nights,
-            'guest_firstname' => $request->guest_firstname,
-            'guest_lastname' => $request->guest_lastname,
-            'email' => $request->email,
-            'phone' => $request->phone,
+            'guest_firstname' => $firstName,
+            'guest_lastname' => $lastName,
+            'email' => $email,
+            'phone' => $phone,
+
+            // Default amounts — update when Stripe payment happens
+            'value' => 0,
+            'amount_cents' => 0,
+            'upfront_cents' => 0,
+            'remaining_cents' => 0,
+            'damage_deposit_cents' => 0,
+
+            'payment_status' => 'pending',
+
+            // Unique reference
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
+
+            // Hostaway reservation ID saved in booking_id
             'booking_id' => $reservationId,
-            'payment_status' => 'fully_paid',
+
+            // Save full Hostaway response JSON
             'supercontrol_response' => json_encode($reservation),
-            'stripe_payment_method_id' => $setupIntentId,
-            'adults' => $request->adults ?? 1,
+
+            // Stripe IDs from SetupIntent
+            'stripe_payment_method_id' => $setupData['result']['id'] ?? null,
+
+            // Additional optional fields
+            'adults' => $request->adults ?? $guests,
             'children' => $request->children ?? 0,
             'infants' => $request->infants ?? 0,
             'address1' => $request->address1 ?? null,
@@ -740,23 +730,31 @@ public function confirmPayment(Request $request)
             'accepted_rules' => $request->accepted_rules ?? 0,
         ]);
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | STEP 4 → FINAL RESPONSE
+        |--------------------------------------------------------------------------
+        */
         return response()->json([
-            'status' => true,
-            'message' => 'Payment successful. Booking confirmed and saved.',
-            'data' => [
-                'booking_db_id' => $booking->id,
-                'reservation' => $reservation
+            'status'         => true,
+            'message'        => 'SetupIntent + Reservation created + Saved in DB',
+            'data'           => [
+                'client_secret'  => $clientSecret,
+                'reservation_id' => $reservationId,
+                'booking_db_id'  => $booking->id,
+                'setup_intent'   => $setupData,
+                'reservation'    => $reservation
             ]
         ], 200);
 
     } catch (\Exception $e) {
         return response()->json([
-            'status' => false,
+            'status'  => false,
             'message' => 'Error: ' . $e->getMessage()
         ], 500);
     }
 }
-
 
 
 }
