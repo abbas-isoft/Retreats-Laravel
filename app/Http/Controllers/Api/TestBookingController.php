@@ -630,9 +630,7 @@ class TestBookingController extends Controller
 
     try {
 
-        // --------------------------------------------
-        // STEP 1 → CREATE HOSTAWAY SETUP INTENT
-        // --------------------------------------------
+        // STEP 1 → CREATE SETUP INTENT
         $setupIntentResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Accept'        => 'application/json',
@@ -648,9 +646,9 @@ class TestBookingController extends Controller
             ], 500);
         }
 
-        // --------------------------------------------
-        // STEP 2 → CREATE HOSTAWAY RESERVATION
-        // --------------------------------------------
+        $clientSecret = $setupData['result']['clientSecret'];
+
+        // STEP 2 → CREATE RESERVATION
         $reservationResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Accept'        => 'application/json',
@@ -668,29 +666,25 @@ class TestBookingController extends Controller
 
         $reservationId = $reservation['result']['id'];
 
-        // --------------------------------------------
-        // STEP 3 → CREATE PAYMENT REQUEST (REDIRECT URL)
-        // --------------------------------------------
-        $paymentReq = Http::withHeaders([
+        // 🔥 STEP 2.1 → GET HOSTAWAY PAYMENT PAGE URL
+        $paymentUrlResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Accept'        => 'application/json',
-        ])->post("https://api.hostaway.com/v1/stripe/paymentRequest/{$reservationId}");
+        ])->post("https://api.hostaway.com/v1/stripe/reservationPayment/{$reservationId}");
 
-        $paymentData = $paymentReq->json();
+        $paymentUrlData = $paymentUrlResponse->json();
 
-        if (!isset($paymentData['result']['redirectUrl'])) {
+        if (!isset($paymentUrlData['result']['url'])) {
             return response()->json([
                 'status' => false,
                 'message' => 'Unable to generate Hostaway payment URL',
-                'data' => $paymentData
+                'data' => $paymentUrlData
             ], 500);
         }
 
-        $redirectUrl = $paymentData['result']['redirectUrl'];
+        $paymentUrl = $paymentUrlData['result']['url'];
 
-        // --------------------------------------------
-        // STEP 4 → SAVE INTO DB (SAME AS BEFORE)
-        // --------------------------------------------
+        // STEP 3 → SAVE BOOKING LOCALLY
         $booking = \App\Models\TestBooking::create([
             'property_id' => $propertyId,
             'start_date' => $startDate,
@@ -700,23 +694,27 @@ class TestBookingController extends Controller
             'email' => $email,
             'phone' => $phone,
             'value' => 0,
+            'amount_cents' => 0,
+            'upfront_cents' => 0,
+            'remaining_cents' => 0,
+            'damage_deposit_cents' => 0,
             'payment_status' => 'pending',
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
             'booking_id' => $reservationId,
             'supercontrol_response' => json_encode($reservation),
-            'stripe_payment_method_id' => $setupData['result']['id'] ?? null,
+            'stripe_payment_method_id' => $setupData['result']['id'] ?? null
         ]);
 
-        // --------------------------------------------
-        // FINAL RESPONSE → FRONTEND WILL REDIRECT USER
-        // --------------------------------------------
+        // STEP 4 → RETURN DATA WITH REDIRECT URL
         return response()->json([
-            'status'   => true,
-            'message'  => 'Reservation created — redirect user to Hostaway payment',
-            'data'     => [
+            'status'         => true,
+            'message'        => 'Reservation + SetupIntent created',
+            'data'           => [
                 'reservation_id' => $reservationId,
-                'redirect_url'   => $redirectUrl, // 🔥 USE THIS FOR REDIRECT
-                'booking_db_id'  => $booking->id
+                'booking_db_id'  => $booking->id,
+                'client_secret'  => $clientSecret,
+                'payment_url'    => $paymentUrl,  // 🔥 FRONTEND WILL REDIRECT HERE
+                'reservation'    => $reservation,
             ]
         ], 200);
 
