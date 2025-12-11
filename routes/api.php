@@ -72,6 +72,8 @@ Route::get('/booking/success/{booking}', [TestBookingController::class, 'checkou
 Route::get('/booking/cancel/{booking}', [TestBookingController::class, 'checkoutCancel'])->name('booking.cancel');
 // Route::post('/stripe/webhook', [TestBookingController::class, 'handleStripeWebhook']);
 Route::post('/calendar/fetch', [CalendarController::class, 'fetchCalendar']);
+// routes/api.php
+Route::post('/hostaway/webhook', [\App\Http\Controllers\Api\TestBookingController::class, 'handleHostawayWebhook']);
 
 // Prices
 Route::get('/prices/{accountId}', [PricesController::class, 'index']);

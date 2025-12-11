@@ -756,5 +756,65 @@ class TestBookingController extends Controller
     }
 }
 
+ public function handleHostawayWebhook(Request $request)
+    {
+        // Hostaway sends JSON webhook
+        $payload = $request->all();
 
+        // Optional: Validate webhook signature if Hostaway provides it
+        // $signature = $request->header('X-Hostaway-Signature');
+
+        // Only proceed if event indicates payment succeeded
+        // Adjust the 'event' / 'status' field based on Hostaway's webhook docs
+        if (!isset($payload['event']) || $payload['event'] !== 'reservation.paymentSucceeded') {
+            return response()->json(['status' => false, 'message' => 'Event ignored'], 200);
+        }
+
+        // Extract reservation and guest details
+        $reservationData = $payload['reservation'] ?? null;
+        if (!$reservationData || !isset($reservationData['id'], $reservationData['propertyId'])) {
+            return response()->json(['status' => false, 'message' => 'Invalid reservation data'], 400);
+        }
+
+        $propertyId = $reservationData['propertyId'];
+        $reservationId = $reservationData['id'];
+        $guest = $reservationData['guest'] ?? [];
+        $startDate = $reservationData['arrivalDate'] ?? null;
+        $nights = $reservationData['nights'] ?? 1;
+
+        if (!$startDate) {
+            return response()->json(['status' => false, 'message' => 'Missing arrival date'], 400);
+        }
+
+        $checkIn  = Carbon::parse($startDate);
+        $checkOut = $checkIn->copy()->addDays($nights);
+
+        // Save booking into DB
+        $booking = TestBooking::create([
+            'property_id' => $propertyId,
+            'start_date' => $startDate,
+            'nights' => $nights,
+            'guest_firstname' => $guest['firstName'] ?? 'Guest',
+            'guest_lastname' => $guest['lastName'] ?? '',
+            'email' => $guest['email'] ?? null,
+            'phone' => $guest['phone'] ?? null,
+            'booking_reference' => 'BR-' . strtoupper(uniqid()),
+            'booking_id' => $reservationId,
+            'payment_status' => 'fully_paid',
+            'supercontrol_response' => json_encode($reservationData),
+            'stripe_payment_method_id' => $reservationData['stripeSetupIntentId'] ?? null,
+            'adults' => $reservationData['adults'] ?? 1,
+            'children' => $reservationData['children'] ?? 0,
+            'infants' => $reservationData['infants'] ?? 0,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Booking confirmed and saved in DB',
+            'data' => [
+                'booking_db_id' => $booking->id,
+                'reservation' => $reservationData
+            ]
+        ], 200);
+    }
 }
