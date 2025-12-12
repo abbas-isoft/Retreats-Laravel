@@ -692,7 +692,7 @@ class TestBookingController extends Controller
         |-------------------------------------------------------------------------- 
         */
         $guestPortalUrl = $reservation['result']['guestPortalUrl'] 
-            ?? "https://guest-portal.hostaway.com/{$reservationId}/default";
+            ?? "https://guest-portal.hostaway.com/{$reservationId}";
 
         return response()->json([
             'status' => true,
