@@ -629,6 +629,17 @@ class TestBookingController extends Controller
         "comment"        => "Created from website"
     ];
 
+    // ✔ Dynamic check-in time (only if user selected)
+    if ($request->has('check_in_time') && !empty($request->check_in_time)) {
+    $payload['checkInTime'] = $request->check_in_time;
+}
+
+   // ✔ Dynamic check-out time (only if user selected)
+   if ($request->has('check_out_time') && !empty($request->check_out_time)) {
+    $payload['checkOutTime'] = $request->check_out_time;
+}
+
+
     try {
         /*
         |-------------------------------------------------------------------------- 
