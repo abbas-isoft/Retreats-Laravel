@@ -632,9 +632,9 @@ class TestBookingController extends Controller
     try {
 
         /*
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
         | STEP 1 → CREATE HOSTAWAY STRIPE SETUP INTENT
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
         */
         $setupIntentResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
@@ -653,11 +653,10 @@ class TestBookingController extends Controller
 
         $clientSecret = $setupData['result']['clientSecret'];
 
-
         /*
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
         | STEP 2 → CREATE RESERVATION
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
         */
         $reservationResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
@@ -676,11 +675,54 @@ class TestBookingController extends Controller
 
         $reservationId = $reservation['result']['id'];
 
+        /*
+        |-------------------------------------------------------------------------- 
+        | STEP 3 → TAKE PAYMENT VIA STRIPE
+        |-------------------------------------------------------------------------- 
+        */
+        // Example: Using Stripe PaymentIntent
+        $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+
+        $paymentIntent = $stripe->paymentIntents->create([
+            'amount' => $request->amount_cents ?? 10000, // amount in cents
+            'currency' => 'usd',
+            'payment_method' => $request->payment_method_id, // from frontend
+            'confirmation_method' => 'manual',
+            'confirm' => true,
+        ]);
+
+        if ($paymentIntent->status !== 'succeeded') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Stripe payment failed',
+                'data' => $paymentIntent
+            ], 400);
+        }
 
         /*
-        |--------------------------------------------------------------------------
-        | STEP 3 → SAVE BOOKING INTO test_bookings TABLE
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
+        | STEP 4 → INFORM HOSTAWAY OF PAYMENT
+        |-------------------------------------------------------------------------- 
+        */
+        $chargePayload = [
+            'title' => 'Guest Payment via Stripe',
+            'currency' => 'USD',
+            'amount' => $paymentIntent->amount / 100,
+            'paymentMethod' => 'credit_card',
+            'status' => 'paid'
+        ];
+
+        $hostawayChargeResponse = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            'Accept'        => 'application/json',
+        ])->post("https://api.hostaway.com/v1/guestPayments/charges/{$reservationId}", $chargePayload);
+
+        $hostawayCharge = $hostawayChargeResponse->json();
+
+        /*
+        |-------------------------------------------------------------------------- 
+        | STEP 5 → SAVE BOOKING INTO test_bookings TABLE
+        |-------------------------------------------------------------------------- 
         */
         $booking = \App\Models\TestBooking::create([
             'property_id' => $propertyId,
@@ -690,29 +732,17 @@ class TestBookingController extends Controller
             'guest_lastname' => $lastName,
             'email' => $email,
             'phone' => $phone,
-
-            // Default amounts — update when Stripe payment happens
-            'value' => 0,
-            'amount_cents' => 0,
-            'upfront_cents' => 0,
+            'value' => $paymentIntent->amount / 100,
+            'amount_cents' => $paymentIntent->amount,
+            'upfront_cents' => $paymentIntent->amount,
             'remaining_cents' => 0,
             'damage_deposit_cents' => 0,
-
-            'payment_status' => 'pending',
-
-            // Unique reference
+            'payment_status' => 'paid',
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
-
-            // Hostaway reservation ID saved in booking_id
             'booking_id' => $reservationId,
-
-            // Save full Hostaway response JSON
             'supercontrol_response' => json_encode($reservation),
-
-            // Stripe IDs from SetupIntent
-            'stripe_payment_method_id' => $setupData['result']['id'] ?? null,
-
-            // Additional optional fields
+            'stripe_payment_method_id' => $paymentIntent->payment_method,
+            'hostaway_charge_id' => $hostawayCharge['result']['id'] ?? null,
             'adults' => $request->adults ?? $guests,
             'children' => $request->children ?? 0,
             'infants' => $request->infants ?? 0,
@@ -721,30 +751,22 @@ class TestBookingController extends Controller
             'postcode' => $request->postcode ?? null,
             'country' => $request->country ?? null,
             'special_requests' => $request->special_requests ?? null,
-            'dog_selected' => $request->dog_selected ?? 0,
-            'dog_count' => $request->dog_count ?? 0,
-            'hamper' => $request->hamper ?? 0,
-            'firewood' => $request->firewood ?? 0,
-            'decoration' => $request->decoration ?? 0,
-            'accepted_terms' => $request->accepted_terms ?? 0,
-            'accepted_rules' => $request->accepted_rules ?? 0,
         ]);
 
-
         /*
-        |--------------------------------------------------------------------------
-        | STEP 4 → FINAL RESPONSE
-        |--------------------------------------------------------------------------
+        |-------------------------------------------------------------------------- 
+        | STEP 6 → FINAL RESPONSE
+        |-------------------------------------------------------------------------- 
         */
         return response()->json([
-            'status'         => true,
-            'message'        => 'SetupIntent + Reservation created + Saved in DB',
-            'data'           => [
-                'client_secret'  => $clientSecret,
+            'status' => true,
+            'message' => 'Reservation created, Stripe payment succeeded, Hostaway updated, saved in DB',
+            'data' => [
+                'client_secret' => $clientSecret,
                 'reservation_id' => $reservationId,
-                'booking_db_id'  => $booking->id,
-                'setup_intent'   => $setupData,
-                'reservation'    => $reservation
+                'booking_db_id' => $booking->id,
+                'stripe_payment' => $paymentIntent,
+                'hostaway_charge' => $hostawayCharge
             ]
         ], 200);
 
@@ -756,65 +778,4 @@ class TestBookingController extends Controller
     }
 }
 
- public function handleHostawayWebhook(Request $request)
-    {
-        // Hostaway sends JSON webhook
-        $payload = $request->all();
-
-        // Optional: Validate webhook signature if Hostaway provides it
-        // $signature = $request->header('X-Hostaway-Signature');
-
-        // Only proceed if event indicates payment succeeded
-        // Adjust the 'event' / 'status' field based on Hostaway's webhook docs
-        if (!isset($payload['event']) || $payload['event'] !== 'reservation.paymentSucceeded') {
-            return response()->json(['status' => false, 'message' => 'Event ignored'], 200);
-        }
-
-        // Extract reservation and guest details
-        $reservationData = $payload['reservation'] ?? null;
-        if (!$reservationData || !isset($reservationData['id'], $reservationData['propertyId'])) {
-            return response()->json(['status' => false, 'message' => 'Invalid reservation data'], 400);
-        }
-
-        $propertyId = $reservationData['propertyId'];
-        $reservationId = $reservationData['id'];
-        $guest = $reservationData['guest'] ?? [];
-        $startDate = $reservationData['arrivalDate'] ?? null;
-        $nights = $reservationData['nights'] ?? 1;
-
-        if (!$startDate) {
-            return response()->json(['status' => false, 'message' => 'Missing arrival date'], 400);
-        }
-
-        $checkIn  = Carbon::parse($startDate);
-        $checkOut = $checkIn->copy()->addDays($nights);
-
-        // Save booking into DB
-        $booking = TestBooking::create([
-            'property_id' => $propertyId,
-            'start_date' => $startDate,
-            'nights' => $nights,
-            'guest_firstname' => $guest['firstName'] ?? 'Guest',
-            'guest_lastname' => $guest['lastName'] ?? '',
-            'email' => $guest['email'] ?? null,
-            'phone' => $guest['phone'] ?? null,
-            'booking_reference' => 'BR-' . strtoupper(uniqid()),
-            'booking_id' => $reservationId,
-            'payment_status' => 'fully_paid',
-            'supercontrol_response' => json_encode($reservationData),
-            'stripe_payment_method_id' => $reservationData['stripeSetupIntentId'] ?? null,
-            'adults' => $reservationData['adults'] ?? 1,
-            'children' => $reservationData['children'] ?? 0,
-            'infants' => $reservationData['infants'] ?? 0,
-        ]);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Booking confirmed and saved in DB',
-            'data' => [
-                'booking_db_id' => $booking->id,
-                'reservation' => $reservationData
-            ]
-        ], 200);
-    }
 }
