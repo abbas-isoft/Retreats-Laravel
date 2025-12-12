@@ -624,6 +624,7 @@ class TestBookingController extends Controller
         "guestLastName"  => $lastName,
         "guestEmail"     => $email,
         "guestPhone"     => $phone,
+        "guestName"      => trim($firstName . ' ' . $lastName),
         "channelId"      => 2000,
         "comment"        => "Created from website"
     ];
