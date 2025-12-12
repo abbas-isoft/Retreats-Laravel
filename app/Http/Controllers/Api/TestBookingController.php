@@ -630,7 +630,6 @@ class TestBookingController extends Controller
     ];
 
     try {
-
         /*
         |-------------------------------------------------------------------------- 
         | STEP 1 → CREATE HOSTAWAY STRIPE SETUP INTENT
@@ -677,24 +676,31 @@ class TestBookingController extends Controller
 
         /*
         |-------------------------------------------------------------------------- 
-        | STEP 3 → TAKE PAYMENT VIA STRIPE
+        | STEP 3 → TAKE PAYMENT VIA STRIPE (safely)
         |-------------------------------------------------------------------------- 
         */
-        // Example: Using Stripe PaymentIntent
         $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
 
-        $paymentIntent = $stripe->paymentIntents->create([
+        $paymentIntentData = [
             'amount' => $request->amount_cents ?? 10000, // amount in cents
             'currency' => 'usd',
-            'payment_method' => $request->payment_method_id, // from frontend
             'confirmation_method' => 'manual',
-            'confirm' => true,
-        ]);
+        ];
 
-        if ($paymentIntent->status !== 'succeeded') {
+        // Only add payment_method if provided
+        if (!empty($request->payment_method_id)) {
+            $paymentIntentData['payment_method'] = $request->payment_method_id;
+            $paymentIntentData['confirm'] = true; // confirm immediately if method provided
+        }
+
+        // Create the PaymentIntent
+        $paymentIntent = $stripe->paymentIntents->create($paymentIntentData);
+
+        // If payment method was provided, check status
+        if (!empty($request->payment_method_id) && $paymentIntent->status !== 'succeeded') {
             return response()->json([
                 'status' => false,
-                'message' => 'Stripe payment failed',
+                'message' => 'Stripe payment failed or requires action',
                 'data' => $paymentIntent
             ], 400);
         }
@@ -737,11 +743,11 @@ class TestBookingController extends Controller
             'upfront_cents' => $paymentIntent->amount,
             'remaining_cents' => 0,
             'damage_deposit_cents' => 0,
-            'payment_status' => 'paid',
+            'payment_status' => !empty($request->payment_method_id) ? 'paid' : 'pending',
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
             'booking_id' => $reservationId,
             'supercontrol_response' => json_encode($reservation),
-            'stripe_payment_method_id' => $paymentIntent->payment_method,
+            'stripe_payment_method_id' => $paymentIntent->payment_method ?? null,
             'hostaway_charge_id' => $hostawayCharge['result']['id'] ?? null,
             'adults' => $request->adults ?? $guests,
             'children' => $request->children ?? 0,
@@ -760,7 +766,7 @@ class TestBookingController extends Controller
         */
         return response()->json([
             'status' => true,
-            'message' => 'Reservation created, Stripe payment succeeded, Hostaway updated, saved in DB',
+            'message' => 'Reservation created, Stripe payment handled safely, Hostaway updated, saved in DB',
             'data' => [
                 'client_secret' => $clientSecret,
                 'reservation_id' => $reservationId,
