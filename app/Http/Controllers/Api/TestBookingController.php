@@ -629,54 +629,33 @@ class TestBookingController extends Controller
     ];
 
     try {
-        // STEP 1 → Hostaway SetupIntent
-        $setupIntentResponse = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Accept'        => 'application/json',
-        ])->post("https://api.hostaway.com/v1/stripe/createSetupIntent/{$propertyId}");
-
-        $setupData = $setupIntentResponse->json();
-        if (!isset($setupData['result']['clientSecret'])) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Hostaway SetupIntent failed',
-                'data'    => $setupData
-            ], 500);
-        }
-        $clientSecret = $setupData['result']['clientSecret'];
-
-        // STEP 2 → Create reservation
+        /*
+        |-------------------------------------------------------------------------- 
+        | STEP 1 → CREATE RESERVATION ON HOSTAWAY
+        |-------------------------------------------------------------------------- 
+        */
         $reservationResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
             'Accept'        => 'application/json',
         ])->post('https://api.hostaway.com/v1/reservations', $payload);
 
         $reservation = $reservationResponse->json();
+
         if (!isset($reservation['result']['id'])) {
             return response()->json([
                 'status'  => false,
-                'message' => 'Hostaway booking failed',
+                'message' => 'Hostaway reservation failed',
                 'data'    => $reservation
             ], 500);
         }
+
         $reservationId = $reservation['result']['id'];
 
-        // STEP 3 → Create Stripe PaymentIntent (unconfirmed if no payment method)
-        $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
-        $paymentIntentData = [
-            'amount' => $request->amount_cents ?? 10000,
-            'currency' => 'usd',
-            'confirmation_method' => 'manual',
-        ];
-
-        if (!empty($request->payment_method_id)) {
-            $paymentIntentData['payment_method'] = $request->payment_method_id;
-            $paymentIntentData['confirm'] = true;
-        }
-
-        $paymentIntent = $stripe->paymentIntents->create($paymentIntentData);
-
-        // STEP 4 → Save booking in DB (pending payment if payment not yet confirmed)
+        /*
+        |-------------------------------------------------------------------------- 
+        | STEP 2 → SAVE PENDING BOOKING IN DB
+        |-------------------------------------------------------------------------- 
+        */
         $booking = \App\Models\TestBooking::create([
             'property_id' => $propertyId,
             'start_date' => $startDate,
@@ -685,16 +664,10 @@ class TestBookingController extends Controller
             'guest_lastname' => $lastName,
             'email' => $email,
             'phone' => $phone,
-            'value' => $paymentIntent->amount / 100,
-            'amount_cents' => $paymentIntent->amount,
-            'upfront_cents' => $paymentIntent->amount,
-            'remaining_cents' => 0,
-            'damage_deposit_cents' => 0,
-            'payment_status' => !empty($request->payment_method_id) && $paymentIntent->status === 'succeeded' ? 'paid' : 'pending',
+            'payment_status' => 'pending',
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
             'booking_id' => $reservationId,
             'supercontrol_response' => json_encode($reservation),
-            'stripe_payment_method_id' => $paymentIntent->payment_method ?? null,
             'adults' => $request->adults ?? $guests,
             'children' => $request->children ?? 0,
             'infants' => $request->infants ?? 0,
@@ -705,15 +678,22 @@ class TestBookingController extends Controller
             'special_requests' => $request->special_requests ?? null,
         ]);
 
-        // STEP 5 → Return response with client_secret for frontend to complete payment
+        /*
+        |-------------------------------------------------------------------------- 
+        | STEP 3 → RETURN HOSTAWAY GUEST PORTAL URL
+        |-------------------------------------------------------------------------- 
+        */
+        // Guest portal URL format: https://guest-portal.hostaway.com/{reservationId}/{hash}
+        $guestPortalUrl = $reservation['result']['guestPortalUrl'] 
+            ?? "https://guest-portal.hostaway.com/{$reservationId}/default"; // fallback if hash missing
+
         return response()->json([
             'status' => true,
-            'message' => 'Reservation created. Complete payment on frontend using Stripe Elements.',
+            'message' => 'Reservation created, redirect guest to Hostaway for payment',
             'data' => [
-                'client_secret' => $clientSecret,
                 'reservation_id' => $reservationId,
                 'booking_db_id' => $booking->id,
-                'stripe_payment_intent' => $paymentIntent
+                'guest_portal_url' => $guestPortalUrl
             ]
         ], 200);
 
