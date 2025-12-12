@@ -653,7 +653,7 @@ class TestBookingController extends Controller
 
         /*
         |-------------------------------------------------------------------------- 
-        | STEP 2 → SAVE PENDING BOOKING IN DB
+        | STEP 2 → SAVE PENDING BOOKING IN DB (with default amounts)
         |-------------------------------------------------------------------------- 
         */
         $booking = \App\Models\TestBooking::create([
@@ -664,6 +664,14 @@ class TestBookingController extends Controller
             'guest_lastname' => $lastName,
             'email' => $email,
             'phone' => $phone,
+            
+            // 🔥 Default amounts for pending bookings
+            'value' => 0,
+            'amount_cents' => 0,
+            'upfront_cents' => 0,
+            'remaining_cents' => 0,
+            'damage_deposit_cents' => 0,
+
             'payment_status' => 'pending',
             'booking_reference' => 'BR-' . strtoupper(uniqid()),
             'booking_id' => $reservationId,
@@ -683,9 +691,8 @@ class TestBookingController extends Controller
         | STEP 3 → RETURN HOSTAWAY GUEST PORTAL URL
         |-------------------------------------------------------------------------- 
         */
-        // Guest portal URL format: https://guest-portal.hostaway.com/{reservationId}/{hash}
         $guestPortalUrl = $reservation['result']['guestPortalUrl'] 
-            ?? "https://guest-portal.hostaway.com/{$reservationId}/default"; // fallback if hash missing
+            ?? "https://guest-portal.hostaway.com/{$reservationId}/default";
 
         return response()->json([
             'status' => true,
