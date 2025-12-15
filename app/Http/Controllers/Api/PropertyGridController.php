@@ -73,6 +73,12 @@ if ($request->filled('region_id')) {
     }, '=', count($amenities));
 }
 
+// ✅ Filter by City / Location (from property_contents table)
+if ($request->filled('city')) {
+    $query->where('city', 'LIKE', '%' . $request->city . '%');
+}
+
+
         
         if ($request->filled('search')) {
             $query->where('property_name', 'LIKE', '%' . $request->search . '%');
