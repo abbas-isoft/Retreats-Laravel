@@ -42,4 +42,9 @@ public function contents()
 {
     return $this->hasMany(PropertyContent::class, 'property_id');
 }
+// Relation to regions
+    public function regions()
+    {
+        return $this->belongsToMany(Region::class, 'region_property', 'property_id', 'region_id');
+    }
 }

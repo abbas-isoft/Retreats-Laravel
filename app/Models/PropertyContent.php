@@ -134,4 +134,9 @@ public function collections()
         'collection_id'          // collections wali ID
     );
 }
+ // Relation to Property
+    public function property()
+    {
+        return $this->belongsTo(Property::class, 'property_id'); // 'property_id' foreign key
+    }
 }

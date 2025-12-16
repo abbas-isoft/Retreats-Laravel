@@ -77,14 +77,22 @@ if ($request->filled('region_id')) {
 if ($request->filled('city')) {
     $query->where('city', 'LIKE', '%' . $request->city . '%');
 }
- // Filter by region
+ // Filter by region (by ID or Name)
         if ($request->filled('region_id')) {
             $regionIds = is_array($request->region_id) ? $request->region_id : explode(',', $request->region_id);
+
             $query->whereHas('property.regions', function ($q) use ($regionIds) {
-                $q->whereIn('id', $regionIds);
+                $q->whereIn('regions.id', $regionIds); // ⚡ specify table to avoid ambiguous id
             });
         }
 
+        if ($request->filled('regions')) {
+            $regionNames = is_array($request->regions) ? $request->regions : explode(',', $request->regions);
+
+            $query->whereHas('property.regions', function ($q) use ($regionNames) {
+                $q->whereIn('regions.name', $regionNames); // ⚡ specify table
+            });
+        }
         
         if ($request->filled('search')) {
             $query->where('property_name', 'LIKE', '%' . $request->search . '%');
