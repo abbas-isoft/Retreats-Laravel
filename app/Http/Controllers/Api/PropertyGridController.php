@@ -77,7 +77,13 @@ if ($request->filled('region_id')) {
 if ($request->filled('city')) {
     $query->where('city', 'LIKE', '%' . $request->city . '%');
 }
-
+ // Filter by region
+        if ($request->filled('region_id')) {
+            $regionIds = is_array($request->region_id) ? $request->region_id : explode(',', $request->region_id);
+            $query->whereHas('property.regions', function ($q) use ($regionIds) {
+                $q->whereIn('id', $regionIds);
+            });
+        }
 
         
         if ($request->filled('search')) {
