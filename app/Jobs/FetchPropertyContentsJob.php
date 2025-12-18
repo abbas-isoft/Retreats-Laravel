@@ -38,6 +38,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                 Log::warning('No properties returned from Hostaway API.');
                 return;
             }
+            $hostawayIds = collect($properties)->pluck('id')->toArray();
 
             foreach ($properties as $propertyData) {
 
@@ -61,6 +62,10 @@ class FetchPropertyContentsJob implements ShouldQueue
                     }
                 }
 
+                PropertyContent::whereNotIn('property_id', $hostawayIds)->delete();
+
+                Log::info('Deleted properties not found in Hostaway anymore');
+                
                 // Amenities
                 $listingAmenities = $propertyData['listingAmenities'] ?? [];
                 $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
