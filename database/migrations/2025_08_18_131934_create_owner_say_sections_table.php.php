@@ -19,6 +19,10 @@ return new class extends Migration
             $table->string('secondary_title')->nullable();
             $table->text('secondary_description')->nullable();
             $table->string('image')->nullable(); // store image path
+            $table->string('owner_title')->nullable();      // VARCHAR(255) NULL
+            $table->longText('testimonial')->nullable();   // LONGTEXT NULL
+            $table->integer('rating')->default(5);          // INT default 5
+            $table->tinyInteger('active')->default(1);   
             $table->timestamps();
         });
     }

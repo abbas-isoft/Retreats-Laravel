@@ -11,6 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->string('title')->nullable();
             $table->string('subtitle')->nullable();
+            $table->string('section1_subtitle', 191)->nullable();
             $table->longText('description')->nullable();
             $table->string('hero_image')->nullable();  
             $table->string('button_text')->nullable();

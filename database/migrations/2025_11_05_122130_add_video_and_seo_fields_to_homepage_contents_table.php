@@ -10,24 +10,25 @@ return new class extends Migration
     {
         Schema::table('homepage_contents', function (Blueprint $table) {
 
-            // ✅ Existing new fields
+           
             
             $table->boolean('is_video')->default(false)->after('background_video');
 
-            // ✅ SEO fields
+        
             $table->string('meta_title')->nullable()->after('is_video');
             $table->text('meta_description')->nullable()->after('meta_title');
             $table->string('meta_keywords')->nullable()->after('meta_description');
 
-            // ✅ Open Graph SEO fields (Social Media)
+            
             $table->string('og_title')->nullable()->after('meta_keywords');
             $table->text('og_description')->nullable()->after('og_title');
             $table->string('og_image')->nullable()->after('og_description');
 
-            // ✅ Canonical + Schema + Robots
+            
             $table->string('canonical_url')->nullable()->after('og_image');
-            $table->text('schema_markup')->nullable()->after('canonical_url'); // JSON LD etc
-            $table->boolean('robots_txt')->default(true)->after('schema_markup'); // index/noindex
+            $table->text('schema_markup')->nullable()->after('canonical_url');
+            $table->boolean('robots_txt')->default(true)->after('schema_markup');
+            $table->boolean('is_active')->default(true)->after('robots_txt');
 
           
         });

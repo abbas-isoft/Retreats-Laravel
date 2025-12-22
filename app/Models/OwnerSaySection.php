@@ -13,5 +13,9 @@ class OwnerSaySection extends Model
         'secondary_title',
         'secondary_description',
         'image',
+        'owner_title',
+        'testimonial',
+        'rating',
+        'active',
     ];
 }

@@ -16,6 +16,10 @@ return new class extends Migration
         $table->string('title');
         $table->text('subtitle');
         $table->string('video_url')->nullable(); 
+        // $table->string('image')->nullable();
+        // $table->string('enquire_now_button')->nullable();
+        $table->text('description')->nullable();
+        $table->tinyInteger('is_video')->default(0);
         $table->timestamps();
     });
     }

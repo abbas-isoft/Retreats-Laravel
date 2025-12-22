@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('section_title')->nullable(); // "Why Partner with Group Retreats?"
             $table->string('box_title'); // e.g. "A True Understanding of the Market"
             $table->text('box_description')->nullable(); // description text
+            $table->integer('order_number')->default(0);   // INT(10)
+            $table->tinyInteger('active')->default(1);     // TINYINT(
             $table->timestamps();
         });
     }

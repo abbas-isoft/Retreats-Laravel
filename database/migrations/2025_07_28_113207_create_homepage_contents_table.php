@@ -16,6 +16,7 @@ return new class extends Migration
     $table->string('title');
     $table->string('subtitle');
     $table->string('background_image');
+    $table->longText('background_video')->nullable(); 
     $table->timestamps();
 });
     }

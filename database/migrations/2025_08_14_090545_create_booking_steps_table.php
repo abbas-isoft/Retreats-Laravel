@@ -14,6 +14,9 @@ return new class extends Migration {
             $table->string('video_url', 2048)->nullable(); // video field
             $table->text('description')->nullable();
             $table->string('note')->nullable();
+            $table->tinyInteger('active')->default(1);
+            $table->tinyInteger('step_number')->nullable();
+            $table->tinyInteger('is_video')->default(0);
             $table->timestamps();
         });
     }

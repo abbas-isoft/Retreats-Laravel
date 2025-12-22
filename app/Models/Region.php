@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Region extends Model
 {
     protected $table = 'regions';
-    protected $fillable = ['name', 'description', 'image'];
+    protected $fillable = ['name', 'description', 'image' , 'active'];
     public $timestamps = true;
 
     public function properties()

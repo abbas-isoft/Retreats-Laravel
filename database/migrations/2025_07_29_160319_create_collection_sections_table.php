@@ -13,7 +13,8 @@ class CreateCollectionSectionsTable extends Migration
             $table->string('section_key')->unique();
             $table->string('title');
             $table->text('description');
-            $table->timestamp();
+            $table->timestamps();
+
         });
     }
 

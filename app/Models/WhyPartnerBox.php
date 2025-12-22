@@ -10,5 +10,7 @@ class WhyPartnerBox extends Model
         'section_title',
         'box_title',
         'box_description',
+        'order_number',
+        'active',
     ];
 }
