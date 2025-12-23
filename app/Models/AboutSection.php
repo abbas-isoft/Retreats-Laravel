@@ -9,5 +9,5 @@ class AboutSection extends Model
 {
     use HasFactory;
 
-   protected $fillable = ['title', 'subtitle', 'video_url'];
+   protected $fillable = ['title', 'subtitle', 'video_url', 'active'];
 }

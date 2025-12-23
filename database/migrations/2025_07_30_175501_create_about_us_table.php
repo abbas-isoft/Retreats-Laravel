@@ -14,6 +14,8 @@ return new class extends Migration {
             $table->string('image')->nullable();
             $table->text('description');
             $table->string('button_text')->nullable();
+            $table->boolean('active')->default(true);
+            $table->string('video_url', 2048)->nullable();
             $table->timestamps();
         });
     }

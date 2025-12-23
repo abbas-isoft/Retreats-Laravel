@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('about_sections', function (Blueprint $table) {
         $table->id();
         $table->string('title');
-        $table->text('content');
+        $table->text('subtitle');
+        // $table->string('video_url')->nullable();
+        $table->boolean('active')->default(true);
         $table->timestamps();
     });
     }
