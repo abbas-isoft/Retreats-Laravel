@@ -11,7 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
+
 class FetchContentListingJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -22,8 +22,8 @@ class FetchContentListingJob implements ShouldQueue
         foreach (PropertyContent::all() as $propertyContent) {
 
             // Use hostaway_id if present and not empty, otherwise fallback to property_id
-            $hostawayId = !empty($propertyContent->hostaway_id)
-                ? $propertyContent->hostaway_id
+            $hostawayId = !empty($propertyContent->hostaway_id) 
+                ? $propertyContent->hostaway_id 
                 : $propertyContent->property_id;
 
             if (!$hostawayId) {
@@ -56,15 +56,8 @@ class FetchContentListingJob implements ShouldQueue
                     'customer_property_id'  => $listing['internalListingName'] ?? null,
                     'accepted_payment_forms' => $listing['acceptedPaymentForms'] ?? '[]', // default empty JSON array
                     'cancellation_policy'   => $listing['cancellationPolicy'] ?? null,
-                    'check_in_time' => !empty($listing['checkInTimeStart']) &&
-                        Carbon::hasFormat($listing['checkInTimeStart'], 'H:i')
-                        ? Carbon::createFromFormat('H:i', $listing['checkInTimeStart'])->format('H:i:s')
-                        : null,
-
-                    'check_out_time' => !empty($listing['checkOutTime']) &&
-                        Carbon::hasFormat($listing['checkOutTime'], 'H:i')
-                        ? Carbon::createFromFormat('H:i', $listing['checkOutTime'])->format('H:i:s')
-                        : null,
+                    'check_in_time'         => $listing['checkInTimeStart'] ?? null,
+                    'check_out_time'        => $listing['checkOutTime'] ?? null,
                     'children_allowed'      => true,
                     'maximum_adults'        => $listing['personCapacity'] ?? 0,
                     'maximum_guests'        => $listing['personCapacity'] ?? 0,
