@@ -3,7 +3,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
-use Carbon\Carbon;
+
 class ContentListingResource extends JsonResource
 {
     public function toArray($request)
@@ -14,8 +14,8 @@ class ContentListingResource extends JsonResource
             'customer_property_id' => $this->customer_property_id,
             'accepted_payment_forms' => $this->accepted_payment_forms,
             'cancellation_policy' => $this->cancellation_policy,
-            'check_in_time'  => Carbon::createFromFormat('H:i', '16:00')->format('g:i A'),
-            'check_out_time' => Carbon::createFromFormat('H:i', '11:00')->format('g:i A'),
+            'check_in_time'    => '16:00', // 24-hour format
+            'check_out_time'   => '11:00', // 24-hour format
             'children_allowed'   => $this->children_allowed,
             'maximum_adults'     => $this->maximum_adults,
             'maximum_guests'     => $this->maximum_guests,
