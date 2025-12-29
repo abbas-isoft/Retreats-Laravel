@@ -56,8 +56,8 @@ class FetchContentListingJob implements ShouldQueue
                     'customer_property_id'  => $listing['internalListingName'] ?? null,
                     'accepted_payment_forms' => $listing['acceptedPaymentForms'] ?? '[]', // default empty JSON array
                     'cancellation_policy'   => $listing['cancellationPolicy'] ?? null,
-                    'check_in_time'         => $listing['checkInTimeStart'] ?? null,
-                    'check_out_time'        => $listing['checkOutTime'] ?? null,
+                    'check_in_time'         => '16:00', // 4PM in 24-hour format
+                    'check_out_time'        => '11:00', // 11AM in 24-hour format
                     'children_allowed'      => true,
                     'maximum_adults'        => $listing['personCapacity'] ?? 0,
                     'maximum_guests'        => $listing['personCapacity'] ?? 0,
