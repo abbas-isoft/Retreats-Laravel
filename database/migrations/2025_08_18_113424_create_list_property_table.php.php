@@ -15,6 +15,8 @@ return new class extends Migration {
             $table->longText('description')->nullable();
             $table->string('hero_image')->nullable();  
             $table->string('button_text')->nullable();
+            $table->string('button_url')->nullable();
+            $table->string('image');
             $table->timestamps();
         });
     }

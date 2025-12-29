@@ -6,6 +6,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+use function Laravel\Prompts\text;
+
 class CreateHospitalitySectionsTable extends Migration
 {
     public function up()
@@ -14,6 +16,7 @@ class CreateHospitalitySectionsTable extends Migration
             $table->id();
             $table->string('title');
             $table->text('subtitle');
+            $table->text('description');
             $table->timestamps();
         });
     }

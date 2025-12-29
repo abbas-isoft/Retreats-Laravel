@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class HospitalitySection extends Model
 {
     protected $fillable = [
-        'title', 'subtitle',
+        'title', 'subtitle', 'description',
         'meta_title', 'meta_description', 'meta_keywords',
         'og_title', 'og_description', 'og_images',
         'canonical_url', 'schema_markup',
