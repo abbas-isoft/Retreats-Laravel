@@ -606,7 +606,7 @@ class TestBookingController extends Controller
 
     $startDate = $request->start_date;
     $nights    = $request->nights ?? 1;
-    $guests    = $request->guests;
+    $guests    = $request->guests ?? 1;
     $firstName = $request->guest_firstname;
     $lastName  = $request->guest_lastname;
     $email     = $request->email;
@@ -689,6 +689,7 @@ class TestBookingController extends Controller
             'booking_id' => $reservationId,
             'supercontrol_response' => json_encode($reservation),
             'adults' => $request->adults ?? $guests,
+            'guests' => $guests,
             'children' => $request->children ?? 0,
             'infants' => $request->infants ?? 0,
             'address1' => $request->address1 ?? null,
