@@ -606,7 +606,7 @@ class TestBookingController extends Controller
 
     $startDate = $request->start_date;
     $nights    = $request->nights ?? 1;
-    $guests = (int) $request->input('guests', 1);
+    $guests    = $request->guests;
     $firstName = $request->guest_firstname;
     $lastName  = $request->guest_lastname;
     $email     = $request->email;
@@ -619,7 +619,7 @@ class TestBookingController extends Controller
         "listingMapId"   => (int) $propertyId,
         "arrivalDate"    => $checkIn->format('Y-m-d'),
         "departureDate"  => $checkOut->format('Y-m-d'),
-        "guestsIncluded" => (int) $guests,
+        "numberOfGuests" => $guests,
         "guestFirstName" => $firstName,
         "guestLastName"  => $lastName,
         "guestEmail"     => $email,
