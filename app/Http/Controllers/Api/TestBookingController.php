@@ -689,7 +689,6 @@ class TestBookingController extends Controller
             'booking_id' => $reservationId,
             'supercontrol_response' => json_encode($reservation),
             'adults' => $request->adults ?? $guests,
-            'guests' => $guests,
             'children' => $request->children ?? 0,
             'infants' => $request->infants ?? 0,
             'address1' => $request->address1 ?? null,
