@@ -15,6 +15,7 @@ class TestBooking extends Model
     'property_id',
     'start_date',
     'nights',
+    'guests',
     'guest_firstname',
     'guest_lastname',
     'email',
