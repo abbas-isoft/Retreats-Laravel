@@ -607,6 +607,18 @@ class TestBookingController extends Controller
     $startDate = $request->start_date;
     $nights    = $request->nights ?? 1;
     $guests    = $request->guests ?? 1;
+    $adults   = (int) $request->input('adults', 0);
+    $children = (int) $request->input('children', 0);
+    $infants  = (int) $request->input('infants', 0);
+
+// 🔥 Total guests for Hostaway
+$totalGuests = $adults + $children + $infants;
+
+// Safety fallback
+if ($totalGuests <= 0) {
+    $totalGuests = (int) $guests;
+}
+
     $firstName = $request->guest_firstname;
     $lastName  = $request->guest_lastname;
     $email     = $request->email;
@@ -619,7 +631,7 @@ class TestBookingController extends Controller
         "listingMapId"   => (int) $propertyId,
         "arrivalDate"    => $checkIn->format('Y-m-d'),
         "departureDate"  => $checkOut->format('Y-m-d'),
-        "numberOfGuests" => $guests,
+        "guestsIncluded" => $totalGuests,
         "guestFirstName" => $firstName,
         "guestLastName"  => $lastName,
         "guestEmail"     => $email,
