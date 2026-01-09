@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 
 class AboutUsController extends Controller
 {
-    // GET: Fetch About Us Content
     public function show(): JsonResponse
     {
         $about = AboutUs::first();
@@ -31,17 +30,14 @@ class AboutUsController extends Controller
             'data' => new AboutUsResource($about),
         ]);
     }
-
-    // POST: Store or Update About Us Content
     public function storeOrUpdate(Request $request): JsonResponse
     {
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'image' => 'nullable|string', // Assuming you're storing image URLs
+            'image' => 'nullable|string',
         ]);
 
-        // If exists, update. Else, create new.
         $about = AboutUs::first();
 
         if ($about) {
@@ -60,54 +56,48 @@ class AboutUsController extends Controller
     }
 
     public function GetAboutPage()
-{
-    $about = AboutUs::first();
-    $guide = BookingGuide::first();
+    {
+        $about = AboutUs::first();
+        $guide = BookingGuide::first();
 
-    if (!$about && !$guide) {
-        return response()->json([
-            'status' => false,
-            'message' => 'About Us content not found.',
-        ], 404);
-    }
-
-    // Helper closure to handle image URLs safely
-    $getImageUrl = function ($image) {
-        if (!$image) return url('images/default-about-us.jpg');
-        // If it's already a full URL (starts with http or https), return as-is
-        if (preg_match('/^https?:\/\//', $image)) {
-            return $image;
+        if (!$about && !$guide) {
+            return response()->json([
+                'status' => false,
+                'message' => 'About Us content not found.',
+            ], 404);
         }
-        // Otherwise, build URL from local images directory
-        return url('storage/images/' . ltrim($image, '/'));
-    };
+        $getImageUrl = function ($image) {
+            if (!$image) return url('images/default-about-us.jpg');
+            if (preg_match('/^https?:\/\//', $image)) {
+                return $image;
+            }
+            return url('storage/images/' . ltrim($image, '/'));
+        };
 
-    // Map AboutUs
-    $section1 = $about ? [
-        'title' => $about->title,
-        'content' => $about->description,
-        'button_title' => $about->button_text ?? 'Enquire Now',
-        'image' => $getImageUrl($about->image),
-    ] : null;
+        $section1 = $about ? [
+            'title' => $about->title,
+            'content' => $about->description,
+            'button_title' => $about->button_text ?? 'Enquire Now',
+            'image' => $getImageUrl($about->image),
+        ] : null;
 
-    // Map BookingGuide
-    $section2 = $guide ? [
-        'title' => $guide->title ?? '',
-        'content' => $guide->description ?? $guide->subtitle ?? '',
-        'button_title' => $guide->button_text ?? 'Enquire Now',
-        'image' => $getImageUrl($guide->image ?? null),
-    ] : null;
+        $section2 = $guide ? [
+            'title' => $guide->title ?? '',
+            'content' => $guide->description ?? $guide->subtitle ?? '',
+            'button_title' => $guide->button_text ?? 'Enquire Now',
+            'image' => $getImageUrl($guide->image ?? null),
+        ] : null;
 
-    return response()->json([
-        'status' => true,
-        'message' => 'About Us content fetched successfully.',
-        'data' => [
-            'title' => $about->title ?? '',
-            'subtitle' => $about->subtitle ?? '',
-            'video_url' => $guide->video_url ?? '',
-            'section_1' => $section1,
-            'section_2' => $section2,
-        ],
-    ]);
-}
+        return response()->json([
+            'status' => true,
+            'message' => 'About Us content fetched successfully.',
+            'data' => [
+                'title' => $about->title ?? '',
+                'subtitle' => $about->subtitle ?? '',
+                'video_url' => $guide->video_url ?? '',
+                'section_1' => $section1,
+                'section_2' => $section2,
+            ],
+        ]);
+    }
 }

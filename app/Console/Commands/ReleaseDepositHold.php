@@ -18,8 +18,6 @@ class ReleaseDepositHold extends Command
         Stripe::setApiKey(config('services.stripe.secret'));
 
         $today = Carbon::today();
-
-        // Sirf un bookings ko uthao jinki departure date ke 7 din beet gaye
         $bookings = TestBooking::whereNotNull('damage_deposit_intent_id')
             ->get()
             ->filter(function ($booking) use ($today) {
@@ -30,8 +28,6 @@ class ReleaseDepositHold extends Command
         foreach ($bookings as $booking) {
             try {
                 $intent = PaymentIntent::retrieve($booking->damage_deposit_intent_id);
-
-                // Agar abhi bhi hold hai to cancel kardo
                 if (in_array($intent->status, ['requires_capture', 'requires_payment_method', 'processing'])) {
                     $intent->cancel();
                 }
@@ -42,9 +38,9 @@ class ReleaseDepositHold extends Command
                     'deposit_hold_scheduled_at' => null,
                 ]);
 
-                $this->info("✅ Deposit released for booking {$booking->id}");
+                $this->info("Deposit released for booking {$booking->id}");
             } catch (\Exception $e) {
-                $this->error("❌ Failed for booking {$booking->id}: " . $e->getMessage());
+                $this->error("Failed for booking {$booking->id}: " . $e->getMessage());
             }
         }
 

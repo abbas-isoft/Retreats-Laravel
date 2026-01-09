@@ -16,7 +16,6 @@ class ListProperty extends Model
         'hero_image',
         'button_text',
         'section1_subtitle',
-        // ✅ SEO fields
         'meta_title',
         'meta_description',
         'meta_keywords',

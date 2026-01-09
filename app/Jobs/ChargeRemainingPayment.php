@@ -45,9 +45,9 @@ class ChargeRemainingPayment implements ShouldQueue
                 'payment_status' => 'fully_paid',
             ]);
 
-            Log::info("✅ Remaining payment charged for booking {$this->booking->id}");
+            Log::info(" Remaining payment charged for booking {$this->booking->id}");
         } catch (\Exception $e) {
-            // Log::error("❌ Remaining payment failed for booking {$this->booking->id}: ".$e->getMessage());
+            // Log::error(" Remaining payment failed for booking {$this->booking->id}: ".$e->getMessage());
         }
     }
 }

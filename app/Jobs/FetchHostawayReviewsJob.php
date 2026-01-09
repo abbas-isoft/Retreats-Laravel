@@ -19,13 +19,13 @@ class FetchHostawayReviewsJob implements ShouldQueue
     {
         try {
             $response = Http::withHeaders([
-    'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
-    'Accept' => 'application/json',
-])->get('https://api.hostaway.com/v1/reviews');
+                'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
+                'Accept' => 'application/json',
+            ])->get('https://api.hostaway.com/v1/reviews');
 
 
-            Log::info('Hostaway API status: '.$response->status());
-            Log::info('Hostaway API body: '.$response->body());
+            Log::info('Hostaway API status: ' . $response->status());
+            Log::info('Hostaway API body: ' . $response->body());
 
             // Try to decode JSON safely
             $hostawayReviews = $response->json();
@@ -55,9 +55,8 @@ class FetchHostawayReviewsJob implements ShouldQueue
                     ]
                 );
             }
-
         } catch (\Exception $e) {
-            Log::error('FetchHostawayReviewsJob failed: '.$e->getMessage());
+            Log::error('FetchHostawayReviewsJob failed: ' . $e->getMessage());
             throw $e;
         }
     }

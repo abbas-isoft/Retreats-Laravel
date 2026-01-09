@@ -10,7 +10,6 @@ class NavbarController extends Controller
 {
     public function getNavbarData(): JsonResponse
     {
-        // DYNAMIC navbar items (not coming from database)
         $navbarItems = [
             ['id' => 1, 'title' => 'Home', 'slug' => 'home'],
             ['id' => 2, 'title' => 'Collection', 'slug' => 'collection'],
@@ -19,7 +18,6 @@ class NavbarController extends Controller
             ['id' => 5, 'title' => 'Contact Us', 'slug' => 'contact-us'],
         ];
 
-        // Get collection titles dynamically from DB
         $collections = Collection::select('id', 'title')->get();
 
         return response()->json([

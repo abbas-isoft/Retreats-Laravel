@@ -23,26 +23,23 @@ class Property extends Model
     {
         return $this->belongsTo(Account::class);
     }
-     public function propertyContents()
+    public function propertyContents()
     {
         return $this->hasMany(PropertyContent::class, 'property_id', 'id');
     }
-
-    // 🔹 NEW: Property can belong to many collections
     public function collections(): BelongsToMany
     {
         return $this->belongsToMany(Collection::class, 'collection_property');
     }
 
     public function images()
-{
-    return $this->hasMany(PropertyContentImage::class, 'property_content_id', 'id');
-}
-public function contents()
-{
-    return $this->hasMany(PropertyContent::class, 'property_id');
-}
-// Relation to regions
+    {
+        return $this->hasMany(PropertyContentImage::class, 'property_content_id', 'id');
+    }
+    public function contents()
+    {
+        return $this->hasMany(PropertyContent::class, 'property_id');
+    }
     public function regions()
     {
         return $this->belongsToMany(Region::class, 'region_property', 'property_id', 'region_id');

@@ -42,14 +42,14 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             foreach ($properties as $propertyData) {
 
-                // Extract arrays
+
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
 
                 $securityDeposit = 0;
                 if (isset($propertyData['customFieldValues'])) {
                     foreach ($propertyData['customFieldValues'] as $customField) {
-                        // Check if custom field name is "Security Deposit"
+
                         if (
                             isset($customField['customField']['name']) &&
                             strtolower($customField['customField']['name']) === 'security deposit' &&
@@ -57,7 +57,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                         ) {
                             $securityDeposit = (float) $customField['value'];
 
-                            break; // Found it, no need to continue
+                            break;
                         }
                     }
                 }
@@ -65,12 +65,12 @@ class FetchPropertyContentsJob implements ShouldQueue
                 PropertyContent::whereNotIn('property_id', $hostawayIds)->delete();
 
                 Log::info('Deleted properties not found in Hostaway anymore');
-                
-                // Amenities
+
+
                 $listingAmenities = $propertyData['listingAmenities'] ?? [];
                 $amenities = collect($listingAmenities)->pluck('amenityName')->toArray();
 
-                // Check if record exists
+
                 $content = PropertyContent::where('property_id', $propertyData['id'])->first();
 
                 // Data for update/insert
@@ -96,31 +96,18 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'amenities'            => json_encode($amenities),
                 ];
 
-                /*
-                |--------------------------------------------------------------------------
-                | INSERT OR UPDATE RECORD
-                |--------------------------------------------------------------------------
-                */
                 if ($content) {
-                    // UPDATE
+
                     $content->update($data);
                     Log::info("Updated Existing PropertyContent: {$propertyData['id']}");
                 } else {
-                    // INSERT
                     $content = PropertyContent::create(array_merge($data, [
                         'property_id' => $propertyData['id']
                     ]));
                     Log::info("Inserted New PropertyContent: {$propertyData['id']}");
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | SAVE IMAGES
-                |--------------------------------------------------------------------------
-                */
                 if (!empty($images)) {
-                    // delete old
                     $content->images()->delete();
 
                     foreach ($images as $img) {
@@ -131,21 +118,15 @@ class FetchPropertyContentsJob implements ShouldQueue
                     }
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | SAVE ROOMS + BEDS
-                |--------------------------------------------------------------------------
-                */
                 $roomsFromApi = $propertyData['rooms'] ?? [];
 
-                // Remove old rooms and beds
+
                 $content->rooms()->each(function ($room) {
                     $room->beds()->delete();
                 });
                 $content->rooms()->delete();
 
-                // If Hostaway sends rooms
+
                 if (!empty($roomsFromApi)) {
 
                     foreach ($roomsFromApi as $r) {
@@ -164,7 +145,6 @@ class FetchPropertyContentsJob implements ShouldQueue
                         }
                     }
                 } else {
-                    // If only bedTypes exist
                     if (!empty($beds)) {
                         $room = $content->rooms()->create([
                             'name' => 'Bedroom',

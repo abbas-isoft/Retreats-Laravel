@@ -10,10 +10,10 @@ class PropertyExtraResource extends JsonResource
     {
         return [
             'id'         => $this->extra_id,
-            'property_id'=> $this->property_id,
+            'property_id' => $this->property_id,
             'category'   => $this->category,
             'name'       => $this->name,
-            'description'=> $this->description,
+            'description' => $this->description,
             'img'        => $this->img,
             'price' => [
                 'rate'        => $this->price_rate,

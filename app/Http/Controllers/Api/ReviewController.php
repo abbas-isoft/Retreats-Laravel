@@ -20,7 +20,7 @@ class ReviewController extends Controller
             'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
         ])->get('https://api.hostaway.com/v1/reviews')->json();
 
-        // If API returns empty or invalid, use temporary test review
+    
         if (!is_array($hostawayReviews) || empty($hostawayReviews)) {
             $hostawayReviews = [
                 [
@@ -32,15 +32,12 @@ class ReviewController extends Controller
                 ]
             ];
         }
-
-        // Filter by property_id if provided
         if ($request->has('property_id')) {
             $hostawayReviews = array_filter($hostawayReviews, function($review) use ($request) {
                 return ($review['listingMapId'] ?? null) == $request->get('property_id');
             });
         }
 
-        // Save/update each review in local database
         foreach ($hostawayReviews as $item) {
             Review::updateOrCreate(
                 [
@@ -56,7 +53,6 @@ class ReviewController extends Controller
             );
         }
 
-        // Fetch from local DB for API response
         $reviews = Review::when($request->has('property_id'), function($query) use ($request) {
                 $query->where('property_id', $request->get('property_id'));
             })

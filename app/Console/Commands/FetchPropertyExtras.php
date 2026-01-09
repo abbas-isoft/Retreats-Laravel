@@ -13,6 +13,6 @@ class FetchPropertyExtras extends Command
     public function handle(): void
     {
         FetchPropertyExtrasJob::dispatch();
-        $this->info("🚀 FetchPropertyExtrasJob dispatched for all properties");
+        $this->info("FetchPropertyExtrasJob dispatched for all properties");
     }
 }

@@ -10,9 +10,7 @@ use Illuminate\Support\Str;
 
 class AdminFeaturedArrivalController extends Controller
 {
-    /**
-     * 🟢 Create Featured Section
-     */
+
     public function store(Request $request)
     {
         $request->validate([
@@ -38,10 +36,6 @@ class AdminFeaturedArrivalController extends Controller
 
         return $this->formatFeaturedResponse($featured);
     }
-
-    /**
-     * 🟡 Update Featured Section
-     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -74,19 +68,11 @@ class AdminFeaturedArrivalController extends Controller
 
         return $this->formatFeaturedResponse($featured, 'Featured section updated successfully.');
     }
-
-    /**
-     * 🟢 Get All Featured Sections
-     */
     public function getAll()
     {
         $list = FeaturedArrival::orderBy('id', 'desc')->get();
         return response()->json(['status' => true, 'data' => $list]);
     }
-
-    /**
-     * 🔵 Get Single Featured Section
-     */
     public function get($id)
     {
         $featured = FeaturedArrival::find($id);
@@ -96,10 +82,6 @@ class AdminFeaturedArrivalController extends Controller
 
         return $this->formatFeaturedResponse($featured, 'Featured properties fetched successfully.');
     }
-
-    /**
-     * 🔴 Delete Featured Section
-     */
     public function delete($id)
     {
         $featured = FeaturedArrival::find($id);
@@ -112,10 +94,6 @@ class AdminFeaturedArrivalController extends Controller
 
         return response()->json(['status' => true, 'message' => 'Deleted successfully.']);
     }
-
-    /**
-     * 🧩 Helper: Format Response with Properties & Images
-     */
     private function formatFeaturedResponse($featured, $message = 'Featured section created successfully.')
     {
         $propertyIds = DB::table('featured_arrival_property')
@@ -133,7 +111,6 @@ class AdminFeaturedArrivalController extends Controller
 
                 $property->images = $images;
 
-                // 🧠 Fix amenities double encoding
                 if (is_string($property->amenities)) {
                     $decoded = json_decode($property->amenities, true);
                     if (is_string($decoded)) {

@@ -21,9 +21,9 @@ class FetchPropertyExtrasJob implements ShouldQueue
     public function handle(): void
     {
         foreach (Property::all() as $property) {
-            Log::info("🚀 Fetching extras for property_id: {$property->id}");
+            Log::info("Fetching extras for property_id: {$property->id}");
 
-            // XML request body
+
             $xmlBody = <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
 <scAPI>
@@ -44,51 +44,51 @@ XML;
             ]);
 
             if ($response->failed()) {
-                Log::error("❌ Failed to fetch extras for property_id: {$property->id}");
+                Log::error(" Failed to fetch extras for property_id: {$property->id}");
                 continue;
             }
 
-            // Parse XML
+
             $xml = simplexml_load_string($response->body(), "SimpleXMLElement", LIBXML_NOCDATA);
 
-            // Find all <option_db>
+
             $extras = $xml->xpath('//option_db');
 
             if (empty($extras)) {
-                Log::warning("⚠️ No extras found for property_id: {$property->id}");
+                Log::warning("No extras found for property_id: {$property->id}");
                 continue;
             }
 
             foreach ($extras as $extra) {
                 $extraArray = (array) $extra;
 
-               PropertyExtra::updateOrCreate(
-    [
-        'property_id' => $property->id,
-        'extra_id'    => (string)($extra->id ?? null),
-    ],
-    [
-       'name'             => (string)($extra->name ?? null),
-       'description'      => (string)($extra->description ?? null),
-       'price_rate'       => (float)($extra->price ?? 0),
-       'price_total'      => (float)($extra->price ?? 0),
-       'price_unit'       => (string)($extra->pricetype ?? null),
-       'price_unit_label' => (string)($extra->pricetype ?? null),
-       'currency_symbol'  => isset($extra->currency) 
-                        ? (string)$extra->currency 
-                        : '£',
-       'qty'              => (int)($extra->maxQty ?? 0),
-       'is_default'       => (int)($extra->defaultQty ?? 0),
-       'img'              => (string)($extra->img ?? null),
-       'option_payment'   => (string)($extra->optionPayment ?? null),
-       'available'        => isset($extra->available) 
-                        ? (string)$extra->available 
-                        : null,
-    ]
-);
+                PropertyExtra::updateOrCreate(
+                    [
+                        'property_id' => $property->id,
+                        'extra_id'    => (string)($extra->id ?? null),
+                    ],
+                    [
+                        'name'             => (string)($extra->name ?? null),
+                        'description'      => (string)($extra->description ?? null),
+                        'price_rate'       => (float)($extra->price ?? 0),
+                        'price_total'      => (float)($extra->price ?? 0),
+                        'price_unit'       => (string)($extra->pricetype ?? null),
+                        'price_unit_label' => (string)($extra->pricetype ?? null),
+                        'currency_symbol'  => isset($extra->currency)
+                            ? (string)$extra->currency
+                            : '£',
+                        'qty'              => (int)($extra->maxQty ?? 0),
+                        'is_default'       => (int)($extra->defaultQty ?? 0),
+                        'img'              => (string)($extra->img ?? null),
+                        'option_payment'   => (string)($extra->optionPayment ?? null),
+                        'available'        => isset($extra->available)
+                            ? (string)$extra->available
+                            : null,
+                    ]
+                );
             }
 
-            Log::info("✅ Extras updated for property_id: {$property->id}");
+            Log::info("Extras updated for property_id: {$property->id}");
         }
     }
 }

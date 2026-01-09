@@ -12,7 +12,7 @@ class WhyPartnerBoxResource extends JsonResource
             'id'             => $this->id,
             'section_title'  => $this->section_title,
             'box_title'      => $this->box_title,
-            'box_description'=> $this->box_description,
+            'box_description' => $this->box_description,
         ];
     }
 }

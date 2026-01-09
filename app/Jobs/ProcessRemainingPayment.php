@@ -34,7 +34,7 @@ class ProcessRemainingPayment implements ShouldQueue
         $booking = Booking::find($this->bookingId);
 
         if (! $booking || ! $booking->stripe_customer_id || ! $booking->stripe_payment_method_id) {
-            Log::error("❌ Remaining payment failed: booking not valid for ID {$this->bookingId}");
+            Log::error("Remaining payment failed: booking not valid for ID {$this->bookingId}");
             return;
         }
 
@@ -54,12 +54,11 @@ class ProcessRemainingPayment implements ShouldQueue
                 ],
             ]);
 
-            Log::info("✅ Remaining payment successful for booking {$booking->id}", [
+            Log::info("Remaining payment successful for booking {$booking->id}", [
                 'payment_intent' => $intent->id
             ]);
-
         } catch (\Exception $e) {
-            Log::error("❌ Stripe error for booking {$booking->id}: " . $e->getMessage());
+            Log::error("Stripe error for booking {$booking->id}: " . $e->getMessage());
         }
     }
 }

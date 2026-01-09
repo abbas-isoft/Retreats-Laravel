@@ -8,7 +8,6 @@ use App\Models\ListYourProperty;
 
 class ListYourPropertyController extends Controller
 {
-    // GET API - Fetch latest content
     public function index()
     {
         $content = ListYourProperty::latest()->first();
@@ -26,23 +25,22 @@ class ListYourPropertyController extends Controller
             'data' => [
                 'title' => $content->title,
                 'subtitle' => $content->subtitle,
-                'image' => asset('storage/' . $content->image), // or direct URL
+                'image' => asset('storage/' . $content->image),
                 'button_text' => $content->button_text,
                 'button_link' => $content->button_link,
             ]
         ]);
     }
 
-    // POST API - Store new content
     public function store(Request $request)
     {
-       $validated = $request->validate([
-    'title' => 'required|string|max:255',
-    'subtitle' => 'required|string|max:1000',
-    'image' => 'nullable|string', // ← yeh karo
-    'button_text' => 'required|string|max:255',
-    'button_link' => 'required|string|max:255',
-]);
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'subtitle' => 'required|string|max:1000',
+            'image' => 'nullable|string',
+            'button_text' => 'required|string|max:255',
+            'button_link' => 'required|string|max:255',
+        ]);
 
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('list-property', 'public');

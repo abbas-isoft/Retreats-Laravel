@@ -9,7 +9,7 @@ use App\Http\Resources\PageSectionResource;
 
 class PageSectionController extends Controller
 {
-    // Get a section by name
+    
     public function show($section_name)
     {
         $section = PageSection::where('section_name', $section_name)->first();
@@ -21,7 +21,7 @@ class PageSectionController extends Controller
         return new PageSectionResource($section);
     }
 
-    // Create or update section
+
     public function store(Request $request)
     {
         $validated = $request->validate([

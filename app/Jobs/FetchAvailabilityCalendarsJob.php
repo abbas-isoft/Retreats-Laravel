@@ -19,13 +19,13 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
 
     public function handle(): void
     {
-        Log::info('🚀 Hostaway Calendar Sync Started');
+        Log::info('Hostaway Calendar Sync Started');
 
         foreach (PropertyContent::all() as $propertyContent) {
 
-            // Use hostaway_id if available
-            $listingId  = !empty($propertyContent->hostaway_id) 
-                ? $propertyContent->hostaway_id 
+
+            $listingId  = !empty($propertyContent->hostaway_id)
+                ? $propertyContent->hostaway_id
                 : $propertyContent->property_id;
 
             $propertyId = $propertyContent->property_id;
@@ -35,24 +35,24 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
                 continue;
             }
 
-            // FULL 2 YEARS RANGE
+
             $startDate = now();
             $endDate   = now()->addDays(730);
 
-            // Hostaway API call
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.hostaway.token'),
                 'Content-Type'  => 'application/json',
             ])->timeout(60)->retry(3, 2000)
-              ->get("https://api.hostaway.com/v1/listings/$listingId/calendar", [
-                  'startDate' => $startDate->format('Y-m-d'),
-                  'endDate'   => $endDate->format('Y-m-d'),
-              ]);
+                ->get("https://api.hostaway.com/v1/listings/$listingId/calendar", [
+                    'startDate' => $startDate->format('Y-m-d'),
+                    'endDate'   => $endDate->format('Y-m-d'),
+                ]);
 
             $data = $response->json();
 
             if ($response->failed() || !isset($data['result'])) {
-                Log::warning("❌ Hostaway: Failed or empty calendar for listing ID: {$listingId}", ['response' => $data]);
+                Log::warning("Hostaway: Failed or empty calendar for listing ID: {$listingId}", ['response' => $data]);
                 continue;
             }
 
@@ -83,27 +83,27 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
                 $availabilityString .= ($day['isAvailable'] ?? false) ? "Y" : "N";
             }
 
-            // Update or create single row per property
+            
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
             AvailabilityCalendar::updateOrCreate(
-    [
-        'property_id' => $propertyId,   // 👈 Unique row only by property_id
-    ],
-    [
-        'start_date'       => $startDate->format('Y-m-d'),
-        'end_date'         => $endDate->format('Y-m-d'),
-        'availability'     => $availabilityString,
-        'change_over'      => $lastDayData['status'] ?? null,
-        'max_stay'         => $lastDayData['maximumStay'] ?? null,
-        'min_stay'         => $lastDayData['minimumStay'] ?? null,
-        'min_prior_notify' => 0,
-    ]
-);
+                [
+                    'property_id' => $propertyId,   
+                ],
+                [
+                    'start_date'       => $startDate->format('Y-m-d'),
+                    'end_date'         => $endDate->format('Y-m-d'),
+                    'availability'     => $availabilityString,
+                    'change_over'      => $lastDayData['status'] ?? null,
+                    'max_stay'         => $lastDayData['maximumStay'] ?? null,
+                    'min_stay'         => $lastDayData['minimumStay'] ?? null,
+                    'min_prior_notify' => 0,
+                ]
+            );
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-            Log::info("✅ Hostaway calendar updateOrCreate completed for PropertyContent ID: {$propertyContent->id}");
+            Log::info("Hostaway calendar updateOrCreate completed for PropertyContent ID: {$propertyContent->id}");
         }
 
-        Log::info('🎉 Hostaway Calendar Sync Completed');
+        Log::info('Hostaway Calendar Sync Completed');
     }
 }

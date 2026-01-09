@@ -42,9 +42,9 @@ class PlaceDepositHold implements ShouldQueue
             ]);
 
             $this->booking->update(['damage_deposit_intent_id' => $intent->id]);
-            Log::info("✅ Deposit hold placed for booking {$this->booking->id}");
+            Log::info("Deposit hold placed for booking {$this->booking->id}");
         } catch (\Exception $e) {
-            Log::error("❌ Deposit hold failed for booking {$this->booking->id}: ".$e->getMessage());
+            Log::error("Deposit hold failed for booking {$this->booking->id}: " . $e->getMessage());
         }
     }
 }

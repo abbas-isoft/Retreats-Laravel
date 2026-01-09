@@ -27,10 +27,6 @@ class CollectionSectionController extends Controller
             ]
         ]);
     }
-
-    /**
-     * Store or update section by key
-     */
     public function storeOrUpdate(Request $request, $key)
     {
         $validated = $request->validate([
@@ -38,15 +34,13 @@ class CollectionSectionController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        // find record by key
+
         $section = CollectionSection::where('section_key', $key)->first();
 
         if ($section) {
-            // update existing
             $section->update($validated);
             $message = 'Section updated successfully.';
         } else {
-            // create new only if not exist
             $validated['section_key'] = $key;
             $section = CollectionSection::create($validated);
             $message = 'Section created successfully.';

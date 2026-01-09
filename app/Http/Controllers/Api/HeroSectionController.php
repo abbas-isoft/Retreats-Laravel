@@ -22,10 +22,8 @@ class HeroSectionController extends Controller
             'subtitle'             => 'nullable|string',
             'button_text'          => 'nullable|string|max:255',
             // 'button_link'          => 'nullable|string|max:255',
-            'background_video_url' => 'nullable|url', // ✅ Now expects a valid external video URL
+            'background_video_url' => 'nullable|url',
         ]);
-
-        // Fetch the first record
         $hero = HeroSection::first();
 
         if ($hero) {

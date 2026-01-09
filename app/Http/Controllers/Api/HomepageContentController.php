@@ -35,34 +35,24 @@ class HomepageContentController extends Controller
         set_time_limit(300);
 
         $validated = $request->validate([
-    'title'            => 'required|string',
-    'subtitle'         => 'required|string',
-    'background_image' => 'nullable',
-    'background_video' => 'nullable',
-
-    // ✅ SEO fields
-    'meta_title'       => 'nullable|string',
-    'meta_description' => 'nullable|string',
-    'meta_keywords'    => 'nullable|string',
-
-    'og_title'         => 'nullable|string',
-    'og_description'   => 'nullable|string',
-
-    // ✅ Accept both file upload + URL
-    'og_image'         => 'nullable',
-
-    'canonical_url'    => 'nullable|string',
-    
-    // ✅ Accept raw JSON string (NOT array)
-    'schema_markup'    => 'nullable|string',
-
-    'robots_txt'       => 'nullable|boolean',
-    'is_active'        => 'nullable|boolean',
-]);
+            'title'            => 'required|string',
+            'subtitle'         => 'required|string',
+            'background_image' => 'nullable',
+            'background_video' => 'nullable',
+            'meta_title'       => 'nullable|string',
+            'meta_description' => 'nullable|string',
+            'meta_keywords'    => 'nullable|string',
+            'og_title'         => 'nullable|string',
+            'og_description'   => 'nullable|string',
+            'og_image'         => 'nullable',
+            'canonical_url'    => 'nullable|string',
+            'schema_markup'    => 'nullable|string',
+            'robots_txt'       => 'nullable|boolean',
+            'is_active'        => 'nullable|boolean',
+        ]);
 
         $images = [];
 
-        // ✅ Handle background images
         if ($request->hasFile('background_image')) {
             foreach ($request->file('background_image') as $file) {
                 $allowedExtensions = ['jpg', 'jpeg', 'png'];
@@ -128,7 +118,6 @@ class HomepageContentController extends Controller
                     $optimizerChain->optimize($savePath);
 
                     $images[] = url('/storage/images/' . $webpName);
-
                 } catch (\Throwable $e) {
                     Log::warning('⚠️ WebP Conversion Failed: ' . $e->getMessage());
                     $storedPath = $file->storeAs('images', $webpName, 'public');
@@ -139,23 +128,19 @@ class HomepageContentController extends Controller
             $validated['background_image'] = json_encode($images, JSON_UNESCAPED_SLASHES);
         }
 
-        // ✅ Video handling
         if ($request->hasFile('background_video')) {
             $videoPath = $request->file('background_video')->store('videos', 'public');
             $validated['background_video'] = url('/storage/' . $videoPath);
         } elseif (is_string($request->background_video)) {
             $validated['background_video'] = $request->background_video;
         }
-        // ✅ OG IMAGE (SEO Thumbnail for social media)
-if ($request->hasFile('og_image')) {
-    $ogImagePath = $request->file('og_image')->store('seo', 'public');
-    $validated['og_image'] = url('/storage/' . $ogImagePath);
-} elseif (is_string($request->og_image)) {
-    // If user sends URL instead of file
-    $validated['og_image'] = $request->og_image;
-}
+        if ($request->hasFile('og_image')) {
+            $ogImagePath = $request->file('og_image')->store('seo', 'public');
+            $validated['og_image'] = url('/storage/' . $ogImagePath);
+        } elseif (is_string($request->og_image)) {
+            $validated['og_image'] = $request->og_image;
+        }
 
-        // ✅ Boolean & JSON handling
         $validated['is_video']   = $request->boolean('is_video', false);
         $validated['robots_txt'] = $request->boolean('robots_txt', true);
         $validated['is_active']  = $request->boolean('is_active', true);
@@ -164,7 +149,6 @@ if ($request->hasFile('og_image')) {
             $validated['schema_markup'] = json_encode($request->schema_markup);
         }
 
-        // ✅ Save homepage content (only one row)
         $content = HomepageContent::updateOrCreate(['id' => 1], $validated);
 
         $content->background_image = is_string($content->background_image)
@@ -177,8 +161,6 @@ if ($request->hasFile('og_image')) {
             'data'    => $content,
         ]);
     }
-
-    // 🆕 For Spatie Image Upload
     public function uploadImage(Request $request)
     {
         $request->validate([

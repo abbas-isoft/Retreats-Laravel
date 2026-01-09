@@ -14,7 +14,6 @@ use App\Http\Resources\OwnerSaySectionResource;
 
 class ListPropertyController extends Controller
 {
-    // GET API
     public function show()
     {
         $page = ListProperty::firstOrCreate([]);
@@ -24,7 +23,6 @@ class ListPropertyController extends Controller
         ]);
     }
 
-    // POST API
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -33,8 +31,6 @@ class ListPropertyController extends Controller
             'description' => 'nullable|string',
             'button_text' => 'nullable|string|max:100',
             'hero_image'  => 'nullable|string',
-
-            // ✅ SEO fields
             'meta_title'       => 'required|string|max:255',
             'meta_description' => 'required|string',
             'meta_keywords'    => 'required|string',
@@ -51,7 +47,6 @@ class ListPropertyController extends Controller
 
         $page = ListProperty::updateOrCreate([]);
 
-        // Upload hero_image
         if ($request->hasFile('hero_image')) {
             $file = $request->file('hero_image');
             $filename = time() . '_' . Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
@@ -59,7 +54,6 @@ class ListPropertyController extends Controller
 
             $validated['hero_image'] = 'images/' . $filename;
 
-            // delete old image if exists
             if ($page->hero_image && file_exists(public_path($page->hero_image))) {
                 @unlink(public_path($page->hero_image));
             }
@@ -79,8 +73,6 @@ class ListPropertyController extends Controller
         $page    = ListProperty::firstOrCreate([]);
         $boxes   = WhyPartnerBox::all();
         $section = OwnerSaySection::firstOrCreate([]);
-
-        // Attach relations so resource can access them
         $page->setRelation('whyPartnerBoxes', $boxes);
         $page->setRelation('ownerSay', $section);
 
@@ -94,34 +86,22 @@ class ListPropertyController extends Controller
 
     public function PostListProperty(Request $request)
     {
-        /*
-    |--------------------------------------------------------------------------
-    | 1. Validate Inputs (nested structure)
-    |--------------------------------------------------------------------------
-    */
         $validated = $request->validate([
-            // Hero Section
             'hero_section.title'       => 'nullable|string|max:255',
             'hero_section.subtitle'    => 'nullable|string|max:255',
             'hero_section.description' => 'nullable|string',
             'hero_section.button_text' => 'nullable|string|max:100',
             'hero_section.hero_image'  => 'nullable|string',
-
-            // Why Partner Section
             'why_partner_section.section_title'           => 'required|string|max:255',
             'why_partner_section.boxes'                   => 'required|array|min:1',
             'why_partner_section.boxes.*.box_title'       => 'required|string|max:255',
             'why_partner_section.boxes.*.box_description' => 'nullable|string',
-
-            // Testimonial Section
             'testimonial_section.title'                 => 'nullable|string|max:255',
             'testimonial_section.description'           => 'nullable|string',
             'testimonial_section.owner_name'            => 'nullable|string|max:255',
             'testimonial_section.secondary_title'       => 'nullable|string|max:255',
             'testimonial_section.secondary_description' => 'nullable|string',
             'testimonial_section.image'                 => 'nullable|string',
-
-            // SEO Fields for List Property Page
             'meta.meta_title'       => 'nullable|string|max:255',
             'meta.meta_description' => 'nullable|string',
             'meta.meta_keywords'    => 'nullable|string',
@@ -136,19 +116,11 @@ class ListPropertyController extends Controller
 
 
         ]);
-
-        // 2️⃣ Hero Section Data Flattening – yehi aapka code hai
         $metaData = $request->input('meta', []);
 
         $metaSection = ListProperty::firstOrCreate([]);
         $metaSection->fill($metaData);
         $metaSection->save();
-
-        /*
-    |--------------------------------------------------------------------------
-    | 2. Handle Hero Section (ListProperty)
-    |--------------------------------------------------------------------------
-    */
         $heroData = $request->input('hero_section', []);
         $page = ListProperty::first(); // only one record
         if (!$page) {
@@ -156,18 +128,11 @@ class ListPropertyController extends Controller
         }
         $page->fill($heroData);
         $page->save();
-
-        /*
-    |--------------------------------------------------------------------------
-    | 3. Handle WhyPartnerBox Section
-    |--------------------------------------------------------------------------
-    */
         $partnerData = $request->input('why_partner_section', []);
         $createdBoxes = [];
 
         if (!empty($partnerData['boxes'])) {
-            // instead of truncate, update existing or create new
-            WhyPartnerBox::query()->delete(); // clear all old first
+            WhyPartnerBox::query()->delete();
 
             foreach ($partnerData['boxes'] as $box) {
                 $createdBoxes[] = WhyPartnerBox::create([
@@ -177,12 +142,6 @@ class ListPropertyController extends Controller
                 ]);
             }
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | 4. Handle Testimonial Section (OwnerSaySection)
-    |--------------------------------------------------------------------------
-    */
         $testimonialData = $request->input('testimonial_section', []);
         $section = OwnerSaySection::first();
         if (!$section) {
@@ -190,12 +149,6 @@ class ListPropertyController extends Controller
         }
         $section->fill($testimonialData);
         $section->save();
-
-        /*
-    |--------------------------------------------------------------------------
-    | 5. Final Response
-    |--------------------------------------------------------------------------
-    */
         $boxes = WhyPartnerBox::all();
 
         return response()->json([

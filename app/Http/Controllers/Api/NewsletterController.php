@@ -25,7 +25,6 @@ class NewsletterController extends Controller
         ]);
     }
 
-    // 👇 Admin ke liye index method
     public function index()
     {
         $subscriptions = NewsletterSubscription::latest()->get();

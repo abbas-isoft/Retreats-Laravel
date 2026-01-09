@@ -11,7 +11,6 @@ class FeaturedArrival extends Model
 
     protected $fillable = ['title', 'description'];
 
-    // properties in property_contents use `property_id` (string)
     public function properties()
     {
         return $this->belongsToMany(
@@ -19,8 +18,8 @@ class FeaturedArrival extends Model
             'featured_arrival_property',
             'featured_arrival_id',
             'property_id',
-            'id',           // local key on PropertyContent (id)
-            'property_id'   // related key on PropertyContent (property_id)
+            'id',        
+            'property_id'   
         );
     }
 }

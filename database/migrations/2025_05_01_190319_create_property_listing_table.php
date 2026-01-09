@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('property_listing', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('property_id')->unique(); // SuperControl propertyId
+            $table->bigInteger('property_id')->unique();
             $table->string('property_url')->nullable();
             $table->string('customer_property_id')->nullable();
 
-            $table->json('card_payment_forms')->nullable(); // Will store array of cards
+            $table->json('card_payment_forms')->nullable();
             $table->string('cancellation_policy')->nullable();
 
             $table->string('check_in_time')->nullable();

@@ -19,13 +19,10 @@ class ChargeRemainingPayments extends Command
     public function handle()
     {
         Stripe::setApiKey(config('services.stripe.secret'));
-
-        // Pehle wo bookings nikalte hain jinki payment due hai
         $bookings = TestBooking::whereNotNull('stripe_customer_id')->where('payment_status', 'upfront_paid')->where('remaining_payment_scheduled_at', '<=', Carbon::today())->get();
-Log::info("Payment method bookings".$bookings);
+        Log::info("Payment method bookings" . $bookings);
         foreach ($bookings as $booking) {
             try {
-                // agar payment method missing hai toh upfront intent se nikal lo
                 if (empty($booking->stripe_payment_method_id) && !empty($booking->upfront_payment_intent_id)) {
                     $upfrontIntent = PaymentIntent::retrieve($booking->upfront_payment_intent_id);
                     if (!empty($upfrontIntent->payment_method)) {
@@ -35,19 +32,15 @@ Log::info("Payment method bookings".$bookings);
                         Log::info("Payment method {$upfrontIntent->payment_method} saved for booking {$booking->id}");
                     }
                 }
-
-                // agar abhi bhi payment method missing hai toh skip
                 if (empty($booking->stripe_payment_method_id)) {
-                    // Log::warning("No payment method found for booking {$booking->id}, skipping charge.");
                     continue;
                 }
 
-                // ab remaining 75% charge karo
                 $intent = PaymentIntent::create([
                     'amount'        => $booking->remaining_cents,
                     'currency'      => 'gbp',
                     'customer'      => $booking->stripe_customer_id,
-                    'payment_method'=> $booking->stripe_payment_method_id,
+                    'payment_method' => $booking->stripe_payment_method_id,
                     'off_session'   => true,
                     'confirm'       => true,
                     'metadata'      => [

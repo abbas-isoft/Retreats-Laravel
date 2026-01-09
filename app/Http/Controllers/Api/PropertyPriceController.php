@@ -14,7 +14,6 @@ class PropertyPriceController extends Controller
 {
     public function getTotalPrice(Request $request, $propertyId)
     {
-        // Validate input
         $request->validate([
             'check_in'  => 'required|date',
             'check_out' => 'required|date|after:check_in',
@@ -26,7 +25,6 @@ class PropertyPriceController extends Controller
         $nights   = $checkIn->diffInDays($checkOut);
         $guests   = intval($request->guests);
 
-        // Get property
         $property = Property::find($propertyId);
         if (!$property) {
             return response()->json([
@@ -35,7 +33,6 @@ class PropertyPriceController extends Controller
             ]);
         }
 
-        // Get price configuration linked to property
         $priceConfig = PriceConfiguration::where('property_id', $propertyId)->first();
         if (!$priceConfig) {
             return response()->json([
@@ -44,16 +41,14 @@ class PropertyPriceController extends Controller
             ]);
         }
 
-        // Fetch LOS entries
+
         $losEntries = PriceLosEntry::where('price_configuration_id', $priceConfig->id)->get();
 
-        // Fetch fees
         $fees = PriceFee::where('price_configuration_id', $priceConfig->id)->get();
 
         $perDayPrices = [];
         $totalPrice   = 0;
 
-        // Loop through dates and calculate per-day price
         for ($date = $checkIn->copy(); $date < $checkOut; $date->addDay()) {
             $dayPrice = 0;
 
@@ -69,7 +64,6 @@ class PropertyPriceController extends Controller
                 }
             }
 
-            // Multiply by guests
             $dayPriceTotal = $dayPrice * $guests;
 
             $perDayPrices[] = [
@@ -82,7 +76,6 @@ class PropertyPriceController extends Controller
             $totalPrice += $dayPriceTotal;
         }
 
-        // Add fees
         foreach ($fees as $fee) {
             if ($fee->type === 'Fixed') {
                 $totalPrice += floatval($fee->price);
@@ -91,7 +84,6 @@ class PropertyPriceController extends Controller
             }
         }
 
-        // Calculate deposit
         if ($priceConfig->deposit_type === 'Percentage') {
             $depositAmount = $totalPrice * ($priceConfig->deposit_value / 100);
         } else {

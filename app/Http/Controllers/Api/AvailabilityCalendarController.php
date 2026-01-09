@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class AvailabilityCalendarController extends Controller
 {
-    /**
-     * Get availability calendar for a specific property (Hostaway only)
-     */
+
     public function index($propertyId): JsonResponse
     {
         $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
@@ -29,10 +27,6 @@ class AvailabilityCalendarController extends Controller
             'data' => new AvailabilityCalendarResource($calendar),
         ]);
     }
-
-    /**
-     * Get all availability calendars with optional address filter
-     */
     public function allProperties(Request $request): JsonResponse
     {
         $addressLine = $request->query('address_line');
@@ -40,13 +34,13 @@ class AvailabilityCalendarController extends Controller
         if ($addressLine) {
             $calendars = AvailabilityCalendar::whereHas('property.propertyContents', function ($query) use ($addressLine) {
                 $query->whereNotNull('hostaway_id')
-                      ->where('hostaway_id', '!=', 0)
-                      ->where('address_line', 'like', "%{$addressLine}%");
+                    ->where('hostaway_id', '!=', 0)
+                    ->where('address_line', 'like', "%{$addressLine}%");
             })->get();
         } else {
             $calendars = AvailabilityCalendar::whereHas('property.propertyContents', function ($query) {
                 $query->whereNotNull('hostaway_id')
-                      ->where('hostaway_id', '!=', 0);
+                    ->where('hostaway_id', '!=', 0);
             })->get();
         }
 

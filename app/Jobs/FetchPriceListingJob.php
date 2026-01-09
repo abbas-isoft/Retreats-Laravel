@@ -24,7 +24,7 @@ class FetchPriceListingJob implements ShouldQueue
             ])->get("https://api.hostaway.com/v1/listings");
 
             if ($response->failed()) {
-                Log::error("❌ Failed to fetch listings", [
+                Log::error("Failed to fetch listings", [
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
@@ -45,51 +45,49 @@ class FetchPriceListingJob implements ShouldQueue
                 $this->savePriceConfiguration($propertyId, $listing);
             }
 
-            Log::info("🎉 All Hostaway price configurations processed successfully.");
+            Log::info("All Hostaway price configurations processed successfully.");
         } catch (\Exception $e) {
-            Log::error("❌ Exception fetching listings: " . $e->getMessage());
+            Log::error("Exception fetching listings: " . $e->getMessage());
         }
     }
 
-   private function savePriceConfiguration($propertyId, $listing)
-{
-    try {
-        // 🔹 Log the listing for debugging
-        Log::info('Processing Listing Data for Property '.$propertyId, $listing);
+    private function savePriceConfiguration($propertyId, $listing)
+    {
+        try {
+            // 🔹 Log the listing for debugging
+            Log::info('Processing Listing Data for Property ' . $propertyId, $listing);
 
-        // Currency from Hostaway 'currencyCode'
-        $currency = $listing['currencyCode'] ?? 'EUR';
+            // Currency from Hostaway 'currencyCode'
+            $currency = $listing['currencyCode'] ?? 'EUR';
 
-        // Balance due days
-        $balanceDueDays = $listing['billing']['balance']['due_days'] ?? 0;
+            // Balance due days
+            $balanceDueDays = $listing['billing']['balance']['due_days'] ?? 0;
 
-        // Deposit info
-        $depositType = $listing['billing']['deposit']['type'] ?? 'percentage';
-        $depositValue = $listing['billing']['deposit']['amount'] ?? 0;
+            // Deposit info
+            $depositType = $listing['billing']['deposit']['type'] ?? 'percentage';
+            $depositValue = $listing['billing']['deposit']['amount'] ?? 0;
 
-        // Security deposit: use refundableDamageDeposit only
-        $securityDeposit = 0;
-        if (isset($listing['refundableDamageDeposit'])) {
-            $securityDeposit = floatval($listing['refundableDamageDeposit']);
+            // Security deposit: use refundableDamageDeposit only
+            $securityDeposit = 0;
+            if (isset($listing['refundableDamageDeposit'])) {
+                $securityDeposit = floatval($listing['refundableDamageDeposit']);
+            }
+
+            // Save or update PriceConfiguration
+            PriceConfiguration::updateOrCreate(
+                ['property_id' => $propertyId],
+                [
+                    'currency' => $currency,                     // ✅ from currencyCode
+                    'deposit_type' => $depositType,
+                    'deposit_value' => $depositValue,
+                    'security_deposit' => $securityDeposit,     // ✅ from refundableDamageDeposit
+                    'balance_due_days' => $balanceDueDays,
+                ]
+            );
+
+            Log::info("✅ Price configuration saved for property ID: {$propertyId} with security deposit: {$securityDeposit} and currency: {$currency}");
+        } catch (\Exception $e) {
+            Log::error("❌ Exception saving price for property ID {$propertyId}: " . $e->getMessage());
         }
-
-        // Save or update PriceConfiguration
-        PriceConfiguration::updateOrCreate(
-            ['property_id' => $propertyId],
-            [
-                'currency' => $currency,                     // ✅ from currencyCode
-                'deposit_type' => $depositType,
-                'deposit_value' => $depositValue,
-                'security_deposit' => $securityDeposit,     // ✅ from refundableDamageDeposit
-                'balance_due_days' => $balanceDueDays,
-            ]
-        );
-
-        Log::info("✅ Price configuration saved for property ID: {$propertyId} with security deposit: {$securityDeposit} and currency: {$currency}");
-    } catch (\Exception $e) {
-        Log::error("❌ Exception saving price for property ID {$propertyId}: " . $e->getMessage());
     }
-}
-
-
 }

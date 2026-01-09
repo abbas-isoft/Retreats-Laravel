@@ -13,7 +13,7 @@ class HomepageContent extends Model
         'background_video',
         'is_video',
 
-        // ✅ SEO Fields
+
         'meta_title',
         'meta_description',
         'meta_keywords',
@@ -31,6 +31,6 @@ class HomepageContent extends Model
         'is_video'         => 'boolean',
         'robots_txt'       => 'boolean',
         'is_active'        => 'boolean',
-        'schema_markup'    => 'array', // ✅ auto JSON encode/decode
+        'schema_markup'    => 'array',
     ];
 }

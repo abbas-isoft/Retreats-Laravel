@@ -13,25 +13,23 @@ class FetchHomepageContent extends Command
 
     public function handle(): void
     {
-        //  Replace this with the actual API URL for homepage content from SuperControl
         $response = Http::withHeader('SC-TOKEN', 'cddc35d0-1491-4b04-969c-9f8419ef0e99')
-                        ->get('https://api.supercontrol.co.uk/v3/homepage/content');
+            ->get('https://api.supercontrol.co.uk/v3/homepage/content');
 
         $data = $response->json();
 
-        dd($data); // ADD THIS LINE
+        dd($data);
         if (!$data || !isset($data['title'])) {
             $this->error('Invalid or empty response from SuperControl API.');
             return;
         }
 
         HomepageContent::updateOrCreate(
-            ['id' => 1], // assuming only one homepage content row
+            ['id' => 1],
             [
                 'title' => $data['title'] ?? null,
                 'subtitle' => $data['subtitle'] ?? null,
                 'background_image' => $data['background_image'] ?? null,
-                // 'city_options' => json_encode($data['city_options'] ?? []),
             ]
         );
 

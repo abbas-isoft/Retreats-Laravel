@@ -97,7 +97,7 @@ Route::get('/property-content/{propertyId}', [PropertyContentController::class, 
 Route::get('/property-grid', [PropertyGridController::class, 'index']);
 
 
-  Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
+Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
 // Availability Calendar
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
 Route::get('/properties/{id}/price', [PropertyContentController::class, 'getPropertyPrice']);
@@ -141,32 +141,30 @@ Route::post('/upload-video', [VideoUploadController::class, 'upload']);
 Route::post('/upload-icon', [IconUploadController::class, 'upload']);
 
 // Route::post('/admin/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
-// ✅ REGION MANAGEMENT (Admin)
+// REGION MANAGEMENT (Admin)
 Route::prefix('admin')->group(function () {
-    // Create new region
-    Route::post('/region', [AdminCollectionController::class, 'createRegion']);
-    
-    // Update existing region
-    Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
-    
-    // List all regions
-    Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
+  // Create new region
+  Route::post('/region', [AdminCollectionController::class, 'createRegion']);
 
-    //For Delete Region
-    Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']); // ✅ ADD THIS LINE
+  // Update existing region
+  Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
 
+  // List all regions
+  Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
+
+  //For Delete Region
+  Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']);
 });
 
 
 Route::prefix('admin/featured-arrivals')->group(function () {
-    Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
-    Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
-    Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all
-    Route::get('/{id}', [AdminFeaturedArrivalController::class, 'get']);      // Get single
-    Route::delete('/{id}', [AdminFeaturedArrivalController::class, 'delete']); // Delete
+  Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
+  Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
+  Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all
+  Route::get('/{id}', [AdminFeaturedArrivalController::class, 'get']);      // Get single
+  Route::delete('/{id}', [AdminFeaturedArrivalController::class, 'delete']); // Delete
 });
 
-// ✅ FETCH PROPERTIES FOR A REGION
 Route::post('/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
 
 
