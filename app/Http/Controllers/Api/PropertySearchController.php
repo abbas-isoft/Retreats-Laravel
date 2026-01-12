@@ -42,9 +42,15 @@ class PropertySearchController extends Controller
 
 
         if ($request->filled('search')) {
-            $search = strtolower($request->search);
+            $search = strtolower(trim($request->search));
 
-            $query->whereRaw("LOWER(property_name) LIKE ?", ["%{$search}%"]);
+            $query->whereRaw("
+        LOWER(
+            TRIM(
+                REGEXP_REPLACE(property_name, '\\\\s*by\\\\s+group\\\\s*retreats?$', '')
+            )
+        ) LIKE ?
+    ", ["%{$search}%"]);
         }
 
 
