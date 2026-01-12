@@ -54,12 +54,10 @@ class PropertyGridController extends Controller
 
 
         if ($request->filled('amenities')) {
-            $amenities = is_array($request->amenities)
-                ? $request->amenities
-                : explode(',', $request->amenities);
-
-            // clean values
-            $amenities = array_map('trim', $amenities);
+            $amenities = collect($request->amenities)
+                ->pluck('name')
+                ->map(fn($a) => trim($a))
+                ->toArray();
 
             $query->whereHas('amenities', function ($q) use ($amenities) {
                 $q->whereIn('name', $amenities);
