@@ -52,16 +52,13 @@ class PropertyGridController extends Controller
             });
         }
 
-
         if ($request->filled('amenities')) {
             $amenities = is_array($request->amenities)
                 ? $request->amenities
-                : json_decode($request->amenities, true);
-
+                : explode(',', $request->amenities);
             $amenities = array_map('trim', $amenities);
 
             foreach ($amenities as $amenity) {
-
                 $query->whereJsonContains('amenities', $amenity);
             }
         }
