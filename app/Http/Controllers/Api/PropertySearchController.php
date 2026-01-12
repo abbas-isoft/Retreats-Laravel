@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PropertyContent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PropertySearchController extends Controller
 {
@@ -42,15 +43,13 @@ class PropertySearchController extends Controller
 
 
         if ($request->filled('search')) {
-            $search = strtolower(trim($request->search));
-
-            $query->whereRaw("
-        LOWER(
-            TRIM(
-                REGEXP_REPLACE(property_name, '\\\\s*by\\\\s+group\\\\s*retreats?$', '')
-            )
-        ) LIKE ?
-    ", ["%{$search}%"]);
+            $search = strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw("LOWER(property_name) LIKE ?", ["%{$search}%"])
+                    ->orWhereRaw("LOWER(description) LIKE ?", ["%{$search}%"])
+                    ->orWhereRaw("LOWER(address_line) LIKE ?", ["%{$search}%"])
+                    ->orWhereRaw("LOWER(location_description) LIKE ?", ["%{$search}%"]);
+            });
         }
 
 
@@ -65,25 +64,40 @@ class PropertySearchController extends Controller
 
     public function GetPropertiessearch(Request $request)
     {
-        $query = $request->input('q');
+        $query = strtolower(trim($request->input('q')));
 
         if (!$query) {
             return response()->json([
                 'status' => false,
                 'message' => 'Please provide a search keyword (q).',
                 'data' => []
-            ]);
+            ], 400);
         }
 
-        $properties = PropertyContent::where('property_name', 'LIKE', "%{$query}%")
-            ->get(['property_id', 'property_name']);
+        $properties = PropertyContent::select(
+            'property_id',
+            DB::raw("
+                TRIM(
+                    REGEXP_REPLACE(property_name, '\\\\s*by\\\\s+group\\\\s*retreats?$', '')
+                ) as property_name
+            ")
+        )
+            ->whereRaw("
+            LOWER(
+                TRIM(
+                    REGEXP_REPLACE(property_name, '\\\\s*by\\\\s+group\\\\s*retreats?$', '')
+                )
+            ) LIKE ?
+        ", ["{$query}%"])
+            ->limit(10)
+            ->get();
 
         if ($properties->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'No matching properties found.',
                 'data' => []
-            ]);
+            ], 404);
         }
 
         return response()->json([
