@@ -23,7 +23,7 @@ class NewsletterController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Thank you for subscribing to our newsletter!',
-                'data' => $subscription
+                // 'data' => $subscription
             ], 201);
         } catch (ValidationException $e) {
 
