@@ -12,14 +12,14 @@ class PropertySearchController extends Controller
     {
         $query = PropertyContent::query()
             ->with(['images', 'amenities']);
-            // ->where('active', 1); // Uncomment if needed
+        // ->where('active', 1); // Uncomment if needed
 
-        
+
         if ($request->filled('city')) {
             $query->whereRaw('LOWER(city) LIKE ?', ['%' . strtolower($request->city) . '%']);
         }
 
-       
+
         if ($request->filled('location_description')) {
             $keywords = explode(' ', strtolower($request->location_description));
 
@@ -30,28 +30,24 @@ class PropertySearchController extends Controller
             });
         }
 
-        
+
         if ($request->filled('availability')) {
             $availability = $request->availability;
             if ($availability === 'true') {
                 $query->whereHas('availabilityRelation', function ($q) {
-                    $q->where('is_available', true); 
+                    $q->where('is_available', true);
                 });
             }
         }
 
-        
+
         if ($request->filled('search')) {
             $search = strtolower($request->search);
-            $query->where(function ($q) use ($search) {
-                $q->whereRaw("LOWER(property_name) LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("LOWER(description) LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("LOWER(address_line) LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("LOWER(location_description) LIKE ?", ["%{$search}%"]);
-            });
+
+            $query->whereRaw("LOWER(property_name) LIKE ?", ["%{$search}%"]);
         }
 
-       
+
         $properties = $query->get();
 
         return response()->json([
