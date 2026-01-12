@@ -56,13 +56,16 @@ class PropertyGridController extends Controller
         if ($request->filled('amenities')) {
             $amenities = is_array($request->amenities)
                 ? $request->amenities
-                : explode(',', $request->amenities);
+                : json_decode($request->amenities, true);
+
             $amenities = array_map('trim', $amenities);
 
-            $query->whereHas('amenities', function ($q) use ($amenities) {
-                $q->whereIn('name', $amenities);
-            }, '=', count($amenities));
+            foreach ($amenities as $amenity) {
+
+                $query->whereJsonContains('amenities', $amenity);
+            }
         }
+
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
         }
