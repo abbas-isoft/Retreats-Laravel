@@ -87,7 +87,7 @@ class PropertySearchController extends Controller
                     REGEXP_REPLACE(property_name, '\\\\s*by\\\\s+group\\\\s*retreats?$', '')
                 )
             ) LIKE ?
-        ", ["%{$query}%"])   // 🔥 INCLUDE MATCH
+        ", ["%{$query}%"])
         ->limit(10)
         ->get();
 

@@ -57,11 +57,12 @@ class PropertyGridController extends Controller
             $amenities = is_array($request->amenities)
                 ? $request->amenities
                 : explode(',', $request->amenities);
+
             $amenities = array_map('trim', $amenities);
 
             $query->whereHas('amenities', function ($q) use ($amenities) {
                 $q->whereIn('name', $amenities);
-            }, '=', count($amenities));
+            });
         }
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
