@@ -59,9 +59,13 @@ class PropertyGridController extends Controller
             $amenities = array_map('trim', $amenities);
 
             foreach ($amenities as $amenity) {
-                $query->whereJsonContains('amenities', $amenity);
+                $query->where(function ($q) use ($amenity) {
+                    $q->where('amenities', 'LIKE', '%"' . $amenity . '"%')
+                        ->orWhere('amenities', 'LIKE', '%' . $amenity . '%');
+                });
             }
         }
+
 
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
