@@ -54,9 +54,10 @@ class PropertyGridController extends Controller
 
 
         if ($request->filled('amenities')) {
+
             $amenities = collect($request->amenities)
                 ->pluck('name')
-                ->map(fn($a) => trim($a))
+                ->map(fn($item) => trim($item))
                 ->toArray();
 
             $query->whereHas('amenities', function ($q) use ($amenities) {
