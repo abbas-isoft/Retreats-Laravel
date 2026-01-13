@@ -7,10 +7,10 @@ use App\Http\Resources\AvailabilityCalendarResource;
 use App\Models\AvailabilityCalendar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AvailabilityCalendarController extends Controller
 {
-
     public function index($propertyId): JsonResponse
     {
         $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
@@ -18,7 +18,7 @@ class AvailabilityCalendarController extends Controller
         if (!$calendar) {
             return response()->json([
                 'status' => false,
-                'message' => 'No Hostaway availability calendar found for this property.',
+                'message' => 'No availability calendar found for this property.',
             ]);
         }
 
@@ -27,33 +27,52 @@ class AvailabilityCalendarController extends Controller
             'data' => new AvailabilityCalendarResource($calendar),
         ]);
     }
+
     public function allProperties(Request $request): JsonResponse
     {
-        $addressLine = $request->query('address_line');
-
-        if ($addressLine) {
-            $calendars = AvailabilityCalendar::whereHas('property.propertyContents', function ($query) use ($addressLine) {
-                $query->whereNotNull('hostaway_id')
-                    ->where('hostaway_id', '!=', 0)
-                    ->where('address_line', 'like', "%{$addressLine}%");
-            })->get();
-        } else {
-            $calendars = AvailabilityCalendar::whereHas('property.propertyContents', function ($query) {
-                $query->whereNotNull('hostaway_id')
-                    ->where('hostaway_id', '!=', 0);
-            })->get();
+        if (!$request->filled('region')) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Region is required',
+            ]);
         }
+
+        $regionName = $request->region;
+
+        $regionId = DB::table('regions')
+            ->where('name', $regionName)
+            ->value('id');
+
+        if (!$regionId) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Region not found',
+            ]);
+        }
+
+        $propertyIds = DB::table('region_property')
+            ->where('region_id', $regionId)
+            ->pluck('property_id');
+
+        if ($propertyIds->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No properties found in this region',
+            ]);
+        }
+
+        $calendars = AvailabilityCalendar::whereIn('property_id', $propertyIds)->get();
 
         if ($calendars->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'No Hostaway availability calendar data found.',
+                'message' => 'No availability calendar data found for this region',
             ]);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Hostaway availability calendars fetched successfully.',
+            'message' => 'Region wise availability fetched successfully',
             'data' => [
                 'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
             ]
