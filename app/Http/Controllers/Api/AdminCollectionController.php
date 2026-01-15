@@ -71,10 +71,21 @@ class AdminCollectionController extends Controller
                 'location_description',
                 'address_line',
                 'city',
-                'country'
+                'country',
+                'amenities' // <--- add this
             )
             ->whereIn('property_id', $request->property_ids)
-            ->get();
+            ->get()
+            ->map(function ($property) {
+                if (isset($property->amenities)) {
+                    $decoded = $property->amenities;
+                    if (is_string($decoded)) {
+                        $decoded = json_decode($decoded, true);
+                    }
+                    $property->amenities = is_array($decoded) ? $decoded : [];
+                }
+                return $property;
+            });
 
         return response()->json([
             'status' => true,
