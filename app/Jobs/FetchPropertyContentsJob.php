@@ -34,8 +34,14 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             $properties = $response->json('result', []);
 
+            // Filter out properties that are inactive in the booking engine
+            $properties = collect($properties)->filter(function ($property) {
+                // Check if 'active' field exists and is true (1)
+                return isset($property['active']) && $property['active'] == 1;
+            })->values()->toArray();
+
             if (empty($properties)) {
-                Log::warning('No properties returned from Hostaway API.');
+                Log::warning('No active properties returned from Hostaway API.');
                 return;
             }
             $hostawayIds = collect($properties)->pluck('id')->toArray();
