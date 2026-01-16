@@ -45,21 +45,39 @@ class ListPropertyResource extends JsonResource
         }
 
         return [
-            'title'                           => $this->title,
-            'subtitle'                        => $this->subtitle,
-            'section1'                        => $section1,
-            'section2'                        => $section2,
+            'title'    => $this->title,
+            'subtitle' => $this->subtitle,
+            'section1' => $section1,
+            'section2' => $section2,
             'why_partner_with_group_retreats' => $whyBoxesFormatted,
-            'meta_title'       => $this->meta_title,
-            'meta_description' => $this->meta_description,
-            'meta_keywords'    => $this->meta_keywords,
-            'og_title'         => $this->og_title,
-            'og_description'   => $this->og_description,
-            'og_images'        => $this->og_images,
-            'canonical_url'    => $this->canonical_url,
-            'schema_markup'    => $this->schema_markup,
-            'robots_txt'       => $this->robots_txt,
-            'is_active'        => $this->is_active,
+
+            // === SEO Section as Nested Object ===
+            'meta' => [
+                'meta_title'       => $this->meta_title ?? '',
+                'meta_description' => $this->meta_description ?? '',
+                'meta_keywords'    => $this->meta_keywords ?? '',
+                'og' => [
+                    'title'       => $this->og_title ?? '',
+                    'description' => $this->og_description ?? '',
+                    'images'      => $this->og_images ?? [],
+                    'url'         => $this->og_url ?? '',
+                    'type'        => $this->og_type ?? 'website',
+                    'site_name'   => $this->og_site_name ?? '',
+                    'width'       => $this->og_image_width ?? 1200,
+                    'height'      => $this->og_image_height ?? 630,
+                ],
+                'twitter' => [
+                    'card'        => $this->twitter_card ?? 'summary_large_image',
+                    'title'       => $this->twitter_title ?? '',
+                    'description' => $this->twitter_description ?? '',
+                    'image'       => $this->twitter_image ?? '',
+                    'site'        => $this->twitter_site ?? '',
+                ],
+                'canonical_url' => $this->canonical_url ?? '',
+                'schema_markup' => $this->schema_markup ?? [],
+                'robots_txt'    => $this->robots_txt ?? true,
+                'is_active'     => $this->is_active ?? true,
+            ],
         ];
     }
 }

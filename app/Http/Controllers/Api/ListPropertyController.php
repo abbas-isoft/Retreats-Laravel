@@ -42,6 +42,16 @@ class ListPropertyController extends Controller
             'schema_markup'    => 'required|string',
             'robots_txt'       => 'required|boolean',
             'is_active'        => 'required|boolean',
+            'og_url'          => 'nullable|string',
+            'og_type'         => 'nullable|string',
+            'og_site_name'    => 'nullable|string',
+            'og_image_width'  => 'nullable|integer',
+            'og_image_height' => 'nullable|integer',
+            'twitter_card'    => 'nullable|string',
+            'twitter_title'   => 'nullable|string',
+            'twitter_description' => 'nullable|string',
+            'twitter_image'   => 'nullable|string',
+            'twitter_site'    => 'nullable|string',
         ]);
 
 
@@ -113,6 +123,16 @@ class ListPropertyController extends Controller
             'meta.schema_markup'    => 'nullable|string',
             'meta.robots_txt'       => 'nullable|boolean',
             'meta.is_active'        => 'nullable|boolean',
+            'meta.og_url'          => 'nullable|string',
+            'meta.og_type'         => 'nullable|string',
+            'meta.og_site_name'    => 'nullable|string',
+            'meta.og_image_width'  => 'nullable|integer',
+            'meta.og_image_height' => 'nullable|integer',
+            'meta.twitter_card'    => 'nullable|string',
+            'meta.twitter_title'   => 'nullable|string',
+            'meta.twitter_description' => 'nullable|string',
+            'meta.twitter_image'   => 'nullable|string',
+            'meta.twitter_site'    => 'nullable|string',
 
 
         ]);
