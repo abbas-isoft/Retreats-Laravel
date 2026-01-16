@@ -18,6 +18,7 @@ class HomepageContentResource extends JsonResource
             'subtitle' => $this->subtitle,
             'background_image' => $this->background_image,
             'background_video' => $this->background_video,
+            'is_video' => $this->is_video,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
             'meta_keywords' => $this->meta_keywords,
