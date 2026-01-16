@@ -25,7 +25,42 @@ class HomepageContentController extends Controller
 
         return response()->json([
             'status' => true,
-            'data'   => new HomepageContentResource($content),
+            'data' => [
+                'id' => $content->id,
+                'title' => $content->title,
+                'subtitle' => $content->subtitle,
+                'background_image' => is_string($content->background_image)
+                    ? json_decode($content->background_image, true)
+                    : ($content->background_image ?? []),
+                'background_video' => $content->background_video,
+                'is_video' => $content->is_video,
+                'seo' => [
+                    'meta_title' => $content->meta_title ?? '',
+                    'meta_description' => $content->meta_description ?? '',
+                    'meta_keywords' => $content->meta_keywords ?? '',
+                    'og' => [
+                        'title' => $content->og_title ?? '',
+                        'description' => $content->og_description ?? '',
+                        'image' => $content->og_image ?? '',
+                        'url' => $content->og_url ?? '',
+                        'type' => $content->og_type ?? 'website',
+                        'site_name' => $content->og_site_name ?? '',
+                        'width' => $content->og_image_width ?? 1200,
+                        'height' => $content->og_image_height ?? 630,
+                    ],
+                    'twitter' => [
+                        'card' => $content->twitter_card ?? 'summary_large_image',
+                        'title' => $content->twitter_title ?? '',
+                        'description' => $content->twitter_description ?? '',
+                        'image' => $content->twitter_image ?? '',
+                        'site' => $content->twitter_site ?? '',
+                    ],
+                    'canonical_url' => $content->canonical_url ?? '',
+                    'schema_markup' => $content->schema_markup ?? '',
+                    'robots_txt' => $content->robots_txt ?? true,
+                    'is_active' => $content->is_active ?? true,
+                ],
+            ],
         ]);
     }
 
