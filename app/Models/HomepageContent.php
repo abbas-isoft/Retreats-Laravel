@@ -24,6 +24,20 @@ class HomepageContent extends Model
         'schema_markup',
         'robots_txt',
         'is_active',
+
+       
+        'og_url',
+        'og_type',
+        'og_site_name',
+        'og_image_width',
+        'og_image_height',
+
+        
+        'twitter_card',
+        'twitter_title',
+        'twitter_description',
+        'twitter_image',
+        'twitter_site',
     ];
 
     protected $casts = [
