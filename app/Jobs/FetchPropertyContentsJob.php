@@ -42,17 +42,6 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             foreach ($properties as $propertyData) {
 
-                // ===== Check Hidden Tag from listingTags =====
-                $isHidden = false;
-
-                if (!empty($propertyData['listingTags']) && is_array($propertyData['listingTags'])) {
-                    foreach ($propertyData['listingTags'] as $tag) {
-                        if (strtolower(trim($tag)) === 'hidden') {
-                            $isHidden = true;
-                            break;
-                        }
-                    }
-                }
 
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
@@ -92,7 +81,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'latitude'             => $propertyData['lat'] ?? null,
                     'longitude'            => $propertyData['lng'] ?? null,
                     'security_deposit'     => $securityDeposit ?? 0,
-                    'active' => $isHidden ? 0 : 1,
+                    'active'               => true,
                     'property_name'        => $propertyData['name'] ?? null,
                     'subcaption'           => $propertyData['externalListingName'] ?? null,
                     'description'          => $propertyData['description'] ?? null,
