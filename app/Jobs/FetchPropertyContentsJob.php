@@ -19,10 +19,18 @@ class FetchPropertyContentsJob implements ShouldQueue
     {
         try {
 
+            // $response = Http::withHeaders([
+            //     'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            //     'Cache-Control' => 'no-cache',
+            // ])->get("https://api.hostaway.com/v1/listings");
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.hostaway.token'),
                 'Cache-Control' => 'no-cache',
-            ])->get("https://api.hostaway.com/v1/listings");
+            ])->get('https://api.hostaway.com/v1/listings', [
+                'attachObjects' => ['bookingEngineUrls'],
+                'isBookingEngineActive' => true,
+            ]);
 
             if (!$response->successful()) {
                 Log::error('Hostaway API request failed', [
@@ -42,10 +50,15 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             foreach ($properties as $propertyData) {
 
-                $isBookingEngineActive = isset($propertyData['isBookingEngineActive'])
-                    ? (int) $propertyData['isBookingEngineActive']
-                    : 1;   // DEFAULT ACTIVE = 1
+                $isBookingEngineActive = 0;
 
+                if (
+                    isset($propertyData['bookingEngineUrls']) &&
+                    is_array($propertyData['bookingEngineUrls']) &&
+                    count($propertyData['bookingEngineUrls']) >= 2
+                ) {
+                    $isBookingEngineActive = 1;
+                }
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
 
