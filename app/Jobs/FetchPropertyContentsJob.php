@@ -42,8 +42,8 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             foreach ($properties as $propertyData) {
 
-                $isBookingEngineActive = !empty($propertyData['bookingEngineUrls']);
-
+                $isBookingEngineActive = isset($propertyData['isBookingEngineActive'])
+                    ? (int) $propertyData['isBookingEngineActive']:
 
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
