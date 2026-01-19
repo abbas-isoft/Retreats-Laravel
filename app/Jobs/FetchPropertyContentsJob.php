@@ -42,27 +42,9 @@ class FetchPropertyContentsJob implements ShouldQueue
 
             foreach ($properties as $propertyData) {
 
-                // ===== Check Hidden Tag from listingTags (CORRECT WAY) =====
-                $isHidden = false;
-
-                if (!empty($propertyData['listingTags']) && is_array($propertyData['listingTags'])) {
-                    foreach ($propertyData['listingTags'] as $tag) {
-                        if (
-                            isset($tag['name']) &&
-                            strtolower(trim($tag['name'])) === 'hidden'
-                        ) {
-                            $isHidden = true;
-                            break;
-                        }
-                    }
-                }
-
-
-                Log::info('Listing tag check', [
-                    'property_id' => $propertyData['id'],
-                    'tags'        => $propertyData['listingTags'] ?? [],
-                    'is_hidden'   => $isHidden,
-                ]);
+                $isBookingEngineActive = isset($propertyData['isBookingEngineActive'])
+                    ? (int) $propertyData['isBookingEngineActive']
+                    : 0;
 
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
@@ -102,7 +84,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                     'latitude'             => $propertyData['lat'] ?? null,
                     'longitude'            => $propertyData['lng'] ?? null,
                     'security_deposit'     => $securityDeposit ?? 0,
-                    'active' => $isHidden ? 0 : 1,
+                    'active' => $isBookingEngineActive,
                     'property_name'        => $propertyData['name'] ?? null,
                     'subcaption'           => $propertyData['externalListingName'] ?? null,
                     'description'          => $propertyData['description'] ?? null,
