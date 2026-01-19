@@ -44,7 +44,7 @@ class FetchPropertyContentsJob implements ShouldQueue
 
                 $isBookingEngineActive = isset($propertyData['isBookingEngineActive'])
                     ? (int) $propertyData['isBookingEngineActive']
-                    : 0;
+                    : 1;   // DEFAULT ACTIVE = 1
 
                 $images = $propertyData['listingImages'] ?? [];
                 $beds   = $propertyData['listingBedTypes'] ?? [];
