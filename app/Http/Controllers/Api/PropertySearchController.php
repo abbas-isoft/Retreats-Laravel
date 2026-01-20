@@ -96,7 +96,7 @@ class PropertySearchController extends Controller
             'status' => false,
             'message' => 'No matching properties found.',
             'data' => []
-        ], 404);
+        ], 200);
     }
 
     return response()->json([
