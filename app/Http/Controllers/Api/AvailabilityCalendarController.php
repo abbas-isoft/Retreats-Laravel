@@ -30,13 +30,28 @@ class AvailabilityCalendarController extends Controller
 
     public function allProperties(Request $request): JsonResponse
     {
+        // 👉 CASE 1: Region select NA ho
         if (!$request->filled('region')) {
+
+            $calendars = AvailabilityCalendar::all();
+
+            if ($calendars->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No availability calendar data found',
+                ]);
+            }
+
             return response()->json([
-                'status' => false,
-                'message' => 'Region is required',
+                'status' => true,
+                'message' => 'All available properties fetched successfully',
+                'data' => [
+                    'propertyAvailability' => AvailabilityCalendarResource::collection($calendars),
+                ]
             ]);
         }
 
+        // 👉 CASE 2: Region select ho (existing logic – untouched)
         $regionName = $request->region;
 
         $regionId = DB::table('regions')
