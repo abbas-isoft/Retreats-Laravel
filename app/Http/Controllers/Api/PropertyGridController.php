@@ -54,29 +54,28 @@ class PropertyGridController extends Controller
 
         if ($request->filled('amenities')) {
 
-            $amenities = is_array($request->amenities)
-                ? $request->amenities
-                : explode(',', $request->amenities);
+    $amenities = is_array($request->amenities)
+        ? $request->amenities
+        : explode(',', $request->amenities);
 
-            $amenities = array_map('trim', $amenities);
+    $amenities = array_map('trim', $amenities);
 
-            foreach ($amenities as $amenity) {
+    foreach ($amenities as $amenity) {
 
-                $query->where(function ($q) use ($amenity) {
-
-                    // Special case for swimming pool
-                    if (strtolower($amenity) === 'Swimming Pool') {
-
-                        $q->where('amenities', 'LIKE', '%Indoor Swimming Pool%')
-                            ->orWhere('amenities', 'LIKE', '%Outdoor Swimming Pool%');
-                    } else {
-
-                        $q->where('amenities', 'LIKE', '%"' . $amenity . '"%')
-                            ->orWhere('amenities', 'LIKE', '%' . $amenity . '%');
-                    }
-                });
-            }
+        // convert indoor/outdoor to main key
+        if (
+            strtolower($amenity) === 'Indoor Swimming Pool' ||
+            strtolower($amenity) === 'Outdoor Swimming Pool'
+        ) {
+            $amenity = 'Swimming Pool';
         }
+
+        $query->where(function ($q) use ($amenity) {
+            $q->where('amenities', 'LIKE', '%"' . $amenity . '"%')
+              ->orWhere('amenities', 'LIKE', '%' . $amenity . '%');
+        });
+    }
+}
 
 
         if ($request->filled('city')) {
