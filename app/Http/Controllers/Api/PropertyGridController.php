@@ -65,7 +65,7 @@ class PropertyGridController extends Controller
                 $query->where(function ($q) use ($amenity) {
 
                     // Special case for swimming pool
-                    if (strtolower($amenity) === 'swimming pool') {
+                    if (strtolower($amenity) === 'Swimming Pool') {
 
                         $q->where('amenities', 'LIKE', '%Indoor Swimming pool%')
                             ->orWhere('amenities', 'LIKE', '%Outdoor Swimming pool%');
