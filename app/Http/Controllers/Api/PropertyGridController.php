@@ -67,7 +67,7 @@ class PropertyGridController extends Controller
             strtolower($amenity) === 'Indoor Swimming Pool' ||
             strtolower($amenity) === 'Outdoor Swimming Pool'
         ) {
-            $amenity = 'Swimming Pool';
+            $amenity = 'Swimming pool';
         }
 
         $query->where(function ($q) use ($amenity) {
