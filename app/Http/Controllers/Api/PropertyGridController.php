@@ -53,15 +53,27 @@ class PropertyGridController extends Controller
         }
 
         if ($request->filled('amenities')) {
+
             $amenities = is_array($request->amenities)
                 ? $request->amenities
                 : explode(',', $request->amenities);
+
             $amenities = array_map('trim', $amenities);
 
             foreach ($amenities as $amenity) {
+
                 $query->where(function ($q) use ($amenity) {
-                    $q->where('amenities', 'LIKE', '%"' . $amenity . '"%')
-                        ->orWhere('amenities', 'LIKE', '%' . $amenity . '%');
+
+                    // Special case for swimming pool
+                    if (strtolower($amenity) === 'swimming pool') {
+
+                        $q->where('amenities', 'LIKE', '%Indoor Swimming pool%')
+                            ->orWhere('amenities', 'LIKE', '%Outdoor Swimming pool%');
+                    } else {
+
+                        $q->where('amenities', 'LIKE', '%"' . $amenity . '"%')
+                            ->orWhere('amenities', 'LIKE', '%' . $amenity . '%');
+                    }
                 });
             }
         }
