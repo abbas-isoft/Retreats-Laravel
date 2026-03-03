@@ -80,14 +80,23 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
                     $lastDayData = $day;
                 }
 
-                $availabilityString .= ($day['isAvailable'] ?? false) ? "Y" : "N";
+                // Check for 'isAvailable' and 'status'
+                $isAvailable = ($day['isAvailable'] ?? false) == 1;
+                $status = $day['status'] ?? 'unavailable';
+                
+                // If isAvailable is 0 OR status is 'reserved'/'unavailable', mark as 'N'
+                if (!$isAvailable || $status === 'reserved' || $status === 'unavailable') {
+                    $availabilityString .= "N";
+                } else {
+                    $availabilityString .= "Y";
+                }
             }
 
-           
+            
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
             AvailabilityCalendar::updateOrCreate(
                 [
-                    'property_id' => $propertyId,  
+                    'property_id' => $propertyId,   
                 ],
                 [
                     'start_date'       => $startDate->format('Y-m-d'),
