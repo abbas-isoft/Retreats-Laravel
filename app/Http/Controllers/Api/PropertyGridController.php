@@ -24,7 +24,7 @@ class PropertyGridController extends Controller
         }
 
         $query = PropertyContent::query()
-            ->with(['images', 'regions'])
+            ->with(['images', 'regions', 'content_listings'])
             ->where('active', 1);
 
         if ($request->filled('region_id')) {
@@ -150,7 +150,27 @@ class PropertyGridController extends Controller
                         $property->amenities = json_decode($property->amenities, true);
                     }
                     $property->location_description = Str::limit($property->location_description, 50);
-                    return $property;
+
+                    // Add maximum_guests from content_listings
+                    $listing = $property->content_listings->first();
+                    $maxGuests = $listing ? $listing->maximum_guests : null;
+                    $property->unsetRelation('content_listings');
+
+                    // Reorder keys to put maximum_guests after area_unit
+                    $propertyArray = $property->toArray();
+                    $orderedProperty = [];
+                    foreach ($propertyArray as $key => $value) {
+                        $orderedProperty[$key] = $value;
+                        if ($key === 'area_unit') {
+                            $orderedProperty['maximum_guests'] = $maxGuests;
+                        }
+                    }
+                    // If area_unit wasn't found, add it at the end just in case
+                    if (!array_key_exists('maximum_guests', $orderedProperty)) {
+                        $orderedProperty['maximum_guests'] = $maxGuests;
+                    }
+
+                    return $orderedProperty;
                 }),
             ],
         ]);

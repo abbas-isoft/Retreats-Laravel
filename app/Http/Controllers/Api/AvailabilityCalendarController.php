@@ -13,18 +13,66 @@ class AvailabilityCalendarController extends Controller
 {
     public function index($propertyId): JsonResponse
     {
-        $calendar = AvailabilityCalendar::where('property_id', $propertyId)->first();
+        $propertyContent = \App\Models\PropertyContent::where('property_id', $propertyId)->first();
+        if (!$propertyContent) {
+            return response()->json(['status' => false, 'message' => 'Property not found'], 404);
+        }
+        
+        $listingId = !empty($propertyContent->hostaway_id) ? $propertyContent->hostaway_id : $propertyContent->property_id;
+        
+        if (!$listingId) {
+             return response()->json(['status' => false, 'message' => 'Hostaway Listing ID not found'], 404);
+        }
 
-        if (!$calendar) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No availability calendar found for this property.',
-            ]);
+        $startDate = now();
+        $endDate = now()->addDays(730);
+        
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            'Content-Type' => 'application/json',
+        ])->get("https://api.hostaway.com/v1/listings/$listingId/calendar", [
+            'startDate' => $startDate->format('Y-m-d'),
+            'endDate' => $endDate->format('Y-m-d'),
+        ]);
+
+        if ($response->failed()) {
+            return response()->json(['status' => false, 'message' => 'Failed to fetch calendar from Hostaway'], 500);
+        }
+
+        $data = $response->json();
+        $calendarResult = $data['result'] ?? [];
+        
+        $formattedData = [];
+        foreach ($calendarResult as $day) {
+             $isAvailable = ($day['isAvailable'] ?? 0) == 1;
+             $status = $day['status'] ?? 'unavailable';
+             
+             // If status is reserved/unavailable, force isAvailable to 0
+             if ($status === 'reserved' || $status === 'unavailable') {
+                 $isAvailable = 0;
+             }
+             
+             $formattedData[$day['date']] = [
+                 'id' => $day['id'] ?? null,
+                 'date' => $day['date'],
+                 'isAvailable' => $isAvailable,
+                 'status' => $status,
+                 'price' => $day['price'] ?? 0,
+                 'minimumStay' => $day['minimumStay'] ?? 1,
+                 'maximumStay' => $day['maximumStay'] ?? 365,
+                 'closedOnArrival' => $day['closedOnArrival'] ?? 0,
+                 'closedOnDeparture' => $day['closedOnDeparture'] ?? 0,
+                 'countReservedUnits' => $day['countReservedUnits'] ?? null,
+                 'countBlockedUnits' => $day['countBlockedUnits'] ?? null,
+                 'countPendingUnits' => $day['countPendingUnits'] ?? null,
+                 'countAvailableUnits' => $day['countAvailableUnits'] ?? null,
+                 'availableUnitsToSell' => $day['availableUnitsToSell'] ?? 0,
+             ];
         }
 
         return response()->json([
             'status' => true,
-            'data' => new AvailabilityCalendarResource($calendar),
+            'data' => $formattedData,
         ]);
     }
 
