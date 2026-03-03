@@ -27,12 +27,8 @@ class AvailabilityCalendarController extends Controller
         $startDate = now();
         $endDate = now()->addDays(730);
 
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Content-Type' => 'application/json',
-        ])->get("https://api.hostaway.com/v1/listings/$listingId/calendar", [
-            'startDate' => $startDate->format('Y-m-d'),
-            'endDate' => $endDate->format('Y-m-d'),
+        $response = \Illuminate\Support\Facades\Http::get("https://booking-engine.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings/$listingId/calendar", [
+            'startingDate' => $startDate->format('Y-m-d'),
         ]);
 
         if ($response->failed()) {
@@ -41,11 +37,18 @@ class AvailabilityCalendarController extends Controller
 
         $data = $response->json();
         $calendarResult = $data['result'] ?? [];
-
+        
         $formattedData = [];
         foreach ($calendarResult as $day) {
-
-            $formattedData[$day['date']] = [
+             $isAvailable = ($day['isAvailable'] ?? 0) == 1 ? 1 : 0;
+             $status = $day['status'] ?? 'unavailable';
+             
+             // If status is reserved, unavailable OR blocked, force isAvailable to 0
+             if ($status === 'reserved' || $status === 'unavailable' || $status === 'blocked') {
+                 $isAvailable = 0;
+             }
+             
+             $formattedData[$day['date']] = [
                 'id' => $day['id'] ?? null,
                 'date' => $day['date'],
                 'isAvailable' => $day['isAvailable'] ?? 0,

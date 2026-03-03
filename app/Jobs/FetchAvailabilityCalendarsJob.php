@@ -40,13 +40,9 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
             $endDate   = now()->addDays(730);
 
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-                'Content-Type'  => 'application/json',
-            ])->timeout(60)->retry(3, 2000)
-                ->get("https://api.hostaway.com/v1/listings/$listingId/calendar", [
-                    'startDate' => $startDate->format('Y-m-d'),
-                    'endDate'   => $endDate->format('Y-m-d'),
+            $response = Http::timeout(60)->retry(3, 2000)
+                ->get("https://booking-engine.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings/$listingId/calendar", [
+                    'startingDate' => $startDate->format('Y-m-d'),
                 ]);
 
             $data = $response->json();
