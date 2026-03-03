@@ -81,11 +81,11 @@ class FetchAvailabilityCalendarsJob implements ShouldQueue
                 }
 
                 // Check for 'isAvailable' and 'status'
-                $isAvailable = ($day['isAvailable'] ?? false) == 1;
+                $isAvailable = ($day['isAvailable'] ?? 0) == 1;
                 $status = $day['status'] ?? 'unavailable';
                 
-                // If isAvailable is 0 OR status is 'reserved'/'unavailable', mark as 'N'
-                if (!$isAvailable || $status === 'reserved' || $status === 'unavailable') {
+                // If isAvailable is 0 OR status is 'reserved'/'unavailable'/'blocked', mark as 'N'
+                if (!$isAvailable || $status === 'reserved' || $status === 'unavailable' || $status === 'blocked') {
                     $availabilityString .= "N";
                 } else {
                     $availabilityString .= "Y";

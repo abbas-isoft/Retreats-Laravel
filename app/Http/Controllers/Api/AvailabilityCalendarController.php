@@ -43,22 +43,22 @@ class AvailabilityCalendarController extends Controller
         $calendarResult = $data['result'] ?? [];
         
         $formattedData = [];
-        foreach ($calendarResult as $day) {
-             $isAvailable = ($day['isAvailable'] ?? 0) == 1;
-             $status = $day['status'] ?? 'unavailable';
-             
-             // If status is reserved/unavailable, force isAvailable to 0
-             if ($status === 'reserved' || $status === 'unavailable') {
-                 $isAvailable = 0;
-             }
-             
-             $formattedData[$day['date']] = [
-                 'id' => $day['id'] ?? null,
-                 'date' => $day['date'],
-                 'isAvailable' => $isAvailable,
-                 'status' => $status,
-                 'price' => $day['price'] ?? 0,
-                 'minimumStay' => $day['minimumStay'] ?? 1,
+            foreach ($calendarResult as $day) {
+                 $isAvailable = ($day['isAvailable'] ?? 0) == 1 ? 1 : 0;
+                 $status = $day['status'] ?? 'unavailable';
+                 
+                 // If status is reserved, unavailable OR blocked, force isAvailable to 0
+                 if ($status === 'reserved' || $status === 'unavailable' || $status === 'blocked') {
+                     $isAvailable = 0;
+                 }
+                 
+                 $formattedData[$day['date']] = [
+                     'id' => $day['id'] ?? null,
+                     'date' => $day['date'],
+                     'isAvailable' => $isAvailable,
+                     'status' => $status,
+                     'price' => $day['price'] ?? 0,
+                     'minimumStay' => $day['minimumStay'] ?? 1,
                  'maximumStay' => $day['maximumStay'] ?? 365,
                  'closedOnArrival' => $day['closedOnArrival'] ?? 0,
                  'closedOnDeparture' => $day['closedOnDeparture'] ?? 0,
