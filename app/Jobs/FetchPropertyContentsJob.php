@@ -126,10 +126,77 @@ class FetchPropertyContentsJob implements ShouldQueue
                 if (!empty($images)) {
                     $content->images()->delete();
 
+                    // Define the storage path for property images
+                    $storagePath = public_path('storage/property_images');
+                    if (!file_exists($storagePath)) {
+                        mkdir($storagePath, 0755, true);
+                    }
+
                     foreach ($images as $img) {
+                        $originalUrl = $img['url'] ?? null;
+                        $finalUrl = $originalUrl; // Default to original URL if optimization fails
+
+                        if ($originalUrl) {
+                            try {
+                                // Generate a unique filename (WebP)
+                                $filename = 'prop_' . $content->property_id . '_' . ($img['id'] ?? uniqid()) . '.webp';
+                                $localPath = $storagePath . '/' . $filename;
+                                $publicUrl = asset('storage/property_images/' . $filename);
+
+                                // Get image content
+                                $imageContent = @file_get_contents($originalUrl);
+
+                                if ($imageContent) {
+                                    $sourceImage = @imagecreatefromstring($imageContent);
+
+                                    if ($sourceImage) {
+                                        // Get original dimensions
+                                        $width = imagesx($sourceImage);
+                                        $height = imagesy($sourceImage);
+
+                                        // Target width (e.g., 1200px for web display)
+                                        $targetWidth = 1200;
+
+                                        if ($width > $targetWidth) {
+                                            // Calculate new height maintaining aspect ratio
+                                            $targetHeight = floor($height * ($targetWidth / $width));
+
+                                            // Create new true color image
+                                            $optimizedImage = imagecreatetruecolor($targetWidth, $targetHeight);
+
+                                            // Fill with white background (optional, good for consistency)
+                                            $white = imagecolorallocate($optimizedImage, 255, 255, 255);
+                                            imagefilledrectangle($optimizedImage, 0, 0, $targetWidth, $targetHeight, $white);
+
+                                            // Resize
+                                            imagecopyresampled($optimizedImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+                                            // Save as WebP with 75% quality
+                                            imagewebp($optimizedImage, $localPath, 75);
+
+                                            // Free memory
+                                            imagedestroy($sourceImage);
+                                            imagedestroy($optimizedImage);
+
+                                            // Update final URL to local optimized path
+                                            $finalUrl = $publicUrl;
+                                        } else {
+                                            // If image is already small, just convert and save as WebP
+                                            imagewebp($sourceImage, $localPath, 75);
+                                            imagedestroy($sourceImage);
+                                            $finalUrl = $publicUrl;
+                                        }
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                Log::warning("Image optimization failed for Property {$content->property_id}: " . $e->getMessage());
+                                // Fallback to original URL is already set
+                            }
+                        }
+
                         $content->images()->create([
                             'photo_id' => $img['id'] ?? null,
-                            'url'      => $img['url'] ?? null,
+                            'url'      => $finalUrl,
                         ]);
                     }
                 }
