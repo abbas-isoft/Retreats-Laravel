@@ -124,7 +124,9 @@ class FetchPropertyContentsJob implements ShouldQueue
                 }
 
                 if (!empty($images)) {
-                    $content->images()->delete();
+                    // Get existing images map [photo_id => id] to avoid re-fetching existing ones
+                    $existingImages = $content->images()->pluck('id', 'photo_id')->toArray();
+                    $newImageIds = [];
 
                     // Define the storage path for property images
                     $storagePath = public_path('storage/property_images');
@@ -133,60 +135,74 @@ class FetchPropertyContentsJob implements ShouldQueue
                     }
 
                     foreach ($images as $img) {
+                        $photoId = $img['id'] ?? null;
+                        
+                        // If image already exists in DB, skip processing but keep track of it
+                        if ($photoId && isset($existingImages[$photoId])) {
+                            $newImageIds[] = $existingImages[$photoId];
+                            continue;
+                        }
+
                         $originalUrl = $img['url'] ?? null;
                         $finalUrl = $originalUrl; // Default to original URL if optimization fails
 
                         if ($originalUrl) {
                             try {
                                 // Generate a unique filename (WebP)
-                                $filename = 'prop_' . $content->property_id . '_' . ($img['id'] ?? uniqid()) . '.webp';
+                                $filename = 'prop_' . $content->property_id . '_' . ($photoId ?? uniqid()) . '.webp';
                                 $localPath = $storagePath . '/' . $filename;
                                 $publicUrl = asset('storage/property_images/' . $filename);
 
-                                // Get image content
-                                $imageContent = @file_get_contents($originalUrl);
+                                // Check if file already exists locally to avoid re-processing
+                                if (!file_exists($localPath)) {
+                                    // Get image content
+                                    $imageContent = @file_get_contents($originalUrl);
 
-                                if ($imageContent) {
-                                    $sourceImage = @imagecreatefromstring($imageContent);
+                                    if ($imageContent) {
+                                        $sourceImage = @imagecreatefromstring($imageContent);
 
-                                    if ($sourceImage) {
-                                        // Get original dimensions
-                                        $width = imagesx($sourceImage);
-                                        $height = imagesy($sourceImage);
+                                        if ($sourceImage) {
+                                            // Get original dimensions
+                                            $width = imagesx($sourceImage);
+                                            $height = imagesy($sourceImage);
 
-                                        // Target width (e.g., 1200px for web display)
-                                        $targetWidth = 1200;
+                                            // Target width (e.g., 1200px for web display)
+                                            $targetWidth = 1200;
 
-                                        if ($width > $targetWidth) {
-                                            // Calculate new height maintaining aspect ratio
-                                            $targetHeight = floor($height * ($targetWidth / $width));
+                                            if ($width > $targetWidth) {
+                                                // Calculate new height maintaining aspect ratio
+                                                $targetHeight = floor($height * ($targetWidth / $width));
 
-                                            // Create new true color image
-                                            $optimizedImage = imagecreatetruecolor($targetWidth, $targetHeight);
+                                                // Create new true color image
+                                                $optimizedImage = imagecreatetruecolor($targetWidth, $targetHeight);
 
-                                            // Fill with white background (optional, good for consistency)
-                                            $white = imagecolorallocate($optimizedImage, 255, 255, 255);
-                                            imagefilledrectangle($optimizedImage, 0, 0, $targetWidth, $targetHeight, $white);
+                                                // Fill with white background (optional, good for consistency)
+                                                $white = imagecolorallocate($optimizedImage, 255, 255, 255);
+                                                imagefilledrectangle($optimizedImage, 0, 0, $targetWidth, $targetHeight, $white);
 
-                                            // Resize
-                                            imagecopyresampled($optimizedImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+                                                // Resize
+                                                imagecopyresampled($optimizedImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
 
-                                            // Save as WebP with 75% quality
-                                            imagewebp($optimizedImage, $localPath, 75);
+                                                // Save as WebP with 75% quality
+                                                imagewebp($optimizedImage, $localPath, 75);
 
-                                            // Free memory
-                                            imagedestroy($sourceImage);
-                                            imagedestroy($optimizedImage);
+                                                // Free memory
+                                                imagedestroy($sourceImage);
+                                                imagedestroy($optimizedImage);
 
-                                            // Update final URL to local optimized path
-                                            $finalUrl = $publicUrl;
-                                        } else {
-                                            // If image is already small, just convert and save as WebP
-                                            imagewebp($sourceImage, $localPath, 75);
-                                            imagedestroy($sourceImage);
-                                            $finalUrl = $publicUrl;
+                                                // Update final URL to local optimized path
+                                                $finalUrl = $publicUrl;
+                                            } else {
+                                                // If image is already small, just convert and save as WebP
+                                                imagewebp($sourceImage, $localPath, 75);
+                                                imagedestroy($sourceImage);
+                                                $finalUrl = $publicUrl;
+                                            }
                                         }
                                     }
+                                } else {
+                                    // File exists, just use the public URL
+                                    $finalUrl = $publicUrl;
                                 }
                             } catch (\Exception $e) {
                                 Log::warning("Image optimization failed for Property {$content->property_id}: " . $e->getMessage());
@@ -194,11 +210,15 @@ class FetchPropertyContentsJob implements ShouldQueue
                             }
                         }
 
-                        $content->images()->create([
-                            'photo_id' => $img['id'] ?? null,
+                        $newImage = $content->images()->create([
+                            'photo_id' => $photoId,
                             'url'      => $finalUrl,
                         ]);
+                        $newImageIds[] = $newImage->id;
                     }
+
+                    // Delete images that are no longer present in the API response
+                    $content->images()->whereNotIn('id', $newImageIds)->delete();
                 }
 
                 $roomsFromApi = $propertyData['rooms'] ?? [];
