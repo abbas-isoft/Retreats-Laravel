@@ -33,6 +33,7 @@ class PropertyContent extends Model
         'area',
         'area_unit',
         'amenities',
+        'admin_amenities',
     ];
 
     protected $casts = [
