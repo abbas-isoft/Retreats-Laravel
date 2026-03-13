@@ -165,7 +165,7 @@ class AdminCollectionController extends Controller
                 'bathroom_count',
                 'area',
                 'area_unit',
-                'amenities',
+                'admin_amenities',
                 'created_at',
                 'updated_at'
             )
@@ -176,12 +176,12 @@ class AdminCollectionController extends Controller
                     ->where('property_content_id', $property->id)
                     ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
                     ->get();
-                if (isset($property->amenities)) {
-                    $decoded = $property->amenities;
+                if (isset($property->admin_amenities)) {
+                    $decoded = $property->admin_amenities;
                     if (is_string($decoded)) {
                         $decoded = json_decode($decoded, true);
                     }
-                    $property->amenities = is_array($decoded) ? $decoded : [];
+                    $property->admin_amenities = is_array($decoded) ? $decoded : [];
                 }
 
                 return $property;
