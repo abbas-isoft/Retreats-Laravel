@@ -541,7 +541,7 @@ class AdminCollectionController extends Controller
                 'bathroom_count',
                 'area',
                 'area_unit',
-                'amenities'
+                'admin_amenities'
             )
             ->whereIn('property_id', $propertyIds)
             ->get();
@@ -549,15 +549,15 @@ class AdminCollectionController extends Controller
         $propertiesWithImages = $properties->map(function ($property) {
             $property->images = \App\Models\PropertyContentImage::where('property_content_id', $property->id)->get();
 
-            if (isset($property->amenities)) {
-                $decoded = $property->amenities;
+            if (isset($property->admin_amenities)) {
+                $decoded = $property->admin_amenities;
                 if (is_string($decoded)) {
                     $decoded = json_decode($decoded, true);
                 }
                 if (is_string($decoded)) {
                     $decoded = json_decode($decoded, true);
                 }
-                $property->amenities = is_array($decoded) ? $decoded : [];
+                $property->admin_amenities = is_array($decoded) ? $decoded : [];
             }
 
             return $property;
