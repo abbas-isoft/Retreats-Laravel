@@ -521,29 +521,31 @@ class AdminCollectionController extends Controller
             ]);
         }
         $properties = DB::table('property_contents')
+            ->leftJoin('content_listings', 'property_contents.property_id', '=', 'content_listings.property_id')
             ->select(
-                'id',
-                'property_id',
-                'property_name',
-                'subcaption',
-                'description',
-                'accommodations_summary',
-                'location_description',
-                'address_line',
-                'city',
-                'country',
-                'latitude',
-                'longitude',
-                'property_type',
-                'registration_number',
-                'epcRating',
-                'bedroom_count',
-                'bathroom_count',
-                'area',
-                'area_unit',
-                'admin_amenities'
+                'property_contents.id',
+                'property_contents.property_id',
+                'property_contents.property_name',
+                'property_contents.subcaption',
+                'property_contents.description',
+                'property_contents.accommodations_summary',
+                'property_contents.location_description',
+                'property_contents.address_line',
+                'property_contents.city',
+                'property_contents.country',
+                'property_contents.latitude',
+                'property_contents.longitude',
+                'property_contents.property_type',
+                'property_contents.registration_number',
+                'property_contents.epcRating',
+                'property_contents.bedroom_count',
+                'property_contents.bathroom_count',
+                'property_contents.area',
+                'property_contents.area_unit',
+                'content_listings.maximum_guests',
+                'property_contents.admin_amenities'
             )
-            ->whereIn('property_id', $propertyIds)
+            ->whereIn('property_contents.property_id', $propertyIds)
             ->get();
 
         $propertiesWithImages = $properties->map(function ($property) {
