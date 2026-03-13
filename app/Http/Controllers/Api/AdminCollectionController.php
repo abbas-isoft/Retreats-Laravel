@@ -172,6 +172,11 @@ class AdminCollectionController extends Controller
             ->whereIn('property_id', $propertyIds)
             ->get()
             ->map(function ($property) {
+
+                $property->maximum_guests = DB::table('content_listings')
+                    ->where('property_content_id', $property->id)
+                    ->value('maximum_guests') ?? 0;
+
                 $property->images = DB::table('property_content_images')
                     ->where('property_content_id', $property->id)
                     ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
