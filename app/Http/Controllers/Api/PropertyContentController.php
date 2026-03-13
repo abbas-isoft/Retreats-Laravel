@@ -166,17 +166,66 @@ class PropertyContentController extends Controller
                 'message' => 'Collection not found by ID',
             ], 404);
         }
-        $collectionRelatedImages = PropertyContentImage::where('property_content_id', $collection->id)->get();
+        $propertyIds = is_string($collection->property_ids) ? json_decode($collection->property_ids, true) : $collection->property_ids;
+        if (!is_array($propertyIds)) {
+            $propertyIds = [];
+        }
 
-        $imagesWithTitle = $collectionRelatedImages->map(function ($image) use ($collection) {
-            $image->collection_title = $collection->title;
-            return $image;
-        });
+        $properties = DB::table('property_contents')
+            ->leftJoin('content_listings', 'property_contents.property_id', '=', 'content_listings.property_id')
+            ->select(
+                'property_contents.id',
+                'property_contents.property_id',
+                'property_contents.customer_property_id',
+                'property_contents.active',
+                'property_contents.property_name',
+                'property_contents.subcaption',
+                'property_contents.description',
+                'property_contents.accommodations_summary',
+                'property_contents.location_description',
+                'property_contents.changeover',
+                'property_contents.second',
+                'property_contents.address_line',
+                'property_contents.city',
+                'property_contents.country',
+                'property_contents.post_code',
+                'property_contents.latitude',
+                'property_contents.longitude',
+                'property_contents.property_type',
+                'property_contents.registration_number',
+                'property_contents.epcRating',
+                'property_contents.bedroom_count',
+                'property_contents.bathroom_count',
+                'property_contents.area',
+                'property_contents.area_unit',
+                'content_listings.maximum_guests',
+                'property_contents.amenities',
+                'property_contents.created_at',
+                'property_contents.updated_at'
+            )
+            ->whereIn('property_contents.property_id', $propertyIds)
+            ->get()
+            ->map(function ($property) {
+                $property->images = DB::table('property_content_images')
+                    ->where('property_content_id', $property->id)
+                    ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
+                    ->get();
+                if (isset($property->amenities)) {
+                    $decoded = $property->amenities;
+                    if (is_string($decoded)) {
+                        $decoded = json_decode($decoded, true);
+                    }
+                    $property->amenities = is_array($decoded) ? $decoded : [];
+                    $property->admin_amenities = $property->amenities;
+                }
+
+                return $property;
+            });
 
         return response()->json([
             'status' => true,
-            'message' => 'Images related to the Collection: ' . $collection->title,
-            'data' => $imagesWithTitle
+            'message' => 'Properties related to the Collection: ' . $collection->title,
+            'data' => $properties
         ], 200);
     }
 

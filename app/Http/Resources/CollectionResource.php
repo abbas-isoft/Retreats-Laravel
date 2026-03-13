@@ -12,6 +12,7 @@ class CollectionResource extends JsonResource
             'title' => $this->title,
             'description' => $this->description,
             'image' => $this->image ? url($this->image) : null,
+            'maximum_guests' => $this->maximum_guests ?? 0,
         ];
     }
 }
