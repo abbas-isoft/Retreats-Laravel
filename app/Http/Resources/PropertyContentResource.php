@@ -38,6 +38,7 @@ class PropertyContentResource extends JsonResource
             'bedroom_count' => $this->bedroom_count,
             'bathroom_count' => $this->bathroom_count,
             'area' => $this->area,
+            'maximum_guests' => $this->listing->maximum_guests ?? 0,
             'reviews' => $this->reviews,
             'content_listings' => ContentListingResource::collection($this->content_listings),
             // 'similar_properties' => $this->similar_properties,
@@ -53,6 +54,7 @@ class PropertyContentResource extends JsonResource
 }, 
 // Agar filter nahi hai, pura amenities array/collection return karo
 is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities),
+            'admin_amenities' => is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities,
             'images' => PropertyContentImageResource::collection($this->images),
             'rooms' => PropertyRoomResource::collection($this->rooms),
             // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,

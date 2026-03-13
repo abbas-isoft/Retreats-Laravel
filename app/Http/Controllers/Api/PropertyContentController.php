@@ -39,7 +39,7 @@ class PropertyContentController extends Controller
             //     ]);
             // }
 
-            $contents = PropertyContent::where('property_id', $propertyId)
+            $contents = PropertyContent::with(['listing', 'images', 'rooms.beds'])->where('property_id', $propertyId)
                 ->latest()
                 ->get();
 
@@ -249,7 +249,7 @@ class PropertyContentController extends Controller
                 $propertyAmenities = json_decode($property->amenities, true) ?? [];
             }
 
-            $similarProperties = PropertyContent::with(['images', 'listing'])
+            $similarProperties = PropertyContent::with(['images', 'listing', 'rooms.beds'])
                 ->where('id', '!=', $property->id)
                 ->where('property_type', $property->property_type)
                 ->whereBetween('bedroom_count', [$property->bedroom_count - 1, $property->bedroom_count + 1])
@@ -264,13 +264,14 @@ class PropertyContentController extends Controller
                         $similar->amenities = [];
                     }
                     $similar->location_description = Str::limit($similar->location_description, 50);
+                    $similar->maximum_guests = $similar->listing->maximum_guests ?? 0;
                     return $similar;
                 });
             return response()->json([
                 'status' => true,
                 'message' => 'Similar properties fetched successfully.',
                 'data' => [
-                    'similar_properties' => $similarProperties
+                    'similar_properties' => PropertyContentResource::collection($similarProperties)
                 ]
             ], 200);
         } catch (\Exception $e) {

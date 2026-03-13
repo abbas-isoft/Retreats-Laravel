@@ -123,7 +123,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                     Log::info("Inserted New PropertyContent: {$propertyData['id']}");
                 }
 
-                if (!empty($images)) {
+                if (!empty($images)) {        
                     // Get existing images map [photo_id => id] to avoid re-fetching existing ones
                     $existingImages = $content->images()->pluck('id', 'photo_id')->toArray();
                     $newImageIds = [];
