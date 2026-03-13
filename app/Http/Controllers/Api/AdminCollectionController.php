@@ -140,36 +140,38 @@ class AdminCollectionController extends Controller
         }
 
         $properties = DB::table('property_contents')
+            ->leftJoin('content_listings', 'property_contents.property_id', '=', 'content_listings.property_id')
             ->select(
-                'id',
-                'property_id',
-                'customer_property_id',
-                'active',
-                'property_name',
-                'subcaption',
-                'description',
-                'accommodations_summary',
-                'location_description',
-                'changeover',
-                'second',
-                'address_line',
-                'city',
-                'country',
-                'post_code',
-                'latitude',
-                'longitude',
-                'property_type',
-                'registration_number',
-                'epcRating',
-                'bedroom_count',
-                'bathroom_count',
-                'area',
-                'area_unit',
-                'admin_amenities',
-                'created_at',
-                'updated_at'
+                'property_contents.id',
+                'property_contents.property_id',
+                'property_contents.customer_property_id',
+                'property_contents.active',
+                'property_contents.property_name',
+                'property_contents.subcaption',
+                'property_contents.description',
+                'property_contents.accommodations_summary',
+                'property_contents.location_description',
+                'property_contents.changeover',
+                'property_contents.second',
+                'property_contents.address_line',
+                'property_contents.city',
+                'property_contents.country',
+                'property_contents.post_code',
+                'property_contents.latitude',
+                'property_contents.longitude',
+                'property_contents.property_type',
+                'property_contents.registration_number',
+                'property_contents.epcRating',
+                'property_contents.bedroom_count',
+                'property_contents.bathroom_count',
+                'property_contents.area',
+                'property_contents.area_unit',
+                'content_listings.maximum_guests',
+                'property_contents.admin_amenities',
+                'property_contents.created_at',
+                'property_contents.updated_at'
             )
-            ->whereIn('property_id', $propertyIds)
+            ->whereIn('property_contents.property_id', $propertyIds)
             ->get()
             ->map(function ($property) {
                 $property->images = DB::table('property_content_images')
