@@ -156,48 +156,28 @@ class PropertyContentController extends Controller
 
     public function getCollection($id): JsonResponse
     {
+
         $collection = Collection::find($id);
+
 
         if (!$collection) {
             return response()->json([
                 'status' => false,
-                'message' => 'Collection not found',
+                'message' => 'Collection not found by ID',
             ], 404);
         }
+        $collectionRelatedImages = PropertyContentImage::where('property_content_id', $collection->id)->get();
 
-        $propertyIds = DB::table('collection_property')
-            ->where('collection_id', $collection->id)
-            ->pluck('property_id');
-
-        if ($propertyIds->isEmpty()) {
-            return response()->json([
-                'status' => true,
-                'message' => 'No properties linked to this collection yet.',
-                'data' => [
-                    'id'          => $collection->id,
-                    'name'        => $collection->title,
-                    'description' => $collection->description,
-                    'image'       => $collection->image,
-                    'properties'  => [],
-                ]
-            ]);
-        }
-
-        $properties = PropertyContent::with(['listing', 'images', 'rooms.beds'])
-            ->whereIn('property_id', $propertyIds)
-            ->get();
+        $imagesWithTitle = $collectionRelatedImages->map(function ($image) use ($collection) {
+            $image->collection_title = $collection->title;
+            return $image;
+        });
 
         return response()->json([
             'status' => true,
-            'message' => 'Filtered properties fetched successfully.',
-            'data' => [
-                'id'          => $collection->id,
-                'name'        => $collection->title,
-                'description' => $collection->description,
-                'image'       => $collection->image,
-                'properties'  => PropertyContentResource::collection($properties),
-            ]
-        ]);
+            'message' => 'Images related to the Collection: ' . $collection->title,
+            'data' => $imagesWithTitle
+        ], 200);
     }
 
 
