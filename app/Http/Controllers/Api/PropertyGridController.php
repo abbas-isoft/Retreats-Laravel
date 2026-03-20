@@ -165,6 +165,13 @@ class PropertyGridController extends Controller
                             $orderedProperty['maximum_guests'] = $maxGuests;
                         }
                     }
+
+                    // --- YEH WALI LOGIC ADD KAREIN ---
+                    if (!empty($property->custom_description)) {
+                        $orderedProperty['description'] = $property->custom_description;
+                    }
+                    // --------------------------------
+
                     // If area_unit wasn't found, add it at the end just in case
                     if (!array_key_exists('maximum_guests', $orderedProperty)) {
                         $orderedProperty['maximum_guests'] = $maxGuests;
