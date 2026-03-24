@@ -14,18 +14,14 @@ class PropertyGridController extends Controller
     public function index(Request $request)
     {
         $query = \App\Models\PropertyContent::query()
-            ->with('images')
+            ->with(['images', 'regions', 'content_listings'])
             ->where('active', 1);
 
         if ($request->filled('collection_id')) {
-            $query->join('collection_property', 'property_contents.id', '=', 'collection_property.property_id') // ✅ correct join
+            $query->join('collection_property', 'property_contents.property_id', '=', 'collection_property.property_id')
                 ->where('collection_property.collection_id', $request->collection_id)
                 ->select('property_contents.*');
         }
-
-        $query = PropertyContent::query()
-            ->with(['images', 'regions', 'content_listings'])
-            ->where('active', 1);
 
         if ($request->filled('region_id')) {
             $regionIds = is_array($request->region_id)
@@ -44,7 +40,6 @@ class PropertyGridController extends Controller
         if ($request->filled('address_line')) {
             $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
         }
-
 
         if ($request->filled('guest_capacity')) {
             $query->whereHas('content_listings', function ($q) use ($request) {
@@ -66,15 +61,12 @@ class PropertyGridController extends Controller
             }
         }
 
-
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
         }
 
         if ($request->filled('region')) {
-
             $query->whereIn('property_contents.property_id', function ($sub) use ($request) {
-
                 $sub->select('rp.property_id')
                     ->from('region_property as rp')
                     ->join('regions as r', 'r.id', '=', 'rp.region_id')
@@ -83,67 +75,52 @@ class PropertyGridController extends Controller
             });
         }
 
-
-
         if ($request->filled('search')) {
             $query->where('property_name', 'LIKE', '%' . $request->search . '%');
         }
 
+        $checkIn = null;
+        $checkOut = null;
+        $nights = 0;
 
-        // if ($request->filled('date_availability')) {
-        //     $query->whereHas('propertyAvailability', function ($q) use ($request) {
-        //         $date = Carbon::parse($request->date_availability);
-        //         $q->where('updated_at', '<=', $date);
-        //     });
-        // }
-
-        //    if ($request->filled(['check_in', 'check_out'])) {
-        //     $checkIn  = Carbon::parse($request->check_in);
-        //     $checkOut = Carbon::parse($request->check_out);
-
-        //     $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
-        //         $q->where('start_date', '<=', $checkIn)
-        //           ->where('end_date', '>=', $checkOut)
-        //           ->whereRaw("
-        //               SUBSTRING(availability, DATEDIFF(?, start_date) + 1, DATEDIFF(?, ?) + 1) 
-        //               = REPEAT('Y', DATEDIFF(?, ?) + 1)
-        //           ", [
-        //               $checkIn->format('Y-m-d'),   // start offset
-        //               $checkOut->format('Y-m-d'),  // length till checkout
-        //               $checkIn->format('Y-m-d'),   // length calc
-        //               $checkOut->format('Y-m-d'), 
-        //               $checkIn->format('Y-m-d')
-        //           ]);
-        //     });
-        // }
-
-
-
-        if ($request->filled('date_availability.start_date') && $request->filled('date_availability.end_date')) {
-            $checkIn  = Carbon::parse($request->date_availability['start_date']);
-            $checkOut = Carbon::parse($request->date_availability['end_date']);
-
-            $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
-                $q->where('start_date', '<=', $checkIn)
-                    ->where('end_date', '>=', $checkOut);
-            });
+        if ($request->filled('date_availability')) {
+            $dates = $request->date_availability;
+            if (is_string($dates) && str_contains($dates, ',')) {
+                $parts = explode(',', $dates);
+                if (count($parts) >= 2) {
+                    $checkIn = Carbon::parse($parts[0])->startOfDay();
+                    $checkOut = Carbon::parse($parts[1])->startOfDay();
+                }
+            } elseif (is_array($dates) && isset($dates['start_date'], $dates['end_date'])) {
+                $checkIn = Carbon::parse($dates['start_date'])->startOfDay();
+                $checkOut = Carbon::parse($dates['end_date'])->startOfDay();
+            }
+        } elseif ($request->filled(['check_in', 'check_out'])) {
+            $checkIn = Carbon::parse($request->check_in)->startOfDay();
+            $checkOut = Carbon::parse($request->check_out)->startOfDay();
+        } elseif ($request->filled(['start_date', 'end_date'])) {
+            $checkIn = Carbon::parse($request->start_date)->startOfDay();
+            $checkOut = Carbon::parse($request->end_date)->startOfDay();
         }
 
-
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereDoesntHave('bookings', function ($q) use ($request) {
-                $q->where(function ($query) use ($request) {
-                    $query->whereBetween('start_date', [$request->start_date, $request->end_date])
-                        ->orWhereBetween('end_date', [$request->start_date, $request->end_date]);
+        if ($checkIn && $checkOut) {
+            $nights = $checkIn->diffInDays($checkOut);
+            if ($nights > 0) {
+                $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut, $nights) {
+                    $q->where('start_date', '<=', $checkIn)
+                        ->where('end_date', '>=', $checkOut)
+                        ->whereRaw("SUBSTRING(availability, DATEDIFF(?, start_date) + 1, ?) = REPEAT('Y', ?)", [
+                            $checkIn->format('Y-m-d'), $nights, $nights
+                        ]);
                 });
-            });
+            }
         }
 
         $properties = $query->get();
 
         // Fetch prices for the filtered properties if dates are provided
         $propertyPrices = [];
-        if ($checkIn && $checkOut) {
+        if ($checkIn && $checkOut && $nights > 0) {
             $nights = $checkIn->diffInDays($checkOut);
             foreach ($properties as $property) {
                 $pid = $property->property_id;
