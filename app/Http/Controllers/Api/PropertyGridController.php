@@ -13,26 +13,22 @@ class PropertyGridController extends Controller
 {
     public function index(Request $request)
     {
-        $query = \App\Models\PropertyContent::query()
-            ->with('images')
-            ->where('active', 1);
+        $query = PropertyContent::query()
+            ->with(['images', 'regions', 'content_listings'])
+            ->where('property_contents.active', 1);
 
         if ($request->filled('collection_id')) {
-            $query->join('collection_property', 'property_contents.id', '=', 'collection_property.property_id') // ✅ correct join
+            $query->join('collection_property', 'property_contents.id', '=', 'collection_property.property_id')
                 ->where('collection_property.collection_id', $request->collection_id)
                 ->select('property_contents.*');
         }
-
-        $query = PropertyContent::query()
-            ->with(['images', 'regions', 'content_listings'])
-            ->where('active', 1);
 
         if ($request->filled('region_id')) {
             $regionIds = is_array($request->region_id)
                 ? $request->region_id
                 : explode(',', $request->region_id);
 
-            $query->whereIn('id', function ($sub) use ($regionIds) {
+            $query->whereIn('property_contents.id', function ($sub) use ($regionIds) {
                 $sub->select('pc.id')
                     ->from('property_contents as pc')
                     ->join('properties as p', 'p.id', '=', 'pc.property_id')
@@ -44,7 +40,6 @@ class PropertyGridController extends Controller
         if ($request->filled('address_line')) {
             $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
         }
-
 
         if ($request->filled('guest_capacity')) {
             $query->whereHas('content_listings', function ($q) use ($request) {
@@ -66,15 +61,12 @@ class PropertyGridController extends Controller
             }
         }
 
-
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
         }
 
         if ($request->filled('region')) {
-
             $query->whereIn('property_contents.property_id', function ($sub) use ($request) {
-
                 $sub->select('rp.property_id')
                     ->from('region_property as rp')
                     ->join('regions as r', 'r.id', '=', 'rp.region_id')
@@ -83,137 +75,96 @@ class PropertyGridController extends Controller
             });
         }
 
-
-
         if ($request->filled('search')) {
             $query->where('property_name', 'LIKE', '%' . $request->search . '%');
         }
 
-
-        // if ($request->filled('date_availability')) {
-        //     $query->whereHas('propertyAvailability', function ($q) use ($request) {
-        //         $date = Carbon::parse($request->date_availability);
-        //         $q->where('updated_at', '<=', $date);
-        //     });
-        // }
-
-        //    if ($request->filled(['check_in', 'check_out'])) {
-        //     $checkIn  = Carbon::parse($request->check_in);
-        //     $checkOut = Carbon::parse($request->check_out);
-
-        //     $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
-        //         $q->where('start_date', '<=', $checkIn)
-        //           ->where('end_date', '>=', $checkOut)
-        //           ->whereRaw("
-        //               SUBSTRING(availability, DATEDIFF(?, start_date) + 1, DATEDIFF(?, ?) + 1) 
-        //               = REPEAT('Y', DATEDIFF(?, ?) + 1)
-        //           ", [
-        //               $checkIn->format('Y-m-d'),   // start offset
-        //               $checkOut->format('Y-m-d'),  // length till checkout
-        //               $checkIn->format('Y-m-d'),   // length calc
-        //               $checkOut->format('Y-m-d'), 
-        //               $checkIn->format('Y-m-d')
-        //           ]);
-        //     });
-        // }
-
-
-
+        $checkIn = null;
+        $checkOut = null;
         if ($request->filled('date_availability')) {
             $dateRange = $request->date_availability;
             if (is_string($dateRange) && strpos($dateRange, '/') !== false) {
                 [$start, $end] = explode('/', $dateRange);
-                $checkIn = Carbon::parse($start);
-                $checkOut = Carbon::parse($end);
+                $checkIn = Carbon::parse($start)->startOfDay();
+                $checkOut = Carbon::parse($end)->startOfDay();
             } elseif (is_array($dateRange) && isset($dateRange['start_date'], $dateRange['end_date'])) {
-                $checkIn = Carbon::parse($dateRange['start_date']);
-                $checkOut = Carbon::parse($dateRange['end_date']);
+                $checkIn = Carbon::parse($dateRange['start_date'])->startOfDay();
+                $checkOut = Carbon::parse($dateRange['end_date'])->startOfDay();
             }
-        }
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $query->whereDoesntHave('bookings', function ($q) use ($request) {
-                $q->where(function ($query) use ($request) {
-                    $query->whereBetween('start_date', [$request->start_date, $request->end_date])
-                        ->orWhereBetween('end_date', [$request->start_date, $request->end_date]);
-                });
-            });
+            if ($checkIn && $checkOut) {
+                $nights = $checkIn->diffInDays($checkOut);
+                if ($nights > 0) {
+                    // Filter properties available for ALL days in range
+                    $query->where(function($q) use ($checkIn, $checkOut, $nights) {
+                        $q->whereIn('property_id', function($sub) use ($checkIn, $checkOut, $nights) {
+                            $sub->select('listing_id')
+                                ->from('property_calendars')
+                                ->whereBetween('date', [$checkIn->toDateString(), $checkOut->copy()->subDay()->toDateString()])
+                                ->where('is_available', 1)
+                                ->groupBy('listing_id')
+                                ->havingRaw('COUNT(*) = ?', [$nights]);
+                        });
+                    });
+                }
+            }
         }
 
         $properties = $query->get();
 
-        // If dates are provided, fetch live prices from Hostaway API
+        // Fetch prices for the filtered properties
         $propertyPrices = [];
-        if (isset($checkIn, $checkOut)) {
-            $nights = $checkIn->diffInDays($checkOut);
-            if ($nights > 0) {
-                foreach ($properties as $property) {
-                    $pid = $property->property_id;
-                    $listingId = !empty($property->hostaway_id) ? $property->hostaway_id : $pid;
+        if ($checkIn && $checkOut) {
+            $listingIds = $properties->pluck('property_id')->toArray();
+            
+            // Get prices from local DB (fastest)
+            $dbPrices = \DB::table('property_calendars')
+                ->whereIn('listing_id', $listingIds)
+                ->whereBetween('date', [$checkIn->toDateString(), $checkOut->copy()->subDay()->toDateString()])
+                ->select('listing_id', \DB::raw('SUM(price) as total'), \DB::raw('AVG(price) as average'))
+                ->groupBy('listing_id')
+                ->get()
+                ->keyBy('listing_id');
 
-                    $totalPrice = 0;
-                    $pricePerNight = 0;
+            foreach ($properties as $property) {
+                $pid = $property->property_id;
+                $priceData = $dbPrices->get($pid);
 
+                if ($priceData && $priceData->total > 0) {
+                    $propertyPrices[$pid] = [
+                        'total_price' => round($priceData->total, 2),
+                        'price_per_night' => round($priceData->average, 2)
+                    ];
+                } else {
+                    // Fallback to Live API ONLY if DB price is missing or 0
+                    // This prevents timeouts by only hitting API for a few properties
                     try {
+                        $listingId = !empty($property->hostaway_id) ? $property->hostaway_id : $pid;
                         $response = \Illuminate\Support\Facades\Http::withHeaders([
                             'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-                            'Content-Type' => 'application/json',
-                        ])->timeout(30)->get(
-                            "https://api.hostaway.com/v1/listings/{$listingId}/calendar",
-                            [
-                                'startDate' => $checkIn->format('Y-m-d'),
-                                'endDate'   => $checkOut->format('Y-m-d'),
-                            ]
-                        );
+                        ])->timeout(5)->get("https://api.hostaway.com/v1/listings/{$listingId}/calendar", [
+                            'startDate' => $checkIn->format('Y-m-d'),
+                            'endDate'   => $checkOut->format('Y-m-d'),
+                        ]);
 
                         if ($response->successful() && isset($response->json()['result'])) {
                             $calendarData = $response->json()['result'];
-                            if (is_array($calendarData) && count($calendarData) > 0) {
-                                $dailyPrices = [];
-                                foreach ($calendarData as $day) {
-                                    if (!isset($day['date'])) continue;
-                                    $dayDate = Carbon::parse($day['date'])->startOfDay();
-                                    if ($dayDate >= $checkIn && $dayDate < $checkOut) {
-                                        if (isset($day['price']) && is_numeric($day['price']) && $day['price'] > 0) {
-                                            $dailyPrice = (float) $day['price'];
-                                            $dailyPrices[] = $dailyPrice;
-                                            $totalPrice += $dailyPrice;
-                                        }
-                                    }
-                                }
-                                if (count($dailyPrices) > 0) {
-                                    $pricePerNight = $totalPrice / count($dailyPrices);
+                            $total = 0; $count = 0;
+                            foreach ($calendarData as $day) {
+                                $dayDate = Carbon::parse($day['date'])->startOfDay();
+                                if ($dayDate >= $checkIn && $dayDate < $checkOut && isset($day['price'])) {
+                                    $total += (float)$day['price'];
+                                    $count++;
                                 }
                             }
-                        }
-                    } catch (\Exception $e) {
-                        \Illuminate\Support\Facades\Log::debug("Price fetch error for property {$listingId}: " . $e->getMessage());
-                    }
-
-                    // Fallback: If no price found from calendar, try listing endpoint
-                    if ($totalPrice == 0) {
-                        try {
-                            $listingResponse = \Illuminate\Support\Facades\Http::withHeaders([
-                                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-                                'Content-Type' => 'application/json',
-                            ])->timeout(20)->get(
-                                "https://api.hostaway.com/v1/listings/{$listingId}"
-                            );
-
-                            $listingData = $listingResponse->json();
-                            if (isset($listingData['result']['price']) && is_numeric($listingData['result']['price'])) {
-                                $pricePerNight = (float) $listingData['result']['price'];
-                                $totalPrice = $pricePerNight * $nights;
+                            if ($count > 0) {
+                                $propertyPrices[$pid] = [
+                                    'total_price' => round($total, 2),
+                                    'price_per_night' => round($total / $count, 2)
+                                ];
                             }
-                        } catch (\Exception $e) {
-                            \Illuminate\Support\Facades\Log::debug("Fallback price fetch error for property {$listingId}: " . $e->getMessage());
                         }
-                    }
-
-                    $propertyPrices[$pid] = [
-                        'total_price' => round($totalPrice, 2),
-                        'price_per_night' => round($pricePerNight, 2)
-                    ];
+                    } catch (\Exception $e) {}
                 }
             }
         }
@@ -228,15 +179,12 @@ class PropertyGridController extends Controller
                     }
                     $property->location_description = Str::limit($property->location_description, 50);
 
-                    // Add maximum_guests from content_listings
                     $listing = $property->content_listings->first();
                     $maxGuests = $listing ? $listing->maximum_guests : null;
                     $property->unsetRelation('content_listings');
 
-                    // Get live price data if exists
                     $priceData = $propertyPrices[$property->property_id] ?? ['price_per_night' => 0, 'total_price' => 0];
 
-                    // Reorder keys to put maximum_guests after area_unit
                     $propertyArray = $property->toArray();
                     $orderedProperty = [];
                     foreach ($propertyArray as $key => $value) {
@@ -248,13 +196,10 @@ class PropertyGridController extends Controller
                         }
                     }
 
-                    // --- YEH WALI LOGIC ADD KAREIN ---
                     if (!empty($property->custom_description)) {
                         $orderedProperty['description'] = $property->custom_description;
                     }
-                    // --------------------------------
 
-                    // If area_unit wasn't found, add it at the end just in case
                     if (!array_key_exists('maximum_guests', $orderedProperty)) {
                         $orderedProperty['maximum_guests'] = $maxGuests;
                         $orderedProperty['price_per_night'] = $priceData['price_per_night'];
