@@ -7,14 +7,52 @@ use App\Models\PropertyContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
 
 
 class PropertyGridController extends Controller
 {
     public function index(Request $request)
     {
+        // Get dates for API call
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Robust date parsing: handle multiple formats including duplicate query keys
+        if (!$startDate || !$endDate) {
+            $queryString = $_SERVER['QUERY_STRING'] ?? '';
+            if (strpos($queryString, 'date_availability=') !== false) {
+                // Manually parse query string for duplicate 'date_availability' keys
+                parse_str($queryString, $parsedParams);
+
+                // If Laravel's parse_str also overwrites, we can do manual extraction
+                $matches = [];
+                preg_match_all('/date_availability=([^&]+)/', $queryString, $matches);
+                if (isset($matches[1]) && count($matches[1]) >= 2) {
+                    $startDate = $matches[1][0];
+                    $endDate = $matches[1][1];
+                }
+            }
+        }
+
+        // Fallback to array/string handling if start/end still null
+        if (!$startDate && $request->has('date_availability')) {
+            $dateAvail = $request->input('date_availability');
+            if (is_array($dateAvail)) {
+                if (isset($dateAvail['start_date']) && isset($dateAvail['end_date'])) {
+                    $startDate = $dateAvail['start_date'];
+                    $endDate = $dateAvail['end_date'];
+                } else {
+                    $startDate = $dateAvail[0] ?? null;
+                    $endDate = $dateAvail[1] ?? null;
+                }
+            }
+        }
+
+        $numberOfGuests = $request->input('guest_capacity', 1);
+
         $query = \App\Models\PropertyContent::query()
-            ->with('images')
+            ->with(['images', 'regions', 'content_listings'])
             ->where('active', 1);
 
         if ($request->filled('collection_id')) {
@@ -22,10 +60,6 @@ class PropertyGridController extends Controller
                 ->where('collection_property.collection_id', $request->collection_id)
                 ->select('property_contents.*');
         }
-
-        $query = PropertyContent::query()
-            ->with(['images', 'regions', 'content_listings'])
-            ->where('active', 1);
 
         if ($request->filled('region_id')) {
             $regionIds = is_array($request->region_id)
@@ -140,25 +174,43 @@ class PropertyGridController extends Controller
         }
 
         $properties = $query->get();
+        // Fetch pricing from Hostaway API
+        $hostawayEndpoint = "https://booking-engine.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings?dates[]=2026-05-10T19:00:00.000Z&dates[]=2026-05-13T19:00:00.000Z&availabilityGuestNumber=1&limit=20&calendarAvailabilityStartDate=2026-05-11&calendarAvailabilityEndDate=2026-05-14&offset=0";
+
+        $hostawayResponse = Http::get($hostawayEndpoint);
+        $hostawayData = $hostawayResponse->json()['result'] ?? [];
+
+        // Map Hostaway prices by listing ID for easy lookup
+        $priceMap = collect($hostawayData)->keyBy('id');
+
+
+        if ($startDate && $endDate) {
+            $properties = $properties->filter(function ($property) use ($priceMap) {
+                $price = $priceMap[$property->property_id]['averageNightlyPrice'] ?? null;
+                return $price !== null;
+            });
+        }
 
         return response()->json([
             'status' => true,
             'message' => 'Filtered properties fetched successfully.',
             'data' => [
-                'properties' => $properties->map(function ($property) {
+                'properties' => $properties->map(function ($property) use ($priceMap) {
+
                     if (is_string($property->amenities)) {
                         $property->amenities = json_decode($property->amenities, true);
                     }
+
                     $property->location_description = Str::limit($property->location_description, 50);
 
-                    // Add maximum_guests from content_listings
                     $listing = $property->content_listings->first();
                     $maxGuests = $listing ? $listing->maximum_guests : null;
+
                     $property->unsetRelation('content_listings');
 
-                    // Reorder keys to put maximum_guests after area_unit
                     $propertyArray = $property->toArray();
                     $orderedProperty = [];
+
                     foreach ($propertyArray as $key => $value) {
                         $orderedProperty[$key] = $value;
                         if ($key === 'area_unit') {
@@ -166,16 +218,18 @@ class PropertyGridController extends Controller
                         }
                     }
 
-                    // --- YEH WALI LOGIC ADD KAREIN ---
                     if (!empty($property->custom_description)) {
                         $orderedProperty['description'] = $property->custom_description;
                     }
-                    // --------------------------------
 
-                    // If area_unit wasn't found, add it at the end just in case
                     if (!array_key_exists('maximum_guests', $orderedProperty)) {
                         $orderedProperty['maximum_guests'] = $maxGuests;
                     }
+
+                    // Add Hostaway pricing if available
+                    $hostawayListing = $priceMap[$property->property_id] ?? null;
+                    $orderedProperty['averageNightlyPrice'] = $hostawayListing['averageNightlyPrice'] ?? null;
+                    $orderedProperty['totalPriceForGivenPeriod'] = $hostawayListing['totalPriceForGivenPeriod'] ?? null;
 
                     return $orderedProperty;
                 }),

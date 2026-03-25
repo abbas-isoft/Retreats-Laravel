@@ -9,6 +9,7 @@ class PropertyContent extends Model
 {
     protected $fillable = [
         'property_id',
+        'hostaway_id',
         'customer_property_id',
         'active',
         'property_name',

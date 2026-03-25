@@ -95,6 +95,7 @@ Route::get('/properties/{propertyId}/calculate-price', [PriceCalculationControll
 Route::get('/property-content/{propertyId}', [PropertyContentController::class, 'index']);
 
 Route::get('/property-grid', [PropertyGridController::class, 'index']);
+// Route::get('/property-grid-test', [PropertyGridController::class, 'grid']);
 
 
 Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
