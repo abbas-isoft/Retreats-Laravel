@@ -47,16 +47,25 @@ class PropertyGridController extends Controller
                     $endDate = $dateAvail[1] ?? null;
                 }
             } else if (is_string($dateAvail)) {
-                // If it's a comma-separated string
+                // If it's a comma-separated string or slash-separated string
                 if (strpos($dateAvail, ',') !== false) {
                     $dates = explode(',', $dateAvail);
+                    $startDate = trim($dates[0]);
+                    $endDate = trim($dates[1] ?? '');
+                } else if (strpos($dateAvail, '/') !== false) {
+                    $dates = explode('/', $dateAvail);
                     $startDate = trim($dates[0]);
                     $endDate = trim($dates[1] ?? '');
                 } else {
                     // It's a single date string (like in the user's screenshot)
                     $startDate = trim($dateAvail);
                     // Default to 3 nights stay if only start date provided
-                    $endDate = Carbon::parse($startDate)->addDays(3)->toDateString();
+                    try {
+                        $endDate = Carbon::parse($startDate)->addDays(3)->toDateString();
+                    } catch (\Exception $e) {
+                        $startDate = null;
+                        $endDate = null;
+                    }
                 }
             }
         }
