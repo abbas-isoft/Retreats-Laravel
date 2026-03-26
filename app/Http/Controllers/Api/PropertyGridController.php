@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 
 class PropertyGridController extends Controller
 {
@@ -45,6 +45,18 @@ class PropertyGridController extends Controller
                 } else {
                     $startDate = $dateAvail[0] ?? null;
                     $endDate = $dateAvail[1] ?? null;
+                }
+            } else if (is_string($dateAvail)) {
+                // If it's a comma-separated string
+                if (strpos($dateAvail, ',') !== false) {
+                    $dates = explode(',', $dateAvail);
+                    $startDate = trim($dates[0]);
+                    $endDate = trim($dates[1] ?? '');
+                } else {
+                    // It's a single date string (like in the user's screenshot)
+                    $startDate = trim($dateAvail);
+                    // Default to 3 nights stay if only start date provided
+                    $endDate = Carbon::parse($startDate)->addDays(3)->toDateString();
                 }
             }
         }
@@ -174,38 +186,58 @@ class PropertyGridController extends Controller
         }
 
         $properties = $query->get();
-        // Fetch pricing from Hostaway API
-        $hostawayEndpoint = "https://booking-engine.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings?dates[]=2026-05-10T19:00:00.000Z&dates[]=2026-05-13T19:00:00.000Z&availabilityGuestNumber=1&limit=20&calendarAvailabilityStartDate=2026-05-11&calendarAvailabilityEndDate=2026-05-14&offset=0";
 
-        $hostawayResponse = Http::get($hostawayEndpoint);
-        $hostawayData = $hostawayResponse->json()['result'] ?? [];
+        // Detect if any date filter is applied
+        $hasDates = !empty($startDate) && !empty($endDate);
+        $priceMap = collect();
 
-        // Map Hostaway prices by listing ID for easy lookup
-        $priceMap = collect($hostawayData)->keyBy('id');
+        if ($hasDates) {
+            try {
+                // ISO formats for Hostaway
+                $isoStart = Carbon::parse($startDate)->subDay()->format('Y-m-d\T19:00:00.000\Z');
+                $isoEnd = Carbon::parse($endDate)->subDay()->format('Y-m-d\T19:00:00.000\Z');
 
+                $bulkUrl = "https://api.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings";
+                $bulkParams = [
+                    'dates' => [$isoStart, $isoEnd],
+                    'availabilityGuestNumber' => $numberOfGuests,
+                    'calendarAvailabilityStartDate' => $startDate,
+                    'calendarAvailabilityEndDate' => $endDate,
+                    'limit' => 100,
+                    'offset' => 0
+                ];
 
-        if ($startDate && $endDate) {
-            $properties = $properties->filter(function ($property) use ($priceMap) {
-                $price = $priceMap[$property->property_id]['averageNightlyPrice'] ?? null;
-                return $price !== null;
-            });
+                $hostawayResponse = Http::timeout(60)->get($bulkUrl, $bulkParams);
+                $hostawayData = $hostawayResponse->json()['result'] ?? [];
+                $priceMap = collect($hostawayData)->keyBy('id');
+
+                // MANDATORY: Filter out properties where Hostaway price is null when dates are provided
+                $properties = $properties->filter(function ($property) use ($priceMap) {
+                    $hostawayListing = $priceMap[$property->property_id] ?? null;
+                    
+                    // Hide property if not found in Hostaway or price is null
+                    if (!$hostawayListing) return false;
+                    
+                    $price = $hostawayListing['averageNightlyPrice'] ?? null;
+                    return $price !== null;
+                });
+            } catch (\Exception $e) {
+                Log::error("Hostaway API error in PropertyGridController: " . $e->getMessage());
+            }
         }
 
         return response()->json([
             'status' => true,
             'message' => 'Filtered properties fetched successfully.',
             'data' => [
-                'properties' => $properties->map(function ($property) use ($priceMap) {
-
+                'properties' => $properties->values()->map(function ($property) use ($priceMap, $hasDates, $startDate, $endDate) {
                     if (is_string($property->amenities)) {
                         $property->amenities = json_decode($property->amenities, true);
                     }
 
                     $property->location_description = Str::limit($property->location_description, 50);
-
                     $listing = $property->content_listings->first();
                     $maxGuests = $listing ? $listing->maximum_guests : null;
-
                     $property->unsetRelation('content_listings');
 
                     $propertyArray = $property->toArray();
@@ -226,10 +258,23 @@ class PropertyGridController extends Controller
                         $orderedProperty['maximum_guests'] = $maxGuests;
                     }
 
-                    // Add Hostaway pricing if available
-                    $hostawayListing = $priceMap[$property->property_id] ?? null;
-                    $orderedProperty['averageNightlyPrice'] = $hostawayListing['averageNightlyPrice'] ?? null;
-                    $orderedProperty['totalPriceForGivenPeriod'] = $hostawayListing['totalPriceForGivenPeriod'] ?? null;
+                    // Pricing keys hamesha show honi chahiye jab dates searched hon
+                    if ($hasDates) {
+                        $hostawayListing = $priceMap[$property->property_id] ?? null;
+                        $rawNightly = $hostawayListing['averageNightlyPrice'] ?? null;
+                        $rawTotal = $hostawayListing['totalPriceForGivenPeriod'] ?? null;
+
+                        // Fallback: calculate total if Hostaway returns null but nightly price exists
+                        if ($rawTotal === null && $rawNightly !== null) {
+                            $nights = Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate));
+                            if ($nights <= 0) $nights = 1;
+                            $rawTotal = $rawNightly * $nights;
+                        }
+
+                        // Use round() instead of (int) to match live site display
+                        $orderedProperty['averageNightlyPrice'] = $rawNightly !== null ? round($rawNightly) : null;
+                        $orderedProperty['totalPriceForGivenPeriod'] = $rawTotal !== null ? round($rawTotal) : null;
+                    }
 
                     return $orderedProperty;
                 }),
