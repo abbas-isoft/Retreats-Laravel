@@ -115,7 +115,7 @@ class PriceCalculationController extends Controller
 
                     // Calculate average price per night
                     if (count($dailyPrices) > 0) {
-                        $pricePerNight = round($totalPrice / $nights, 2);
+                        $pricePerNight = $totalPrice / count($dailyPrices);
                     }
                 }
             }
@@ -141,6 +141,30 @@ class PriceCalculationController extends Controller
             } catch (\Exception $e) {
                 Log::debug("Fallback price fetch error for property {$propertyId}: " . $e->getMessage());
             }
+        }
+
+        // Fetch averageNightlyPrice from Hostaway search API
+        try {
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+            ])->get("https://api.hostaway.com/v1/listings", [
+                'id' => $propertyId,
+                'availabilityDateStart' => $checkIn->format('Y-m-d'),
+                'availabilityDateEnd' => $checkOut->format('Y-m-d'),
+                'numberOfGuests' => $guests
+            ]);
+
+            $data = $response->json();
+
+            if (isset($data['result'][0]['averageNightlyPrice'])) {
+
+                $pricePerNight = $data['result'][0]['averageNightlyPrice'];
+
+                $totalPrice = $data['result'][0]['totalPriceForGivenPeriod'];
+            }
+        } catch (\Exception $e) {
+            Log::debug("Average price fetch error for property {$propertyId}: " . $e->getMessage());
         }
 
         // Step 4: Return response with calculated prices
