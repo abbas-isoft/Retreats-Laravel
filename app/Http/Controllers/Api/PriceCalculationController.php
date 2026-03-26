@@ -143,28 +143,22 @@ class PriceCalculationController extends Controller
             }
         }
 
-        // Fetch averageNightlyPrice from Hostaway search API
-        try {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+        ])->get("https://api.hostaway.com/v1/listings", [
+            'id' => $propertyId,
+            'availabilityDateStart' => $checkIn->format('Y-m-d'),
+            'availabilityDateEnd' => $checkOut->format('Y-m-d'),
+            'numberOfGuests' => $guests
+        ]);
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            ])->get("https://api.hostaway.com/v1/listings", [
-                'id' => $propertyId,
-                'availabilityDateStart' => $checkIn->format('Y-m-d'),
-                'availabilityDateEnd' => $checkOut->format('Y-m-d'),
-                'numberOfGuests' => $guests
-            ]);
+        $data = $response->json();
 
-            $data = $response->json();
+        if (!empty($data['result'][0]['averageNightlyPrice'])) {
 
-            if (isset($data['result'][0]['averageNightlyPrice'])) {
+            $pricePerNight = (float) $data['result'][0]['averageNightlyPrice'];
 
-                $pricePerNight = $data['result'][0]['averageNightlyPrice'];
-
-                $totalPrice = $data['result'][0]['totalPriceForGivenPeriod'];
-            }
-        } catch (\Exception $e) {
-            Log::debug("Average price fetch error for property {$propertyId}: " . $e->getMessage());
+            $totalPrice = (float) $data['result'][0]['totalPriceForGivenPeriod'];
         }
 
         // Step 4: Return response with calculated prices
