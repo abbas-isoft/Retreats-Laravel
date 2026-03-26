@@ -75,47 +75,67 @@ class PriceCalculationController extends Controller
         ]);
     }
 
-    // Step 3: Fetch prices from Hostaway Calendar API
+    // Step 3: Fetch prices from Hostaway Booking Engine API
     $totalPrice = 0;
     $pricePerNight = 0;
 
     try {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.hostaway.token'),
-            'Content-Type' => 'application/json',
-        ])->timeout(30)->get(
-            "https://api.hostaway.com/v1/listings/{$propertyId}/calendar",
-            [
-                'startDate' => $checkIn->format('Y-m-d'),
-                'endDate'   => $checkOut->format('Y-m-d'),
-            ]
-        );
+        // Use Booking Engine logic to match live site exactly
+        $isoStart = $checkIn->copy()->subDay()->format('Y-m-d\T19:00:00.000\Z');
+        $isoEnd = $checkOut->copy()->subDay()->format('Y-m-d\T19:00:00.000\Z');
 
-        if ($response->successful() && isset($response->json()['result'])) {
-            $calendarData = $response->json()['result'];
+        $bulkUrl = "https://api.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings";
+        $bulkParams = [
+            'dates' => [$isoStart, $isoEnd],
+            'availabilityGuestNumber' => $guests,
+            'calendarAvailabilityStartDate' => $checkIn->format('Y-m-d'),
+            'calendarAvailabilityEndDate' => $checkOut->format('Y-m-d'),
+            'limit' => 100,
+            'offset' => 0
+        ];
 
-            if (is_array($calendarData) && count($calendarData) > 0) {
-                $dailyPrices = [];
+        $hostawayResponse = Http::timeout(60)->get($bulkUrl, $bulkParams);
+        $hostawayData = $hostawayResponse->json()['result'] ?? [];
+        
+        // Find the specific property in the results
+        $listingData = collect($hostawayData)->firstWhere('id', $propertyId);
 
-                // Calculate total from daily prices
-                foreach ($calendarData as $day) {
-                    if (!isset($day['date'])) continue;
-                    
-                    $dayDate = Carbon::parse($day['date'])->startOfDay();
+        if ($listingData) {
+            $pricePerNight = $listingData['averageNightlyPrice'] ?? 0;
+            $totalPrice = $listingData['totalPriceForGivenPeriod'] ?? 0;
+        }
 
-                    // Only include dates within check-in and check-out range
-                    if ($dayDate >= $checkIn && $dayDate < $checkOut) {
-                        if (isset($day['price']) && is_numeric($day['price']) && $day['price'] > 0) {
-                            $dailyPrice = (float) $day['price'];
-                            $dailyPrices[] = $dailyPrice;
-                            $totalPrice += $dailyPrice;
+        // Fallback to Calendar API if Booking Engine doesn't return data
+        if ($totalPrice == 0) {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Content-Type' => 'application/json',
+            ])->timeout(30)->get(
+                "https://api.hostaway.com/v1/listings/{$propertyId}/calendar",
+                [
+                    'startDate' => $checkIn->format('Y-m-d'),
+                    'endDate'   => $checkOut->format('Y-m-d'),
+                ]
+            );
+
+            if ($response->successful() && isset($response->json()['result'])) {
+                $calendarData = $response->json()['result'];
+                if (is_array($calendarData) && count($calendarData) > 0) {
+                    $dailyPrices = [];
+                    foreach ($calendarData as $day) {
+                        if (!isset($day['date'])) continue;
+                        $dayDate = Carbon::parse($day['date'])->startOfDay();
+                        if ($dayDate >= $checkIn && $dayDate < $checkOut) {
+                            if (isset($day['price']) && is_numeric($day['price']) && $day['price'] > 0) {
+                                $dailyPrice = (float) $day['price'];
+                                $dailyPrices[] = $dailyPrice;
+                                $totalPrice += $dailyPrice;
+                            }
                         }
                     }
-                }
-
-                // Calculate average price per night
-                if (count($dailyPrices) > 0) {
-                    $pricePerNight = $totalPrice / count($dailyPrices);
+                    if (count($dailyPrices) > 0) {
+                        $pricePerNight = $totalPrice / count($dailyPrices);
+                    }
                 }
             }
         }
@@ -149,8 +169,8 @@ class PriceCalculationController extends Controller
         'status' => true,
         'message' => 'Price calculated successfully',
         'data' => [
-            'total_price' => round($totalPrice, 2),
-            'per_day' => round($pricePerNight, 2),
+            'total_price' => round($totalPrice), // Round to match live site
+            'per_day' => round($pricePerNight),   // Round to match live site
             'nights' => $nights,
             'guest' => $guests,
             'dates' => $allDates,
