@@ -49,9 +49,14 @@ use App\Http\Controllers\Api\AdminRegionController;
 use App\Http\Controllers\Api\VideoUploadController;
 use App\Http\Controllers\Api\IconUploadController;
 use App\Http\Controllers\Api\AdminFeaturedArrivalController;
+use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\CalendarController;
+
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
+
+// Send Inquiry
+Route::post('/send-inquiry', [InquiryController::class, 'store']);
 
 // availability
 // Route::get('availability', [AvailabilityController::class, 'index']);
