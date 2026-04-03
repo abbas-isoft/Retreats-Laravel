@@ -164,48 +164,43 @@ class PriceCalculationController extends Controller
         }
 
         try {
-
+            // Fetch all listings to find the one with the matching propertyId
             $listingResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.hostaway.token'),
                 'Content-Type' => 'application/json',
-            ])->timeout(20)->get("https://api.hostaway.com/v1/listings/");
+            ])->timeout(20)->get("https://api.hostaway.com/v1/listings");
 
             $listingData = $listingResponse->json();
-
             $bookingFeePercent = 0;
 
-            if (isset($listingData['result']['listingFeeSetting'])) {
+            if (isset($listingData['result']) && is_array($listingData['result'])) {
+                // Filter the listings to find our specific property
+                $specificListing = collect($listingData['result'])->firstWhere('id', $propertyId);
 
-                foreach ($listingData['result']['listingFeeSetting'] as $fee) {
-
-                    if (
-                        isset($fee['feeType']) &&
-                        $fee['feeType'] === 'serviceFee'
-                    ) {
-                        $bookingFeePercent = floatval($fee['amount']);
-                        break;
+                if ($specificListing && isset($specificListing['listingFeeSetting'])) {
+                    foreach ($specificListing['listingFeeSetting'] as $fee) {
+                        // Check for Booking Fee and if it's a percentage type
+                        if (
+                            isset($fee['feeTitle']) && $fee['feeTitle'] === 'Booking Fee' &&
+                            isset($fee['amountType']) && $fee['amountType'] === 'percent'
+                        ) {
+                            $bookingFeePercent = floatval($fee['amount']);
+                            break;
+                        }
                     }
                 }
             }
 
+            // Add booking fee **only if Booking Fee exists for this property**
             if ($bookingFeePercent > 0) {
-
-                $bookingFee = ($totalPrice * $bookingFeePercent) / 100;
-
-                Log::info("Booking Fee Percent: " . $bookingFeePercent);
-                Log::info("Booking Fee Amount: " . $bookingFee);
-
-                $totalPrice += $bookingFee;
+                $totalPrice += ($totalPrice * $bookingFeePercent) / 100;
+                Log::info("Added {$bookingFeePercent}% Booking Fee for property {$propertyId}");
             }
         } catch (\Exception $e) {
             Log::debug("Booking fee fetch error: " . $e->getMessage());
         }
 
-
-        $bookingFee = ($totalPrice * 1) / 100;
-        $totalPrice += $bookingFee;
-
-        // Step 4: Return response with calculated prices
+        // Return response with updated total price only
         return response()->json([
             'status' => true,
             'message' => 'Price calculated successfully',
