@@ -9,7 +9,6 @@ use App\Http\Resources\BookingStepResource;
 
 class BookingStepController extends Controller
 {
-    // GET /api/booking-steps
     public function show()
     {
         $data = BookingStep::latest()->first();
@@ -28,7 +27,6 @@ class BookingStepController extends Controller
         return new BookingStepResource($data);
     }
 
-    // POST
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -56,52 +54,44 @@ class BookingStepController extends Controller
 
     public function getBookingSteps()
     {
-        $bookingStep = BookingStep::latest()->first();
+        $steps = BookingStep::query()
+            ->orderByRaw('CASE WHEN step_number IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('step_number')
+            ->orderByDesc('id')
+            ->get();
 
-        if (!$bookingStep) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Booking Steps content not found.',
-            ], 404);
-        }
+        $stepsArray = $steps->map(function ($step) {
+            $imageUrl = $step->image_url;
 
+            if ($imageUrl && str_starts_with($imageUrl, 'http')) {
+                $finalImage = $imageUrl;
+            } elseif ($imageUrl) {
+                $finalImage = url('storage/images/' . $imageUrl);
+            } else {
+                $finalImage = null;
+            }
 
-        $imageUrl = $bookingStep->image_url;
-
-        if ($imageUrl && str_starts_with($imageUrl, 'http')) {
-            $finalImage = $imageUrl;
-        } elseif ($imageUrl) {
-            $finalImage = url('storage/images/' . $imageUrl);
-        } else {
-            $finalImage = url('images/image.jpg');
-        }
-
-        $section1 = [
-            'title'        => $bookingStep->title ?? '',
-            'content'      => $bookingStep->description ?? '',
-            'button_title' => $bookingStep->button_text ?? 'Enquire Now',
-            'image'        => $finalImage,
-        ];
-
-        // Section 2
-        // $section2 = [
-        //     'title' => $bookingStep->subtitle ?? '',
-        //     'content' => $bookingStep->note ?? '',
-        //     'button_title' => $bookingStep->button_text ?? 'Enquire Now',
-        //     'image' => $bookingStep->image_url 
-        //         ? url('images/'.$bookingStep->image_url) 
-        //         : url('images/image.jpg'),
-        // ];
+            return [
+                'id' => $step->id,
+                'title' => $step->title ?? '',
+                'subtitle' => $step->subtitle ?? '',
+                'description' => $step->description ?? '',
+                'note' => $step->note ?? '',
+                'image_url' => $finalImage,
+                'video_url' => $step->video_url ?? '',
+                'step_number' => $step->step_number ?? null,
+                'is_video' => $step->is_video ?? null,
+                'active' => $step->active ?? null,
+                'created_at' => $step->created_at,
+                'updated_at' => $step->updated_at,
+            ];
+        })->values();
 
         return response()->json([
             'status' => true,
             'message' => 'Booking Steps content fetched successfully.',
             'data' => [
-                'title' => $bookingStep->title ?? '',
-                'subtitle' => $bookingStep->subtitle ?? '',
-                'video_url' => $bookingStep->video_url ?? '',
-                'section_1' => $section1,
-                // 'section_2' => $section2,
+                'steps' => $stepsArray,
             ],
         ]);
     }
