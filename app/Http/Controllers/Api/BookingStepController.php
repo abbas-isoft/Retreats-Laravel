@@ -11,20 +11,7 @@ class BookingStepController extends Controller
 {
     public function show()
     {
-        $data = BookingStep::latest()->first();
-
-        if (!$data) {
-            return response()->json([
-                'title'       => null,
-                'subtitle'    => null,
-                'image_url'   => null,
-                'video_url'   => null,
-                'description' => null,
-                'note'        => null,
-            ]);
-        }
-
-        return new BookingStepResource($data);
+        return $this->getBookingSteps();
     }
 
     public function store(Request $request)
@@ -101,6 +88,15 @@ class BookingStepController extends Controller
 
     public function getBookingSteps()
     {
+        $header = BookingStep::query()
+            ->where(function ($q) {
+                $q->whereNotNull('title')
+                    ->orWhereNotNull('subtitle')
+                    ->orWhereNotNull('video_url');
+            })
+            ->orderByDesc('id')
+            ->first();
+
         $steps = BookingStep::query()
             ->orderByRaw('CASE WHEN step_number IS NULL THEN 1 ELSE 0 END')
             ->orderBy('step_number')
@@ -119,19 +115,10 @@ class BookingStepController extends Controller
             }
 
             return [
-                'id' => $step->id,
-                'title' => $step->title ?? '',
-                'subtitle' => $step->subtitle ?? '',
-                'cta_text' => $step->cta_text ?? '',
                 'description' => $step->description ?? '',
-                'note' => $step->note ?? '',
-                'image_url' => $finalImage,
-                'video_url' => $step->video_url ?? '',
-                'step_number' => $step->step_number ?? null,
-                'is_video' => $step->is_video ?? null,
-                'active' => $step->active ?? null,
-                'created_at' => $step->created_at,
-                'updated_at' => $step->updated_at,
+                'tagline' => $step->cta_text ?? '',
+                'button_title' => $step->note ?? '',
+                'image' => $finalImage,
             ];
         })->values();
 
@@ -139,6 +126,9 @@ class BookingStepController extends Controller
             'status' => true,
             'message' => 'Booking Steps content fetched successfully.',
             'data' => [
+                'title' => $header?->title ?? '',
+                'subtitle' => $header?->subtitle ?? '',
+                'video_url' => $header?->video_url ?? '',
                 'steps' => $stepsArray,
             ],
         ]);
