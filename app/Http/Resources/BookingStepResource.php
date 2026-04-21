@@ -13,6 +13,7 @@ class BookingStepResource extends JsonResource
             'id'          => $this->id,
             'title'       => $this->title,
             'subtitle'    => $this->subtitle,
+            'cta_text'    => $this->cta_text,
             'image_url'   => $this->image_url
                 ? (str_starts_with($this->image_url, 'http')
                     ? $this->image_url

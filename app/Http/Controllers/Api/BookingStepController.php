@@ -29,6 +29,28 @@ class BookingStepController extends Controller
 
     public function store(Request $request)
     {
+        $section1 = $request->input('section_1');
+        if (is_array($section1)) {
+            $merge = [];
+
+            if (!$request->filled('note') && isset($section1['button_title'])) {
+                $merge['note'] = $section1['button_title'];
+            }
+            if (!$request->filled('description') && isset($section1['content'])) {
+                $merge['description'] = $section1['content'];
+            }
+            if (!$request->filled('image_url') && isset($section1['image'])) {
+                $merge['image_url'] = $section1['image'];
+            }
+            if (!$request->filled('cta_text') && isset($section1['cta_text'])) {
+                $merge['cta_text'] = $section1['cta_text'];
+            }
+
+            if (!empty($merge)) {
+                $request->merge($merge);
+            }
+        }
+
         $validated = $request->validate([
             'title'       => ['nullable', 'string', 'max:255'],
             'subtitle'    => ['nullable', 'string'],
@@ -36,13 +58,38 @@ class BookingStepController extends Controller
             'video_url'   => ['nullable', 'string', 'max:2048'],
             'description' => ['nullable', 'string'],
             'note'        => ['nullable', 'string', 'max:255'],
+            'cta_text'    => ['nullable', 'string'],
+            'active'      => ['nullable', 'integer'],
+            'step_number' => ['nullable', 'integer'],
+            'is_video'    => ['nullable', 'integer'],
         ]);
 
-        $record = BookingStep::first();
+        if (!array_key_exists('cta_text', $validated) || $validated['cta_text'] === null) {
+            $existingCta = BookingStep::whereNotNull('cta_text')->latest()->value('cta_text');
+            if ($existingCta !== null) {
+                $validated['cta_text'] = $existingCta;
+            }
+        }
+
+        $record = null;
+
+        if ($request->filled('id')) {
+            $record = BookingStep::find($request->id);
+        }
 
         if ($record) {
             $record->update($validated);
         } else {
+            if (!array_key_exists('step_number', $validated) || $validated['step_number'] === null) {
+                $maxStep = BookingStep::max('step_number');
+                $validated['step_number'] = is_numeric($maxStep) ? ((int) $maxStep + 1) : 1;
+            }
+            if (!array_key_exists('active', $validated) || $validated['active'] === null) {
+                $validated['active'] = 1;
+            }
+            if (!array_key_exists('is_video', $validated) || $validated['is_video'] === null) {
+                $validated['is_video'] = 0;
+            }
             $record = BookingStep::create($validated);
         }
 
@@ -75,6 +122,7 @@ class BookingStepController extends Controller
                 'id' => $step->id,
                 'title' => $step->title ?? '',
                 'subtitle' => $step->subtitle ?? '',
+                'cta_text' => $step->cta_text ?? '',
                 'description' => $step->description ?? '',
                 'note' => $step->note ?? '',
                 'image_url' => $finalImage,

@@ -13,5 +13,9 @@ class BookingStep extends Model
         'video_url',
         'description',
         'note',
+        'cta_text',
+        'active',
+        'step_number',
+        'is_video',
     ];
 }
