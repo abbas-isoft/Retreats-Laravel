@@ -55,14 +55,15 @@ class InquiryController extends Controller
                 'listingMapId'   => (int) $hostawayId, // Some Hostaway versions use this
                 'arrivalDate'    => $request->check_in,
                 'departureDate'  => $request->check_out,
-                'guestName'      => $request->first_name,
+                'guestFirstName' => $request->first_name,
                 'guestLastName'  => $request->last_name,
+                'guestName'      => trim($request->first_name . ' ' . $request->last_name),
                 'guestEmail'     => $request->email,
                 'guestPhone'     => $request->phone,
                 'numberOfGuests' => (int) $request->guests,
                 'status'         => 'inquiry',
                 'hostNote'       => $request->message ?? 'New inquiry from website',
-                'channelId'      => 2000, // Direct channel (Group Retreats Website)
+                'channelId'      => 2018, // Partners channel
             ];
 
             $response = Http::withHeaders([
@@ -72,10 +73,31 @@ class InquiryController extends Controller
 
             if ($response->successful()) {
                 Log::info('Inquiry (Reservation) sent successfully');
+                
+                $reservationData = $response->json()['result'] ?? [];
+                $reservationId = $reservationData['id'] ?? null;
+
+                // 4. Send Message to Hostaway Inbox (Unified Inbox)
+                if ($reservationId && $request->filled('message')) {
+                    try {
+                        Log::info('Sending message to Hostaway Inbox for Reservation: ' . $reservationId);
+                        Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $token,
+                            'Content-Type'  => 'application/json',
+                        ])->post('https://api.hostaway.com/v1/messages', [
+                            'reservationId'     => $reservationId,
+                            'body'              => $request->message,
+                            'communicationType' => 'message'
+                        ]);
+                    } catch (\Exception $me) {
+                        Log::error('Failed to send message to Hostaway Inbox: ' . $me->getMessage());
+                    }
+                }
+
                 return response()->json([
                     'status'  => true,
                     'message' => 'Inquiry sent successfully to Hostaway as a Reservation (Status: inquiry)',
-                    'data'    => $response->json()['result'] ?? []
+                    'data'    => $reservationData
                 ]);
             }
 
@@ -88,10 +110,25 @@ class InquiryController extends Controller
                 ])->timeout(30)->post($url, $payload);
 
                 if ($response->successful()) {
+                    $reservationData = $response->json()['result'] ?? [];
+                    $reservationId = $reservationData['id'] ?? null;
+
+                    // Send Message to Inbox even in fallback
+                    if ($reservationId && $request->filled('message')) {
+                        Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $token,
+                            'Content-Type'  => 'application/json',
+                        ])->post('https://api.hostaway.com/v1/messages', [
+                            'reservationId'     => $reservationId,
+                            'body'              => $request->message,
+                            'communicationType' => 'message'
+                        ]);
+                    }
+
                     return response()->json([
                         'status'  => true,
                         'message' => 'Inquiry sent successfully (Fallback Channel 0)',
-                        'data'    => $response->json()['result'] ?? []
+                        'data'    => $reservationData
                     ]);
                 }
             }
