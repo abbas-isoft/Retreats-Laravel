@@ -63,7 +63,7 @@ class InquiryController extends Controller
                 'numberOfGuests' => (int) $request->guests,
                 'status'         => 'inquiry',
                 'hostNote'       => $request->message ?? 'New inquiry from website',
-                'channelId'      => 2018, // Partners channel
+                'channelId'      => 2000, // Reverting to 2000 as 2018 gave "Wrong channel ID"
             ];
 
             $response = Http::withHeaders([
