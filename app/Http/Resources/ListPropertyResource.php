@@ -37,6 +37,12 @@ class ListPropertyResource extends JsonResource
 
         $whyBoxes = $this->whyPartnerBoxes ?? [];
         $whyBoxesFormatted = [];
+        $whyPartnerSectionTitle = '';
+
+        if (count($whyBoxes) > 0) {
+            $whyPartnerSectionTitle = $whyBoxes[0]->section_title ?? '';
+        }
+
         foreach ($whyBoxes as $box) {
             $whyBoxesFormatted[] = [
                 'title'       => $box->box_title,
@@ -49,6 +55,7 @@ class ListPropertyResource extends JsonResource
             'subtitle' => $this->subtitle,
             'section1' => $section1,
             'section2' => $section2,
+            'why_partner_section_title'       => $whyPartnerSectionTitle,
             'why_partner_with_group_retreats' => $whyBoxesFormatted,
 
             // === SEO Section as Nested Object ===
