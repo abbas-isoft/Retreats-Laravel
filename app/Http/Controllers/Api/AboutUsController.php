@@ -36,15 +36,16 @@ class AboutUsController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'image' => 'nullable|string',
+            'tagline' => 'nullable|string',
         ]);
 
         $about = AboutUs::first();
 
         if ($about) {
-            $about->update($request->only(['title', 'description', 'image']));
+            $about->update($request->only(['title', 'description', 'image', 'tagline']));
             $message = 'About Us content updated successfully.';
         } else {
-            $about = AboutUs::create($request->only(['title', 'description', 'image']));
+            $about = AboutUs::create($request->only(['title', 'description', 'image', 'tagline']));
             $message = 'About Us content created successfully.';
         }
 
@@ -76,6 +77,7 @@ class AboutUsController extends Controller
 
         $section1 = $about ? [
             'title' => $about->title,
+            'tagline' => $about->tagline,
             'content' => $about->description,
             'button_title' => $about->button_text ?? 'Enquire Now',
             'image' => $getImageUrl($about->image),
