@@ -492,14 +492,12 @@ class AdminCollectionController extends Controller
     public function getRegionDestinations(Request $request)
     {
         $request->validate([
-            'region' => 'required|string',
+            'region_id' => 'required|exists:regions,id',
         ]);
 
-        $regionName = strtolower(trim($request->region));
-
-        // Fetch region record by name
+        // Fetch region record by ID
         $regionRecord = DB::table('regions')
-            ->whereRaw('LOWER(name) = ?', [$regionName])
+            ->where('id', $request->region_id)
             ->first();
 
         if (!$regionRecord) {
