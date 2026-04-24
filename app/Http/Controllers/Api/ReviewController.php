@@ -12,13 +12,21 @@ class ReviewController extends Controller
 {
     public function index(Request $request)
     {
-        $section_title = "Every Stay has a Story";
-        $section_subtitle = "Reviews from guests who have stayed in our luxury group accommodation.";
+        // Fetch title and subtitle from database, fallback to static defaults
+        $reviewSettings = Review::whereNotNull('title')->orWhereNotNull('subtitle')->first();
+        $section_title = ($reviewSettings && $reviewSettings->title) ? $reviewSettings->title : "Every Stay has a Story";
+        $section_subtitle = ($reviewSettings && $reviewSettings->subtitle) ? $reviewSettings->subtitle : "Reviews from guests who have stayed in our luxury group accommodation.";
 
         // Fetch reviews from Hostaway API
-        $hostawayReviews = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
-        ])->get('https://api.hostaway.com/v1/reviews')->json();
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
+            ])->timeout(10)->get('https://api.hostaway.com/v1/reviews');
+            
+            $hostawayReviews = $response->successful() ? ($response->json()['result'] ?? []) : [];
+        } catch (\Exception $e) {
+            $hostawayReviews = [];
+        }
 
     
         if (!is_array($hostawayReviews) || empty($hostawayReviews)) {
@@ -53,7 +61,8 @@ class ReviewController extends Controller
             );
         }
 
-        $reviews = Review::when($request->has('property_id'), function($query) use ($request) {
+        $reviews = Review::whereNotNull('review')
+            ->when($request->has('property_id'), function($query) use ($request) {
                 $query->where('property_id', $request->get('property_id'));
             })
             ->get();
@@ -67,6 +76,32 @@ class ReviewController extends Controller
 
     public function store(Request $request)
     {
+        // Check if updating Title/Subtitle settings
+        if ($request->has('title') || $request->has('subtitle')) {
+            $validated = $request->validate([
+                'title'    => 'nullable|string|max:255',
+                'subtitle' => 'nullable|string',
+            ]);
+
+            $settings = Review::whereNotNull('title')->orWhereNotNull('subtitle')->first();
+
+            if ($settings) {
+                $settings->update($validated);
+            } else {
+                $settings = Review::create($validated);
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Review settings updated successfully.',
+                'data'    => [
+                    'title' => $settings->title,
+                    'subtitle' => $settings->subtitle,
+                ]
+            ]);
+        }
+
+        // Otherwise, store a normal Review
         $validated = $request->validate([
             'property_id'    => 'required|integer',
             'review'         => 'required|string',
