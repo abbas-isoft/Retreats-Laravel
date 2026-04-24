@@ -11,5 +11,7 @@ class Review extends Model
         'review',
         'reviewer_name',
         'location',
+        'title',
+        'subtitle',
     ];
 }
