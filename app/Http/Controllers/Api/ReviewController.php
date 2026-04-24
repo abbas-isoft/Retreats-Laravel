@@ -17,54 +17,12 @@ class ReviewController extends Controller
         $section_title = ($reviewSettings && $reviewSettings->title) ? $reviewSettings->title : "Every Stay has a Story";
         $section_subtitle = ($reviewSettings && $reviewSettings->subtitle) ? $reviewSettings->subtitle : "Reviews from guests who have stayed in our luxury group accommodation.";
 
-        // Fetch reviews from Hostaway API
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('HOSTAWAY_API_TOKEN'),
-            ])->timeout(10)->get('https://api.hostaway.com/v1/reviews');
-            
-            $hostawayReviews = $response->successful() ? ($response->json()['result'] ?? []) : [];
-        } catch (\Exception $e) {
-            $hostawayReviews = [];
-        }
-
-    
-        if (!is_array($hostawayReviews) || empty($hostawayReviews)) {
-            $hostawayReviews = [
-                [
-                    'listingMapId' => 1,
-                    'guestName' => 'Test Guest',
-                    'publicReview' => 'This is a test review.',
-                    'arrivalDate' => '2025-12-01',
-                    'departureDate' => '2025-12-05'
-                ]
-            ];
-        }
-        if ($request->has('property_id')) {
-            $hostawayReviews = array_filter($hostawayReviews, function($review) use ($request) {
-                return ($review['listingMapId'] ?? null) == $request->get('property_id');
-            });
-        }
-
-        foreach ($hostawayReviews as $item) {
-            Review::updateOrCreate(
-                [
-                    'property_id'   => $item['listingMapId'] ?? null,
-                    'reviewer_name' => $item['guestName'] ?? 'Anonymous',
-                ],
-                [
-                    'review'         => $item['publicReview'] ?? $item['privateFeedback'] ?? '',
-                    'location' => $item['location'] ?? 'Unknown',
-                    'arrival_date'   => $item['arrivalDate'] ?? null,
-                    'departure_date' => $item['departureDate'] ?? null,
-                ]
-            );
-        }
-
+        // Fetch reviews only from local database (CMS handled)
         $reviews = Review::whereNotNull('review')
             ->when($request->has('property_id'), function($query) use ($request) {
                 $query->where('property_id', $request->get('property_id'));
             })
+            ->latest()
             ->get();
 
         return response()->json([
