@@ -53,18 +53,18 @@ class FetchContentListingJob implements ShouldQueue
                 ['property_id' => $propertyContent->property_id], // match by property_id
                 [
                     'property_url'          => $listing['publicAddress'] ?? null,
-                    'customer_property_id'  => $listing['internalListingName'] ?? null,
+                    'customer_property_id'  => $listing['internalListingName'] ?? 'N/A',
                     'accepted_payment_forms' => $listing['acceptedPaymentForms'] ?? '[]', // default empty JSON array
-                    'cancellation_policy'   => $listing['cancellationPolicy'] ?? null,
-                    'check_in_time'         => $listing['checkInTimeStart'] ?? null,
-                    'check_out_time'        => $listing['checkOutTime'] ?? null,
+                    'cancellation_policy'   => $listing['cancellationPolicy'] ?? 'standard',
+                    'check_in_time'         => $listing['checkInTimeStart'] ?? '16:00:00',
+                    'check_out_time'        => $listing['checkOutTime'] ?? '11:00:00',
                     'children_allowed'      => true,
                     'maximum_adults'        => $listing['personCapacity'] ?? 0,
                     'maximum_guests'        => $listing['personCapacity'] ?? 0,
                     'maximum_children'      => $listing['maxChildrenAllowed'] ?? 0,
                     'maximum_infants'       => $listing['maxInfantsAllowed'] ?? 0,
                     'maximum_pets'          => $listing['maxPetsAllowed'] ?? 0,
-                    'merchant_name'         => $listing['merchantName'] ?? '', // <-- fix applied
+                    'merchant_name'         => $listing['merchantName'] ?? 'N/A',
                     'pets_allowed'          => ($listing['maxPetsAllowed'] ?? 0) > 0,
                     'smoking_allowed'       => $listing['smokingAllowed'] ?? false,
                     'allow_bookings'        => $listing['instantBookable'] ?? false,
