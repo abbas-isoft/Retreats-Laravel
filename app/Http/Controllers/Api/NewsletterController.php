@@ -72,6 +72,9 @@ class NewsletterController extends Controller
                 ->post('https://api.hubapi.com/crm/v3/objects/contacts', [
                     'properties' => [
                         'email' => $email,
+                        'firstname' => 'Newsletter',
+                        'lastname' => 'Subscriber',
+                        'company' => 'GR Website Newsletter Subscriber',
                     ]
                 ]);
 
