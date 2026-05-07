@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\NewsletterSubscription;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class NewsletterController extends Controller
 {
@@ -19,6 +21,9 @@ class NewsletterController extends Controller
             $subscription = NewsletterSubscription::create([
                 'email' => $request->email,
             ]);
+
+            // Sync with HubSpot
+            $this->syncWithHubSpot($request->email);
 
             return response()->json([
                 'status' => true,
@@ -51,5 +56,35 @@ class NewsletterController extends Controller
             'message' => 'All subscribed emails fetched successfully.',
             'data' => $subscriptions
         ]);
+    }
+
+    private function syncWithHubSpot($email)
+    {
+        $token = env('HUBSPOT_ACCESS_TOKEN');
+
+        if (!$token) {
+            Log::warning('HubSpot Access Token is missing in .env');
+            return;
+        }
+
+        try {
+            $response = Http::withToken($token)
+                ->post('https://api.hubapi.com/crm/v3/objects/contacts', [
+                    'properties' => [
+                        'email' => $email,
+                    ]
+                ]);
+
+            if ($response->successful()) {
+                Log::info('Email successfully synced with HubSpot: ' . $email);
+            } else {
+                Log::error('HubSpot sync failed for: ' . $email, [
+                    'status' => $response->status(),
+                    'response' => $response->json()
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception during HubSpot sync: ' . $e->getMessage());
+        }
     }
 }
