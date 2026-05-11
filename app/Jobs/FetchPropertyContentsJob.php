@@ -140,7 +140,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                         // If image already exists in DB, update its sort_order and skip re-processing
                         if ($photoId && isset($existingImages[$photoId])) {
                             $existingImageId = $existingImages[$photoId];
-                            $content->images()->where('id', $existingImageId)->update(['sort_order' => $index]);
+                            $content->images()->where('id', $existingImageId)->update(['sort_order' => $img['sortOrder']]);
                             $newImageIds[] = $existingImageId;
                             continue;
                         }
