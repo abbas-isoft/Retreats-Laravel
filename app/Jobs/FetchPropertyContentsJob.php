@@ -134,12 +134,14 @@ class FetchPropertyContentsJob implements ShouldQueue
                         mkdir($storagePath, 0755, true);
                     }
 
-                    foreach ($images as $img) {
+                    foreach ($images as $index => $img) {
                         $photoId = $img['id'] ?? null;
                         
-                        // If image already exists in DB, skip processing but keep track of it
+                        // If image already exists in DB, update its sort_order and skip re-processing
                         if ($photoId && isset($existingImages[$photoId])) {
-                            $newImageIds[] = $existingImages[$photoId];
+                            $existingImageId = $existingImages[$photoId];
+                            $content->images()->where('id', $existingImageId)->update(['sort_order' => $index]);
+                            $newImageIds[] = $existingImageId;
                             continue;
                         }
 
@@ -213,6 +215,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                         $newImage = $content->images()->create([
                             'photo_id' => $photoId,
                             'url'      => $finalUrl,
+                            'sort_order' => $index,
                         ]);
                         $newImageIds[] = $newImage->id;
                     }

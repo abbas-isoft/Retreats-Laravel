@@ -43,7 +43,7 @@ class PropertyContent extends Model
 
     public function images()
     {
-        return $this->hasMany(\App\Models\PropertyContentImage::class, 'property_content_id', 'id');
+        return $this->hasMany(\App\Models\PropertyContentImage::class, 'property_content_id', 'id')->orderBy('sort_order', 'asc');
     }
     public function propertyContents()
     {
