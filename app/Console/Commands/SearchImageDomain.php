@@ -24,7 +24,7 @@ class SearchImageDomain extends Command
         $columns = DB::select("
             SELECT table_name, column_name
             FROM information_schema.columns
-            WHERE table_schema = 'supercontrol'
+            WHERE table_schema = 'retreat'
             AND data_type IN ('varchar','text','longtext')
             AND (
                 column_name LIKE '%url%' 
