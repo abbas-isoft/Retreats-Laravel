@@ -111,7 +111,7 @@ class AboutSectionController extends Controller
             'data' => [
                 'title' => $aboutSection->title,
                 'subtitle' => $aboutSection->subtitle ?? '',
-                'video_url' => env('APP_URL') . '/' . ltrim($aboutSection->video_url ?? '', '/'),
+                'video_url' => env('ADMIN_URL') . '/' . ltrim($aboutSection->video_url ?? '', '/'),
                 'faqs' => $faqSection->map(function($faq) {
                     return [
                         'question' => $faq->question,

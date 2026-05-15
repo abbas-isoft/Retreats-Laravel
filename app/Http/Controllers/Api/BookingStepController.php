@@ -109,7 +109,7 @@ class BookingStepController extends Controller
             if ($imageUrl && str_starts_with($imageUrl, 'http')) {
                 $finalImage = $imageUrl;
             } elseif ($imageUrl) {
-                $finalImage = env('APP_URL') . '/' . ltrim($imageUrl, '/');
+                $finalImage = env('ADMIN_URL') . '/' . ltrim($imageUrl, '/');
             } else {
                 $finalImage = null;
             }
@@ -128,7 +128,7 @@ class BookingStepController extends Controller
             'data' => [
                 'title' => $header?->title ?? '',
                 'subtitle' => $header?->subtitle ?? '',
-                'video_url' => env('APP_URL') . '/' . ltrim($header?->video_url ?? '', '/'),
+                'video_url' => env('ADMIN_URL') . '/' . ltrim($header?->video_url ?? '', '/'),
                 'steps' => $stepsArray,
             ],
         ]);

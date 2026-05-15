@@ -96,7 +96,7 @@ class AboutUsController extends Controller
             'data' => [
                 'title' => $about->title ?? '',
                 'subtitle' => $about->subtitle ?? '',
-                'video_url' => env('APP_URL') . '/' . ltrim($guide->video_url ?? '', '/'),
+                'video_url' => env('ADMIN_URL') . '/' . ltrim($guide->video_url ?? '', '/'),
                 'section_1' => $section1,
                 'section_2' => $section2,
             ],
