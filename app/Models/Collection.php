@@ -9,6 +9,11 @@ class Collection extends Model
 {
     protected $fillable = ['title', 'description', 'image'];
 
+    public function getImageAttribute($value)
+    {
+        return $value && !str_starts_with($value, 'http') ? env('ADMIN_URL') . '/' . $value : $value;
+    }
+
     public function properties()
 {
     return $this->belongsToMany(

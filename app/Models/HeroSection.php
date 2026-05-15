@@ -12,5 +12,10 @@ class HeroSection extends Model
         'button_text',
         'background_video_url',
     ];
+
+    public function getBackgroundVideoUrlAttribute($value)
+    {
+        return $value && !str_starts_with($value, 'http') ? env('ADMIN_URL') . '/' . $value : $value;
+    }
 }
 

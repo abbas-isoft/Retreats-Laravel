@@ -15,7 +15,7 @@ class OwnerSaySectionResource extends JsonResource
             'owner_name'          => $this->owner_name,
             'secondary_title'     => $this->secondary_title,
             'secondary_description'=> $this->secondary_description,
-            'image'               => $this->image ? asset('images/'.$this->image) : null,
+            'image'               => $this->image && !str_starts_with($this->image, 'http') ? env('ADMIN_URL') . '/' . $this->image : $this->image,
         ];
     }
 }

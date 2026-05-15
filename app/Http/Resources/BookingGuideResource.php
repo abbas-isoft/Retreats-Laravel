@@ -12,7 +12,7 @@ class BookingGuideResource extends JsonResource
         //    'title' => $this->title,
         'subtitle' => $this->subtitle,
         'video_url' => $this->video_url,
-        'image' => url('images/' . $this->image),
+        'image' => $this->image && !str_starts_with($this->image, 'http') ? env('ADMIN_URL') . '/' . $this->image : $this->image,
         'enquire_now_button' => $this->enquire_now_button,  // And this line
         'created_at' => $this->created_at,
         'updated_at' => $this->updated_at,

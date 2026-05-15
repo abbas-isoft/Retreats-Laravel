@@ -123,7 +123,9 @@ class PropertyContentController extends Controller
             $data = $locations->map(function ($location) {
                 $images = PropertyContentImage::where('property_content_id', $location->id)->get();
 
-                $imageUrls = $images->pluck('url');
+                $imageUrls = $images->pluck('url')->map(function ($url) {
+                    return $url && !str_starts_with($url, 'http') ? env('APP_URL') . '/' . $url : $url;
+                });
 
                 return [
                     'id' => $location->id,

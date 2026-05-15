@@ -15,7 +15,7 @@ class ImageUploadController extends Controller
         ]);
 
         $path = $request->file('image')->store('images', 'public');
-        $url = asset('storage/' . $path);
+        $url = env('ADMIN_URL') . '/storage/' . $path;
 
         return response()->json([
             'status' => true,

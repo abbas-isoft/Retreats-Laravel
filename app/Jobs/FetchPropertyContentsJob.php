@@ -123,25 +123,22 @@ class FetchPropertyContentsJob implements ShouldQueue
                     Log::info("Inserted New PropertyContent: {$propertyData['id']}");
                 }
 
-                if (!empty($images)) {        
-                    // Get existing images map [photo_id => id] to avoid re-fetching existing ones
-                    $existingImages = $content->images()->pluck('id', 'photo_id')->toArray();
+                // Ensure storage directory exists
+                $storagePath = storage_path('app/public/images');
+                if (!file_exists($storagePath)) {
+                    mkdir($storagePath, 0755, true);
+                }
+
+                if (!empty($images)) {
                     $newImageIds = [];
-
-                    // Define the storage path for property images
-                    $storagePath = public_path('storage/property_images');
-                    if (!file_exists($storagePath)) {
-                        mkdir($storagePath, 0755, true);
-                    }
-
                     foreach ($images as $index => $img) {
                         $photoId = $img['id'] ?? null;
-                        
-                        // If image already exists in DB, update its sort_order and skip re-processing
-                        if ($photoId && isset($existingImages[$photoId])) {
-                            $existingImageId = $existingImages[$photoId];
-                            $content->images()->where('id', $existingImageId)->update(['sort_order' => $img['sortOrder']]);
-                            $newImageIds[] = $existingImageId;
+
+                        // Skip if already processed
+                        $existingImage = $content->images()->where('photo_id', $photoId)->first();
+                        if ($existingImage) {
+                            $existingImage->update(['sort_order' => $index]);
+                            $newImageIds[] = $existingImage->id;
                             continue;
                         }
 
@@ -153,7 +150,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                                 // Generate a unique filename (WebP)
                                 $filename = 'prop_' . $content->property_id . '_' . ($photoId ?? uniqid()) . '.webp';
                                 $localPath = $storagePath . '/' . $filename;
-                                $publicUrl = asset('storage/property_images/' . $filename);
+                                $publicPath = 'storage/images/' . $filename;
 
                                 // Check if file already exists locally to avoid re-processing
                                 if (!file_exists($localPath)) {
@@ -193,18 +190,18 @@ class FetchPropertyContentsJob implements ShouldQueue
                                                 imagedestroy($optimizedImage);
 
                                                 // Update final URL to local optimized path
-                                                $finalUrl = $publicUrl;
+                                                $finalUrl = $publicPath;
                                             } else {
                                                 // If image is already small, just convert and save as WebP
                                                 imagewebp($sourceImage, $localPath, 75);
                                                 imagedestroy($sourceImage);
-                                                $finalUrl = $publicUrl;
+                                                $finalUrl = $publicPath;
                                             }
                                         }
                                     }
                                 } else {
-                                    // File exists, just use the public URL
-                                    $finalUrl = $publicUrl;
+                                    // File exists, just use the public path
+                                    $finalUrl = $publicPath;
                                 }
                             } catch (\Exception $e) {
                                 Log::warning("Image optimization failed for Property {$content->property_id}: " . $e->getMessage());

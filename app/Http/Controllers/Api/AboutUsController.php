@@ -68,11 +68,11 @@ class AboutUsController extends Controller
             ], 404);
         }
         $getImageUrl = function ($image) {
-            if (!$image) return url('images/default-about-us.jpg');
+            if (!$image) return env('ADMIN_URL') . '/images/default-about-us.jpg';
             if (preg_match('/^https?:\/\//', $image)) {
                 return $image;
             }
-            return url('storage/images/' . ltrim($image, '/'));
+            return env('ADMIN_URL') . '/' . ltrim($image, '/');
         };
 
         $section1 = $about ? [

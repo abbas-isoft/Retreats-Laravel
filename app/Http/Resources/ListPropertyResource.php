@@ -10,12 +10,12 @@ class ListPropertyResource extends JsonResource
     {
         $getImageUrl = function ($image, $default = '') {
             if (!$image) {
-                return $default ? url('images/' . $default) : '';
+                return $default ? env('ADMIN_URL') . '/images/' . $default : '';
             }
             if (preg_match('/^https?:\/\//', $image)) {
                 return $image;
             }
-            return url('storage/images/' . ltrim($image, '/'));
+            return env('ADMIN_URL') . '/' . ltrim($image, '/');
         };
 
         $section1 = [

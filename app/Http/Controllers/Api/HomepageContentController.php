@@ -231,7 +231,7 @@ class HomepageContentController extends Controller
         $optimizerChain = OptimizerChainFactory::create();
         $optimizerChain->optimize($webpFile);
 
-        $publicUrl = asset('storage/uploads/' . basename($webpFile));
+        $publicUrl = env('ADMIN_URL') . '/storage/uploads/' . basename($webpFile);
 
         return response()->json([
             'success' => true,

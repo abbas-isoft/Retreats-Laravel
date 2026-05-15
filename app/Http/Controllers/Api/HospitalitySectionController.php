@@ -23,6 +23,10 @@ class HospitalitySectionController extends Controller
                 : ($section->schema_markup ?? []);
         }
 
+        $formatUrl = function ($path) {
+            return $path && !str_starts_with($path, 'http') ? env('ADMIN_URL') . '/' . $path : $path;
+        };
+
         return response()->json([
             'status' => true,
             'data' => [
@@ -37,7 +41,7 @@ class HospitalitySectionController extends Controller
                     'og' => [
                         'title' => $section->og_title ?? '',
                         'description' => $section->og_description ?? '',
-                        'images' => $section->og_images ?? [],
+                        'images' => is_array($section->og_images) ? array_map($formatUrl, $section->og_images) : [],
                         'url' => $section->og_url ?? '',
                         'type' => $section->og_type ?? 'website',
                         'site_name' => $section->og_site_name ?? '',
@@ -48,7 +52,7 @@ class HospitalitySectionController extends Controller
                         'card' => $section->twitter_card ?? 'summary_large_image',
                         'title' => $section->twitter_title ?? '',
                         'description' => $section->twitter_description ?? '',
-                        'image' => $section->twitter_image ?? '',
+                        'image' => $formatUrl($section->twitter_image),
                         'site' => $section->twitter_site ?? '',
                     ],
                     'canonical_url' => $section->canonical_url ?? '',

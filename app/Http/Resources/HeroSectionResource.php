@@ -13,7 +13,7 @@ class HeroSectionResource extends JsonResource
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'button_text' => $this->button_text,
-            'background_video_url' => asset($this->background_video_url),
+            'background_video_url' => $this->background_video_url && !str_starts_with($this->background_video_url, 'http') ? env('ADMIN_URL') . '/' . $this->background_video_url : $this->background_video_url,
         ];
     }
 }

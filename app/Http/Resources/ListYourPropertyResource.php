@@ -13,7 +13,7 @@ class ListYourPropertyResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'subtitle' => $this->subtitle,
-          'image' => url('images/' . $this->image),
+          'image' => $this->image && !str_starts_with($this->image, 'http') ? env('ADMIN_URL') . '/' . ltrim($this->image, '/') : $this->image,
             'button_text' => $this->button_text,
             'button_link' => $this->button_link,
         ];

@@ -24,12 +24,12 @@ class IconUploadController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Icon already exists',
-                'image_url' => asset('images/' . $fileName),
+                'image_url' => env('ADMIN_URL') . '/images/' . $fileName,
             ], 409);
         }
 
         $file->move(public_path('images'), $fileName);
-        $url = asset('images/' . $fileName);
+        $url = env('ADMIN_URL') . '/images/' . $fileName;
 
         return response()->json([
             'status' => true,

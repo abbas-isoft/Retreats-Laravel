@@ -25,7 +25,7 @@ class ListYourPropertyController extends Controller
             'data' => [
                 'title' => $content->title,
                 'subtitle' => $content->subtitle,
-                'image' => asset('storage/' . $content->image),
+                'image' => $content->image && !str_starts_with($content->image, 'http') ? env('ADMIN_URL') . '/' . ltrim($content->image, '/') : $content->image,
                 'button_text' => $content->button_text,
                 'button_link' => $content->button_link,
             ]
@@ -44,7 +44,7 @@ class ListYourPropertyController extends Controller
 
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('list-property', 'public');
-            $validated['image'] = $imagePath;
+            $validated['image'] = 'storage/' . $imagePath;
         }
 
         $content = ListYourProperty::create($validated);

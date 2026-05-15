@@ -40,7 +40,7 @@ class CollectionController extends Controller
         
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('images', 'public');
-            $validated['image'] = '/storage/' . $imagePath;
+            $validated['image'] = 'storage/' . $imagePath;
         }
 
         if ($collection) {
@@ -84,7 +84,7 @@ class CollectionController extends Controller
                     'images' => $property->images->map(function ($image) {
                         return [
                             'photo_id' => $image->photo_id,
-                            'url' => asset($image->image_url),
+                            'url' => $image->url && !str_starts_with($image->url, 'http') ? env('APP_URL') . '/' . $image->url : $image->url,
                         ];
                     }),
                 ];

@@ -16,4 +16,9 @@ class ListYourProperty extends Model
         'button_text',
         'button_link',
     ];
+
+    public function getImageAttribute($value)
+    {
+        return $value && !str_starts_with($value, 'http') ? env('ADMIN_URL') . '/' . $value : $value;
+    }
 }

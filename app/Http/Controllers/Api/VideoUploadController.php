@@ -20,7 +20,7 @@ class VideoUploadController extends Controller
         $path = $request->file('video')->store('videos', 'public');
 
 
-        $url = asset('storage/' . $path);
+        $url = env('ADMIN_URL') . '/storage/' . $path;
 
         return response()->json([
             'status' => true,

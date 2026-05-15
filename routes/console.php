@@ -9,7 +9,7 @@ Schedule::command('fetch:availability-calendars')->everyFiveSeconds();
 Schedule::command('fetch:configurations')->dailyAt('02:00');
 Schedule::command('fetch:prices')->dailyAt('02:00');
 Schedule::command('fetch:property-contents')->everyFiveSeconds();
-Schedule::command('fetch:single-property')->dailyAt('02:00');
+// Schedule::command('fetch:single-property')->dailyAt('02:00');
 Schedule::command('fetch:prices-Listing')->everyTwoHours();
 Schedule::command('fetch:content-listing')->everyFiveSeconds();
 // Schedule::command('payments:charge-final')->dailyAt('02:00');

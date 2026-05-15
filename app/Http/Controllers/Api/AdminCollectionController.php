@@ -25,7 +25,7 @@ class AdminCollectionController extends Controller
         $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = asset('storage/' . $path);
+            $imageUrl = 'storage/' . $path;
         }
 
         $collection = Collection::where('title', $request->title)->first();
@@ -85,7 +85,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->id,
                 'name'        => $collection->title,
                 'description' => $collection->description,
-                'image'       => $collection->image,
+                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
                 'properties'  => $properties,
             ]
         ]);
@@ -177,7 +177,11 @@ class AdminCollectionController extends Controller
                 $property->images = DB::table('property_content_images')
                     ->where('property_content_id', $property->id)
                     ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
-                    ->get();
+                    ->get()
+                    ->map(function ($img) {
+                        $img->url = $img->url && !str_starts_with($img->url, 'http') ? env('APP_URL') . '/' . $img->url : $img->url;
+                        return $img;
+                    });
                 if (isset($property->admin_amenities)) {
                     $decoded = $property->admin_amenities;
                     if (is_string($decoded)) {
@@ -196,7 +200,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->id,
                 'name'        => $collection->title,
                 'description' => $collection->description,
-                'image'       => $collection->image,
+                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
                 'properties'  => $properties,
             ]
         ]);
@@ -212,7 +216,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->getKey(),
                 'title'       => $collection->title,
                 'description' => $collection->description,
-                'image'       => $collection->image,
+                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
             ];
         });
 
@@ -236,7 +240,7 @@ class AdminCollectionController extends Controller
         $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = asset('storage/' . $path);
+            $imageUrl = 'storage/' . $path;
         }
 
         $region = Region::where('name', $request->name)->first();
@@ -291,7 +295,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
-                'image'       => $region->image,
+                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
         ]);
@@ -315,7 +319,7 @@ class AdminCollectionController extends Controller
         $imageUrl = $region->image;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = asset('storage/' . $path);
+            $imageUrl = 'storage/' . $path;
         }
 
         $region->update([
@@ -358,7 +362,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
-                'image'       => $region->image,
+                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
         ]);
@@ -380,7 +384,10 @@ class AdminCollectionController extends Controller
     //  Get all regions
     public function getAllRegions()
     {
-        $regions = Region::select('id', 'name', 'description', 'image')->get();
+        $regions = Region::select('id', 'name', 'description', 'image')->get()->map(function ($region) {
+            $region->image = $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image;
+            return $region;
+        });
 
         return response()->json(['status' => true, 'data' => $regions]);
     }
@@ -407,7 +414,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
-                'image'       => $region->image,
+                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
         ]);

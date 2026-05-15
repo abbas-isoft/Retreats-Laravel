@@ -17,7 +17,7 @@ class BookingStepResource extends JsonResource
             'image_url'   => $this->image_url
                 ? (str_starts_with($this->image_url, 'http')
                     ? $this->image_url
-                    : asset('storage/images/' . $this->image_url))
+                    : env('ADMIN_URL') . '/' . ltrim($this->image_url, '/'))
                 : null,
             'video_url'   => $this->video_url,
             'description' => $this->description,

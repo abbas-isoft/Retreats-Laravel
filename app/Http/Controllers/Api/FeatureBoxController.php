@@ -12,8 +12,8 @@ class FeatureBoxController extends Controller
     public function index()
     {
         $boxes = FeatureBox::all()->map(function ($box) {
-            if (!str_starts_with($box->icon, 'http')) {
-                $box->icon = url('storage/images/' . $box->icon);
+            if ($box->icon && !str_starts_with($box->icon, 'http')) {
+                $box->icon = env('ADMIN_URL') . '/storage/images/' . $box->icon;
             }
             return $box;
         });
@@ -53,7 +53,7 @@ class FeatureBoxController extends Controller
             $featureBox = FeatureBox::create($validated);
             $message = 'Feature box created successfully.';
         }
-        $featureBox->icon = url('storage/images/' . $featureBox->icon);
+        $featureBox->icon = $featureBox->icon && !str_starts_with($featureBox->icon, 'http') ? env('ADMIN_URL') . '/storage/images/' . $featureBox->icon : $featureBox->icon;
 
         return response()->json([
             'status'  => true,

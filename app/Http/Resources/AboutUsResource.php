@@ -19,7 +19,7 @@ class AboutUsResource extends JsonResource
         'title' => $this->title,
         'tagline' => $this->tagline,
         'subtitle' => $this->subtitle,
-        'image' => url('images/' . $this->image),
+        'image' => $this->image && !str_starts_with($this->image, 'http') ? env('ADMIN_URL') . '/' . $this->image : $this->image,
         'description' => $this->description,
         'button_text' => $this->button_text,
     ];
