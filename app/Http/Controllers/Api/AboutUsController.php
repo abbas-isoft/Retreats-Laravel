@@ -68,11 +68,11 @@ class AboutUsController extends Controller
             ], 404);
         }
         $getImageUrl = function ($image) {
-            if (!$image) return env('ADMIN_URL') . '/images/default-about-us.jpg';
+            if (!$image) return env('APP_URL') . '/images/default-about-us.jpg';
             if (preg_match('/^https?:\/\//', $image)) {
                 return $image;
             }
-            return env('ADMIN_URL') . '/' . ltrim($image, '/');
+            return env('APP_URL') . '/' . ltrim($image, '/');
         };
 
         $section1 = $about ? [
@@ -96,7 +96,7 @@ class AboutUsController extends Controller
             'data' => [
                 'title' => $about->title ?? '',
                 'subtitle' => $about->subtitle ?? '',
-                'video_url' => $guide->video_url ?? '',
+                'video_url' => env('APP_URL') . '/' . ltrim($guide->video_url ?? '', '/'),
                 'section_1' => $section1,
                 'section_2' => $section2,
             ],
