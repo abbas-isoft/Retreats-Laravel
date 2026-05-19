@@ -83,21 +83,25 @@ class PropertyGridController extends Controller
         }
 
         if ($request->filled('region_id')) {
-            $regionIds = is_array($request->region_id)
-                ? $request->region_id
-                : explode(',', $request->region_id);
+            $regionIds = is_array($request->region_id) ? $request->region_id : explode(',', $request->region_id);
+            $query->whereIn('property_contents.property_id', function ($sub) use ($regionIds) {
+                $sub->select('property_id')->from('region_property')->whereIn('region_id', $regionIds);
+            });
+        }
 
-            $query->whereIn('property_id', function ($sub) use ($regionIds) {
-                $sub->select('property_id')
-                    ->from('region_property')
-                    ->whereIn('region_id', $regionIds);
+        if ($request->filled('region')) {
+            $regionName = $request->region;
+            $query->whereIn('property_contents.property_id', function ($sub) use ($regionName) {
+                $sub->select('rp.property_id')
+                    ->from('region_property as rp')
+                    ->join('regions as r', 'r.id', '=', 'rp.region_id')
+                    ->where('r.name', 'LIKE', '%' . $regionName . '%');
             });
         }
 
         if ($request->filled('address_line')) {
             $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
         }
-
 
         if ($request->filled('guest_capacity')) {
             $query->whereHas('content_listings', function ($q) use ($request) {
@@ -119,19 +123,8 @@ class PropertyGridController extends Controller
             }
         }
 
-
         if ($request->filled('city')) {
             $query->where('city', 'LIKE', '%' . $request->city . '%');
-        }
-
-        if ($request->filled('region')) {
-            $query->whereIn('property_id', function ($sub) use ($request) {
-                $sub->select('rp.property_id')
-                    ->from('region_property as rp')
-                    ->join('regions as r', 'r.id', '=', 'rp.region_id')
-                    ->where('r.active', 1)
-                    ->where('r.name', 'LIKE', '%' . $request->region . '%');
-            });
         }
 
 
