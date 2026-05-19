@@ -87,12 +87,10 @@ class PropertyGridController extends Controller
                 ? $request->region_id
                 : explode(',', $request->region_id);
 
-            $query->whereIn('id', function ($sub) use ($regionIds) {
-                $sub->select('pc.id')
-                    ->from('property_contents as pc')
-                    ->join('properties as p', 'p.id', '=', 'pc.property_id')
-                    ->join('region_property as rp', 'rp.property_id', '=', 'p.id')
-                    ->whereIn('rp.region_id', $regionIds);
+            $query->whereIn('property_id', function ($sub) use ($regionIds) {
+                $sub->select('property_id')
+                    ->from('region_property')
+                    ->whereIn('region_id', $regionIds);
             });
         }
 
@@ -127,9 +125,7 @@ class PropertyGridController extends Controller
         }
 
         if ($request->filled('region')) {
-
-            $query->whereIn('property_contents.property_id', function ($sub) use ($request) {
-
+            $query->whereIn('property_id', function ($sub) use ($request) {
                 $sub->select('rp.property_id')
                     ->from('region_property as rp')
                     ->join('regions as r', 'r.id', '=', 'rp.region_id')
