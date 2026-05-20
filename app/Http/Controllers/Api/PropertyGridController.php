@@ -105,7 +105,7 @@ class PropertyGridController extends Controller
 
         if ($request->filled('guest_capacity')) {
             $query->whereHas('content_listings', function ($q) use ($request) {
-                $q->where('maximum_guests', '>=', $request->guest_capacity);
+                $q->where('maximum_guests', '<=', $request->guest_capacity);
             });
         }
 
