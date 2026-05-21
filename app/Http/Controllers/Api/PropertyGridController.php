@@ -70,8 +70,7 @@ class PropertyGridController extends Controller
             }
         }
 
-        $guestCapacityParam = $request->input('guest_capacity') ?? $request->input('numberOfGuests');
-        $numberOfGuests = $guestCapacityParam ?? 1;
+        $numberOfGuests = $request->input('guest_capacity', 1);
 
         $query = \App\Models\PropertyContent::query()
             ->with(['images', 'regions', 'content_listings'])
@@ -104,9 +103,8 @@ class PropertyGridController extends Controller
             $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
         }
 
-        $guestCapacityFilter = $request->input('guest_capacity') ?? $request->input('numberOfGuests');
-        if ($guestCapacityFilter) {
-            $guestCapacity = $guestCapacityFilter;
+        if ($request->filled('guest_capacity')) {
+            $guestCapacity = $request->guest_capacity;
             $isPlus = str_contains($guestCapacity, '+');
 
             $query->whereHas('content_listings', function ($q) use ($guestCapacity, $isPlus) {
