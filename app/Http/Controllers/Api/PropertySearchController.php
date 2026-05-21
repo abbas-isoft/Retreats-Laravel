@@ -81,6 +81,7 @@ class PropertySearchController extends Controller
                 ) as property_name
             ")
         )
+        ->where('active', 1)
         ->whereRaw("
             LOWER(
                 TRIM(
