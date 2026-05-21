@@ -103,23 +103,25 @@ class PropertyGridController extends Controller
             $query->where('address_line', 'LIKE', '%' . $request->address_line . '%');
         }
 
-        if ($request->filled('guest_capacity')) {
+        if ($request->filled('guest_capacity') || $request->filled('numberOfGuests')) {
 
-            $guestCapacity = trim($request->guest_capacity);
+            // Existing logic same rakhi hai
+            $guestCapacity = $request->input('numberOfGuests')
+                ?? $request->guest_capacity;
 
-            $query->whereHas('content_listings', function ($q) use ($guestCapacity) {
+            $isPlus = str_contains($guestCapacity, '+');
 
-                $numGuests = (int) filter_var($guestCapacity, FILTER_SANITIZE_NUMBER_INT);
+            $query->whereHas('content_listings', function ($q) use ($guestCapacity, $isPlus) {
 
-                // Example:
-                // "10+" => 10 and above
-                // "10"  => upto 10
+                $numGuests = (int) str_replace('+', '', $guestCapacity);
 
-                if (str_contains($guestCapacity, '+')) {
+                if ($isPlus) {
 
+                    // 10+ => 10 and above
                     $q->where('maximum_guests', '>=', $numGuests);
                 } else {
 
+                    // Up to 10 Guests => 1 to 10
                     $q->where('maximum_guests', '<=', $numGuests);
                 }
             });
