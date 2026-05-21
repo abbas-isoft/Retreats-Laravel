@@ -171,19 +171,22 @@ class PropertyGridController extends Controller
 
 
 
-        if (!empty($startDate) && !empty($endDate)) {
-            $checkIn  = Carbon::parse($startDate);
-            $checkOut = Carbon::parse($endDate);
+        if ($request->filled('date_availability.start_date') && $request->filled('date_availability.end_date')) {
+            $checkIn  = Carbon::parse($request->date_availability['start_date']);
+            $checkOut = Carbon::parse($request->date_availability['end_date']);
 
             $query->whereHas('propertyAvailability.availabilityCalendars', function ($q) use ($checkIn, $checkOut) {
                 $q->where('start_date', '<=', $checkIn)
                     ->where('end_date', '>=', $checkOut);
             });
+        }
 
-            $query->whereDoesntHave('bookings', function ($q) use ($checkIn, $checkOut) {
-                $q->where(function ($query) use ($checkIn, $checkOut) {
-                    $query->whereBetween('start_date', [$checkIn, $checkOut])
-                        ->orWhereBetween('end_date', [$checkIn, $checkOut]);
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereDoesntHave('bookings', function ($q) use ($request) {
+                $q->where(function ($query) use ($request) {
+                    $query->whereBetween('start_date', [$request->start_date, $request->end_date])
+                        ->orWhereBetween('end_date', [$request->start_date, $request->end_date]);
                 });
             });
         }
