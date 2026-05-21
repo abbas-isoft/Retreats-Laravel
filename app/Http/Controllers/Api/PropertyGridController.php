@@ -104,14 +104,22 @@ class PropertyGridController extends Controller
         }
 
         if ($request->filled('guest_capacity')) {
-            $guestCapacity = $request->guest_capacity;
-            $isPlus = str_contains($guestCapacity, '+');
 
-            $query->whereHas('content_listings', function ($q) use ($guestCapacity, $isPlus) {
-                $numGuests = (int) str_replace('+', '', $guestCapacity);
-                if ($isPlus) {
+            $guestCapacity = trim($request->guest_capacity);
+
+            $query->whereHas('content_listings', function ($q) use ($guestCapacity) {
+
+                $numGuests = (int) filter_var($guestCapacity, FILTER_SANITIZE_NUMBER_INT);
+
+                // Example:
+                // "10+" => 10 and above
+                // "10"  => upto 10
+
+                if (str_contains($guestCapacity, '+')) {
+
                     $q->where('maximum_guests', '>=', $numGuests);
                 } else {
+
                     $q->where('maximum_guests', '<=', $numGuests);
                 }
             });
@@ -220,10 +228,10 @@ class PropertyGridController extends Controller
                 // MANDATORY: Filter out properties where Hostaway price is null when dates are provided
                 $properties = $properties->filter(function ($property) use ($priceMap) {
                     $hostawayListing = $priceMap[$property->property_id] ?? null;
-                    
+
                     // Hide property if not found in Hostaway or price is null
                     if (!$hostawayListing) return false;
-                    
+
                     $price = $hostawayListing['averageNightlyPrice'] ?? null;
                     return $price !== null;
                 });
