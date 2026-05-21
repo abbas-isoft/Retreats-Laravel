@@ -62,7 +62,7 @@ class InquiryController extends Controller
                 'guestPhone'     => $request->phone,
                 'numberOfGuests' => (int) $request->guests,
                 'status'         => 'inquiry',
-                'channelId'      => 2000,
+                'channelId'      => 2013,
             ];
 
             $response = Http::withHeaders([
