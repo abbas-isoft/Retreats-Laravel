@@ -110,9 +110,9 @@ class PropertyGridController extends Controller
             $query->whereHas('content_listings', function ($q) use ($guestCapacity, $isPlus) {
                 $numGuests = (int) str_replace('+', '', $guestCapacity);
                 if ($isPlus) {
-                    $q->where('maximum_guests', '>=', $numGuests);
-                } else {
                     $q->where('maximum_guests', '<=', $numGuests);
+                } else {
+                    $q->where('maximum_guests', '>=', $numGuests);
                 }
             });
         }
