@@ -62,7 +62,7 @@ class InquiryController extends Controller
                 'guestPhone'     => $request->phone,
                 'numberOfGuests' => (int) $request->guests,
                 'status'         => 'inquiry',
-                'channelId'      => 2013,
+                'channelId'      => 2000,
             ];
 
             $response = Http::withHeaders([
@@ -76,15 +76,12 @@ class InquiryController extends Controller
                 $reservationData = $response->json()['result'] ?? [];
                 $reservationId = $reservationData['id'] ?? null;
 
-                // 4. Send Message to Hostaway Inbox - First wait, then get conversation, then send message
+                // 4. Send Message to Hostaway Inbox - First get or create conversation
                 if ($reservationId && $request->filled('message')) {
                     try {
                         Log::info('Sending message to Hostaway Inbox for Reservation: ' . $reservationId);
                         
-                        // Wait a little to let Hostaway create the conversation
-                        sleep(1);
-                        
-                        // Get the conversation for this reservation
+                        // First, get the conversation for this reservation
                         $conversationResponse = Http::withHeaders([
                             'Authorization' => 'Bearer ' . $token,
                             'Content-Type'  => 'application/json',
@@ -92,53 +89,47 @@ class InquiryController extends Controller
                             'reservationId' => $reservationId
                         ]);
                         
+                        $conversationId = null;
                         if ($conversationResponse->successful()) {
                             $conversations = $conversationResponse->json()['result'] ?? [];
                             if (!empty($conversations)) {
                                 $conversationId = $conversations[0]['id'] ?? null;
-                                
-                                if ($conversationId) {
-                                    // Now send the message to this conversation
-                                    $messageResponse = Http::withHeaders([
-                                        'Authorization' => 'Bearer ' . $token,
-                                        'Content-Type'  => 'application/json',
-                                    ])->post('https://api.hostaway.com/v1/conversations/' . $conversationId . '/messages', [
-                                        'conversationId' => $conversationId,
-                                        'body' => $request->message,
-                                        'communicationType' => 'email',
-                                        'direction' => 'inbound'
-                                    ]);
-                                    
-                                    Log::info('Message sent to conversation response:', [
-                                        'status' => $messageResponse->status(), 
-                                        'response' => $messageResponse->json()
-                                    ]);
-                                }
                             }
-                        } else {
-                            // Fallback to direct messages endpoint
-                            Log::info('No conversation found, using direct messages endpoint');
+                        }
+                        
+                        // Now send the message to the conversation
+                        if ($conversationId) {
                             $messagePayload = [
-                                'reservationId'     => $reservationId,
-                                'body'              => $request->message,
+                                'conversationId' => $conversationId,
+                                'body' => $request->message,
                                 'communicationType' => 'email',
-                                'direction'         => 'inbound'
+                                'direction' => 'inbound'
                             ];
                             
                             $messageResponse = Http::withHeaders([
                                 'Authorization' => 'Bearer ' . $token,
                                 'Content-Type'  => 'application/json',
-                            ])->post('https://api.hostaway.com/v1/messages', $messagePayload);
+                            ])->post('https://api.hostaway.com/v1/conversations/' . $conversationId . '/messages', $messagePayload);
                             
-                            Log::info('Direct message sent response:', [
-                                'status' => $messageResponse->status(), 
-                                'response' => $messageResponse->json()
-                            ]);
+                            Log::info('Message sent response:', ['status' => $messageResponse->status(), 'response' => $messageResponse->json()]);
+                        } else {
+                            // If no conversation found, try direct message
+                            $directMessagePayload = [
+                                'reservationId' => $reservationId,
+                                'body' => $request->message,
+                                'communicationType' => 'email',
+                                'direction' => 'inbound'
+                            ];
+                            
+                            $directMessageResponse = Http::withHeaders([
+                                'Authorization' => 'Bearer ' . $token,
+                                'Content-Type'  => 'application/json',
+                            ])->post('https://api.hostaway.com/v1/messages', $directMessagePayload);
+                            
+                            Log::info('Direct message sent response:', ['status' => $directMessageResponse->status(), 'response' => $directMessageResponse->json()]);
                         }
                     } catch (\Exception $me) {
-                        Log::error('Failed to send message to Hostaway Inbox: ' . $me->getMessage(), [
-                            'exception' => $me
-                        ]);
+                        Log::error('Failed to send message to Hostaway Inbox: ' . $me->getMessage(), ['exception' => $me]);
                     }
                 }
 
