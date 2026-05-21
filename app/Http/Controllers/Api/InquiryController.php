@@ -103,7 +103,7 @@ class InquiryController extends Controller
                                 'conversationId' => $conversationId,
                                 'body' => $request->message,
                                 'communicationType' => 'email',
-                                'direction' => 'outbound'
+                                'direction' => 'inbound'
                             ];
                             
                             $messageResponse = Http::withHeaders([
@@ -117,7 +117,8 @@ class InquiryController extends Controller
                             $directMessagePayload = [
                                 'reservationId' => $reservationId,
                                 'body' => $request->message,
-                                'communicationType' => 'email'
+                                'communicationType' => 'email',
+                                'direction' => 'inbound'
                             ];
                             
                             $directMessageResponse = Http::withHeaders([
@@ -161,7 +162,8 @@ class InquiryController extends Controller
                             ])->post('https://api.hostaway.com/v1/messages', [
                                 'reservationId'     => $reservationId,
                                 'body'              => $request->message,
-                                'communicationType' => 'email'
+                                'communicationType' => 'email',
+                                'direction'         => 'inbound'
                             ]);
                         } catch (\Exception $me) {
                             Log::error('Failed to send message (fallback) to Hostaway Inbox: ' . $me->getMessage());
