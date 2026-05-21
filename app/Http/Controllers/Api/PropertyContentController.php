@@ -253,6 +253,7 @@ class PropertyContentController extends Controller
 
             $similarProperties = PropertyContent::with(['images', 'listing', 'rooms.beds'])
                 ->where('id', '!=', $property->id)
+                ->where('active', 1)
                 ->where('property_type', $property->property_type)
                 ->whereBetween('bedroom_count', [$property->bedroom_count - 1, $property->bedroom_count + 1])
                 ->whereBetween('bathroom_count', [$property->bathroom_count - 1, $property->bathroom_count + 1])
