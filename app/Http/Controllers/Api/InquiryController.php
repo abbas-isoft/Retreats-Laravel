@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\PropertyContent;
+use Illuminate\Support\Facades\Mail;
 
 class InquiryController extends Controller
 {
@@ -16,9 +17,14 @@ class InquiryController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validation
+        /*
+    |--------------------------------------------------------------------------
+    | 1. Validation
+    |--------------------------------------------------------------------------
+    */
+
         $validator = Validator::make($request->all(), [
-            'listing_id' => 'required', 
+            'listing_id' => 'required',
             'first_name' => 'required|string|max:255',
             'last_name'  => 'required|string|max:255',
             'email'      => 'required|email|max:255',
@@ -30,6 +36,7 @@ class InquiryController extends Controller
         ]);
 
         if ($validator->fails()) {
+
             return response()->json([
                 'status'  => false,
                 'message' => 'Validation error',
@@ -37,163 +44,264 @@ class InquiryController extends Controller
             ], 422);
         }
 
-        // 2. Map local listing_id to Hostaway property_id
+        /*
+    |--------------------------------------------------------------------------
+    | 2. Find Property
+    |--------------------------------------------------------------------------
+    */
+
         $property = PropertyContent::where('id', $request->listing_id)
             ->orWhere('property_id', $request->listing_id)
             ->first();
 
-        $hostawayId = $property ? $property->property_id : $request->listing_id;
+        $hostawayId = $property
+            ? $property->property_id
+            : $request->listing_id;
 
-        // 3. Send Inquiry to Hostaway using Reservations endpoint with status 'inquiry'
+        /*
+    |--------------------------------------------------------------------------
+    | 3. Create Inquiry in Hostaway
+    |--------------------------------------------------------------------------
+    */
+
         try {
-            $token = config('services.hostaway.token');
-            Log::info('Sending Inquiry to Hostaway as Reservation', ['listing_id' => $hostawayId]);
 
-            $url = 'https://api.hostaway.com/v1/reservations';
+            $token = config('services.hostaway.token');
+
             $payload = [
+
                 'listingId'      => (int) $hostawayId,
                 'listingMapId'   => (int) $hostawayId,
+
                 'arrivalDate'    => $request->check_in,
                 'departureDate'  => $request->check_out,
-                'source'         => env('APP_NAME', 'Group Retreats') . ' Website',
+
+                'source'         => 'Website Inquiry',
+
                 'guestFirstName' => $request->first_name,
                 'guestLastName'  => $request->last_name,
-                'guestName'      => trim($request->first_name . ' ' . $request->last_name),
+
+                'guestName'      => trim(
+                    $request->first_name . ' ' . $request->last_name
+                ),
+
                 'guestEmail'     => $request->email,
                 'guestPhone'     => $request->phone,
+
                 'numberOfGuests' => (int) $request->guests,
+
                 'status'         => 'inquiry',
+
                 'channelId'      => 2000,
             ];
+
+            Log::info('Creating Hostaway Inquiry', $payload);
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token,
                 'Content-Type'  => 'application/json',
-            ])->timeout(30)->retry(2, 100)->post($url, $payload);
+            ])
+                ->timeout(30)
+                ->retry(2, 100)
+                ->post(
+                    'https://api.hostaway.com/v1/reservations',
+                    $payload
+                );
 
-            if ($response->successful()) {
-                Log::info('Inquiry (Reservation) sent successfully');
-                
-                $reservationData = $response->json()['result'] ?? [];
-                $reservationId = $reservationData['id'] ?? null;
+            /*
+        |--------------------------------------------------------------------------
+        | 4. Failed?
+        |--------------------------------------------------------------------------
+        */
 
-                // 4. Send Message to Hostaway Inbox - First get or create conversation
-                if ($reservationId && $request->filled('message')) {
-                    try {
-                        Log::info('Sending message to Hostaway Inbox for Reservation: ' . $reservationId);
-                        
-                        // First, get the conversation for this reservation
-                        $conversationResponse = Http::withHeaders([
-                            'Authorization' => 'Bearer ' . $token,
-                            'Content-Type'  => 'application/json',
-                        ])->get('https://api.hostaway.com/v1/conversations', [
-                            'reservationId' => $reservationId
-                        ]);
-                        
-                        $conversationId = null;
-                        if ($conversationResponse->successful()) {
-                            $conversations = $conversationResponse->json()['result'] ?? [];
-                            if (!empty($conversations)) {
-                                $conversationId = $conversations[0]['id'] ?? null;
-                            }
-                        }
-                        
-                        // Now send the message to the conversation
-                        if ($conversationId) {
-                            $messagePayload = [
-                                'conversationId' => $conversationId,
-                                'body' => $request->message,
-                                'communicationType' => 'email',
-                                'direction' => 'inbound'
-                            ];
-                            
-                            $messageResponse = Http::withHeaders([
-                                'Authorization' => 'Bearer ' . $token,
-                                'Content-Type'  => 'application/json',
-                            ])->post('https://api.hostaway.com/v1/conversations/' . $conversationId . '/messages', $messagePayload);
-                            
-                            Log::info('Message sent response:', ['status' => $messageResponse->status(), 'response' => $messageResponse->json()]);
-                        } else {
-                            // If no conversation found, try direct message
-                            $directMessagePayload = [
-                                'reservationId' => $reservationId,
-                                'body' => $request->message,
-                                'communicationType' => 'email',
-                                'direction' => 'inbound'
-                            ];
-                            
-                            $directMessageResponse = Http::withHeaders([
-                                'Authorization' => 'Bearer ' . $token,
-                                'Content-Type'  => 'application/json',
-                            ])->post('https://api.hostaway.com/v1/messages', $directMessagePayload);
-                            
-                            Log::info('Direct message sent response:', ['status' => $directMessageResponse->status(), 'response' => $directMessageResponse->json()]);
-                        }
-                    } catch (\Exception $me) {
-                        Log::error('Failed to send message to Hostaway Inbox: ' . $me->getMessage(), ['exception' => $me]);
-                    }
-                }
+            if (!$response->successful()) {
+
+                Log::error('Hostaway reservation failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->body()
+                ]);
 
                 return response()->json([
-                    'status'  => true,
-                    'message' => 'Inquiry sent successfully to Hostaway as a Reservation (Status: inquiry)',
-                    'data'    => $reservationData
+                    'status'  => false,
+                    'message' => 'Failed to create inquiry',
+                    'error'   => $response->json()
+                ], 400);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | 5. Reservation Created
+        |--------------------------------------------------------------------------
+        */
+
+            $reservationData = $response->json()['result'] ?? [];
+
+            $reservationId = $reservationData['id'] ?? null;
+
+            Log::info('Hostaway reservation created', [
+                'reservation_id' => $reservationId
+            ]);
+
+            /*
+        |--------------------------------------------------------------------------
+        | 6. NO MESSAGE? RETURN
+        |--------------------------------------------------------------------------
+        */
+
+            if (!$request->filled('message')) {
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Inquiry created successfully',
+                    'data' => $reservationData
                 ]);
             }
 
-            // If 403 Forbidden with channel ID, try without channelId or with 0
-            if ($response->status() == 403) {
-                $payload['channelId'] = 0;
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $token,
-                    'Content-Type'  => 'application/json',
-                ])->timeout(30)->post($url, $payload);
+            /*
+        |--------------------------------------------------------------------------
+        | 7. Wait briefly for conversation creation
+        |--------------------------------------------------------------------------
+        */
 
-                if ($response->successful()) {
-                    $reservationData = $response->json()['result'] ?? [];
-                    $reservationId = $reservationData['id'] ?? null;
+            sleep(2);
 
-                    // Send Message to Inbox even in fallback
-                    if ($reservationId && $request->filled('message')) {
-                        try {
-                            Log::info('Sending message (fallback) to Hostaway Inbox for Reservation: ' . $reservationId);
-                            Http::withHeaders([
-                                'Authorization' => 'Bearer ' . $token,
-                                'Content-Type'  => 'application/json',
-                            ])->post('https://api.hostaway.com/v1/messages', [
-                                'reservationId'     => $reservationId,
-                                'body'              => $request->message,
-                                'communicationType' => 'email',
-                                'direction'         => 'inbound'
-                            ]);
-                        } catch (\Exception $me) {
-                            Log::error('Failed to send message (fallback) to Hostaway Inbox: ' . $me->getMessage());
-                        }
-                    }
+            /*
+        |--------------------------------------------------------------------------
+        | 8. Fetch Conversation
+        |--------------------------------------------------------------------------
+        */
 
-                    return response()->json([
-                        'status'  => true,
-                        'message' => 'Inquiry sent successfully (Fallback Channel 0)',
-                        'data'    => $reservationData
-                    ]);
-                }
+            $conversationResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+            ])->get(
+                'https://api.hostaway.com/v1/conversations',
+                [
+                    'reservationId' => $reservationId
+                ]
+            );
+
+            Log::info('Conversation response', [
+                'response' => $conversationResponse->json()
+            ]);
+
+            if (!$conversationResponse->successful()) {
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Inquiry created but conversation not ready',
+                    'data' => $reservationData
+                ]);
             }
 
-            // Error Response
-            return response()->json([
-                'status'  => false,
-                'message' => 'Failed to send inquiry to Hostaway (Reservation API)',
-                'listing_sent' => $hostawayId,
-                'error' => $response->json()['message'] ?? 'Resource not found',
-                'hostaway_response' => $response->json()
-            ], 400);
+            $conversation = $conversationResponse->json()['result'][0] ?? null;
 
-        } catch (\Exception $e) {
-            Log::error('Inquiry Controller Exception: ' . $e->getMessage());
+            if (!$conversation) {
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Inquiry created but no conversation found',
+                    'data' => $reservationData
+                ]);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | 9. IMPORTANT
+        |--------------------------------------------------------------------------
+        |
+        | Inspect Hostaway conversation payload carefully.
+        |
+        | You need the relay/proxy email field.
+        |
+        */
+
+            Log::info('Conversation payload', [
+                'conversation' => $conversation
+            ]);
+
+            /*
+        |--------------------------------------------------------------------------
+        | 10. Extract Proxy Email
+        |--------------------------------------------------------------------------
+        */
+
+            $proxyEmail =
+                $conversation['proxyEmail']
+                ?? $conversation['guestProxyEmail']
+                ?? $conversation['email']
+                ?? null;
+
+            if (!$proxyEmail) {
+
+                Log::warning('No proxy email found in conversation');
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Inquiry created but proxy email missing',
+                    'data' => $reservationData
+                ]);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | 11. Send REAL Email
+        |--------------------------------------------------------------------------
+        */
+
+            Mail::raw($request->message, function ($message)
+            use ($proxyEmail, $request) {
+
+                $message->to($proxyEmail)
+
+                    ->from(
+                        env('MAIL_FROM_ADDRESS'),
+                        'Group Retreats'
+                    )
+
+                    ->replyTo(
+                        $request->email,
+                        trim(
+                            $request->first_name
+                                . ' '
+                                . $request->last_name
+                        )
+                    )
+
+                    ->subject(
+                        'Inquiry from '
+                            . $request->first_name
+                            . ' '
+                            . $request->last_name
+                    );
+            });
+
+            Log::info('Guest-originated email sent', [
+                'proxy_email' => $proxyEmail
+            ]);
+
+            /*
+        |--------------------------------------------------------------------------
+        | 12. Done
+        |--------------------------------------------------------------------------
+        */
+
             return response()->json([
-                'status'  => false,
-                'message' => 'An error occurred while processing your inquiry',
-                'error'   => $e->getMessage()
+                'status' => true,
+                'message' => 'Inquiry created successfully',
+                'data' => $reservationData
+            ]);
+        } catch (\Exception $e) {
+
+            Log::error('Inquiry Exception', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Server error',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
