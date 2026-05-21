@@ -217,15 +217,9 @@ class PropertyGridController extends Controller
                 $hostawayData = $hostawayResponse->json()['result'] ?? [];
                 $priceMap = collect($hostawayData)->keyBy('id');
 
-                // MANDATORY: Filter out properties where Hostaway price is null when dates are provided
+                // Keep properties even if Hostaway price is missing
                 $properties = $properties->filter(function ($property) use ($priceMap) {
-                    $hostawayListing = $priceMap[$property->property_id] ?? null;
-                    
-                    // Hide property if not found in Hostaway or price is null
-                    if (!$hostawayListing) return false;
-                    
-                    $price = $hostawayListing['averageNightlyPrice'] ?? null;
-                    return $price !== null;
+                    return true;
                 });
             } catch (\Exception $e) {
                 Log::error("Hostaway API error in PropertyGridController: " . $e->getMessage());
