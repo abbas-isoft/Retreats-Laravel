@@ -55,6 +55,7 @@ class InquiryController extends Controller
                 'listingMapId'   => (int) $hostawayId,
                 'arrivalDate'    => $request->check_in,
                 'departureDate'  => $request->check_out,
+                'source'         => env('APP_NAME', 'Group Retreats') . ' Website',
                 'guestFirstName' => $request->first_name,
                 'guestLastName'  => $request->last_name,
                 'guestName'      => trim($request->first_name . ' ' . $request->last_name),
