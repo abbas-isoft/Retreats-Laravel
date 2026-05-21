@@ -206,7 +206,7 @@ class PropertyGridController extends Controller
                 $bulkUrl = "https://api.hostaway.com/bookingEngines/booking.groupretreats.co.uk/listings";
                 $bulkParams = [
                     'dates' => [$isoStart, $isoEnd],
-                    'availabilityGuestNumber' => $numberOfGuests,
+                    // 'availabilityGuestNumber' => $numberOfGuests,
                     'calendarAvailabilityStartDate' => $startDate,
                     'calendarAvailabilityEndDate' => $endDate,
                     'limit' => 100,
