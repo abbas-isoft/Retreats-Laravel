@@ -206,7 +206,7 @@ class PriceCalculationController extends Controller
             'message' => 'Price calculated successfully',
             'data' => [
                 'total_price' => ($totalPrice),
-                'per_day' => ($totalPrice / $nights),
+                'per_day' => round($totalPrice / $nights),
                 'nights' => $nights,
                 'guest' => $guests,
                 'dates' => $allDates,
