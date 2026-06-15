@@ -106,7 +106,8 @@ class AdminFeaturedArrivalController extends Controller
             ->map(function ($property) {
                 $images = DB::table('property_content_images')
                     ->where('property_content_id', $property->id)
-                    ->select('id', 'property_content_id', 'photo_id', 'url', 'created_at', 'updated_at')
+                    ->select('id', 'property_content_id', 'photo_id', 'url', 'sort_order', 'created_at', 'updated_at')
+                    ->orderBy('sort_order', 'asc')
                     ->get()
                     ->map(function ($img) {
                         $img->url = $img->url && !str_starts_with($img->url, 'http') ? env('APP_URL') . '/' . $img->url : $img->url;
