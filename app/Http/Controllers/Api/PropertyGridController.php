@@ -112,7 +112,7 @@ class PropertyGridController extends Controller
                 if ($isPlus) {
                     $q->where('maximum_guests', '>=', $numGuests);
                 } else {
-                    $q->where('maximum_guests', '<=', $numGuests);
+                    $q->where('maximum_guests', '>=', $numGuests);
                 }
             });
         }
