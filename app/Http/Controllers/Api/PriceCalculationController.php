@@ -103,6 +103,20 @@ class PriceCalculationController extends Controller
             if ($listingData) {
                 $pricePerNight = $listingData['averageNightlyPrice'] ?? 0;
                 $totalPrice = $listingData['totalPriceForGivenPeriod'] ?? 0;
+
+                // The booking-engine list price does not include the listing's
+                // length-of-stay discount. Hostaway stores the discounted
+                // multiplier (for example, 0.85 means 15% off) on the listing.
+                $weeklyDiscountMultiplier = data_get($listingData, 'listing.weeklyDiscount');
+
+                if (
+                    $nights >= 7 &&
+                    is_numeric($weeklyDiscountMultiplier) &&
+                    $weeklyDiscountMultiplier > 0 &&
+                    $weeklyDiscountMultiplier < 1
+                ) {
+                    $totalPrice *= (float) $weeklyDiscountMultiplier;
+                }
             }
 
             // Fallback to Calendar API if Booking Engine doesn't return data
