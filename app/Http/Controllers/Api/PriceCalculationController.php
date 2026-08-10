@@ -79,8 +79,37 @@ class PriceCalculationController extends Controller
         $totalPrice = 0;
         $pricePerNight = 0;
         $weeklyDiscountApplied = false;
+        $priceDetailsApplied = false;
 
         try {
+            // Use Hostaway's authoritative price calculator first. Its totalPrice
+            // already includes LOS discounts and mandatory fees in the same order
+            // as the Hostaway booking engine.
+            $priceDetailsResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('services.hostaway.token'),
+                'Content-Type' => 'application/json',
+            ])->timeout(30)->post(
+                "https://api.hostaway.com/v1/listings/{$propertyId}/calendar/priceDetails",
+                [
+                    'startingDate' => $checkIn->format('Y-m-d'),
+                    'endingDate' => $checkOut->format('Y-m-d'),
+                    'numberOfGuests' => (int) $guests,
+                    'version' => 2,
+                ]
+            );
+
+            $calculatedTotal = $priceDetailsResponse->json('result.totalPrice');
+
+            if (
+                $priceDetailsResponse->successful() &&
+                is_numeric($calculatedTotal) &&
+                $calculatedTotal > 0
+            ) {
+                $totalPrice = (float) $calculatedTotal;
+                $pricePerNight = $totalPrice / $nights;
+                $priceDetailsApplied = true;
+            }
+
             // Use Booking Engine logic to match live site exactly
             $isoStart = $checkIn->copy()->subDay()->format('Y-m-d\T19:00:00.000\Z');
             $isoEnd = $checkOut->copy()->subDay()->format('Y-m-d\T19:00:00.000\Z');
@@ -95,8 +124,12 @@ class PriceCalculationController extends Controller
                 'offset' => 0
             ];
 
-            $hostawayResponse = Http::timeout(60)->get($bulkUrl, $bulkParams);
-            $hostawayData = $hostawayResponse->json()['result'] ?? [];
+            $hostawayData = [];
+
+            if (!$priceDetailsApplied) {
+                $hostawayResponse = Http::timeout(60)->get($bulkUrl, $bulkParams);
+                $hostawayData = $hostawayResponse->json()['result'] ?? [];
+            }
 
             // Find the specific property in the results
             $listingData = collect($hostawayData)->firstWhere('id', $propertyId);
@@ -181,7 +214,8 @@ class PriceCalculationController extends Controller
             }
         }
 
-        try {
+        if (!$priceDetailsApplied) {
+            try {
             // Fetch all listings to find the one with the matching propertyId
             $listingResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . config('services.hostaway.token'),
@@ -230,8 +264,9 @@ class PriceCalculationController extends Controller
                 $totalPrice += ($totalPrice * $bookingFeePercent) / 100;
                 Log::info("Added {$bookingFeePercent}% Booking Fee for property {$propertyId}");
             }
-        } catch (\Exception $e) {
-            Log::debug("Booking fee fetch error: " . $e->getMessage());
+            } catch (\Exception $e) {
+                Log::debug("Booking fee fetch error: " . $e->getMessage());
+            }
         }
 
         // Return response with updated total price only
