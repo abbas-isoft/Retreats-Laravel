@@ -78,6 +78,7 @@ class PriceCalculationController extends Controller
         // Step 3: Fetch prices from Hostaway Booking Engine API
         $totalPrice = 0;
         $pricePerNight = 0;
+        $weeklyDiscountApplied = false;
 
         try {
             // Use Booking Engine logic to match live site exactly
@@ -107,7 +108,9 @@ class PriceCalculationController extends Controller
                 // The booking-engine list price does not include the listing's
                 // length-of-stay discount. Hostaway stores the discounted
                 // multiplier (for example, 0.85 means 15% off) on the listing.
-                $weeklyDiscountMultiplier = data_get($listingData, 'listing.weeklyDiscount');
+                $weeklyDiscountMultiplier = $listingData['listing']['weeklyDiscount']
+                    ?? $listingData['weeklyDiscount']
+                    ?? null;
 
                 if (
                     $nights >= 7 &&
@@ -116,6 +119,7 @@ class PriceCalculationController extends Controller
                     $weeklyDiscountMultiplier < 1
                 ) {
                     $totalPrice *= (float) $weeklyDiscountMultiplier;
+                    $weeklyDiscountApplied = true;
                 }
             }
 
@@ -190,6 +194,22 @@ class PriceCalculationController extends Controller
             if (isset($listingData['result']) && is_array($listingData['result'])) {
                 // Filter the listings to find our specific property
                 $specificListing = collect($listingData['result'])->firstWhere('id', $propertyId);
+
+                // The authenticated listing response exposes weeklyDiscount at
+                // the top level. Use it when the booking-engine response did not
+                // contain/apply the multiplier, then calculate fees afterwards.
+                $weeklyDiscountMultiplier = $specificListing['weeklyDiscount'] ?? null;
+
+                if (
+                    !$weeklyDiscountApplied &&
+                    $nights >= 7 &&
+                    is_numeric($weeklyDiscountMultiplier) &&
+                    $weeklyDiscountMultiplier > 0 &&
+                    $weeklyDiscountMultiplier < 1
+                ) {
+                    $totalPrice *= (float) $weeklyDiscountMultiplier;
+                    $weeklyDiscountApplied = true;
+                }
 
                 if ($specificListing && isset($specificListing['listingFeeSetting'])) {
                     foreach ($specificListing['listingFeeSetting'] as $fee) {
