@@ -157,139 +157,82 @@ class InquiryController extends Controller
                 ]);
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | 7. Wait briefly for conversation creation
-        |--------------------------------------------------------------------------
-        */
+            // hostEmail is the guest-to-host relay; guestEmail is the reverse relay.
+            $conversation = null;
+            try {
+                if (!$reservationId) {
+                    throw new \RuntimeException('Hostaway did not return a reservation ID');
+                }
 
-            sleep(2);
+                for ($attempt = 0; $attempt < 4; $attempt++) {
+                    if ($attempt > 0) {
+                        sleep(2);
+                    }
 
-            /*
-        |--------------------------------------------------------------------------
-        | 8. Fetch Conversation
-        |--------------------------------------------------------------------------
-        */
+                    $conversationResponse = Http::withToken($token)
+                        ->acceptJson()->timeout(10)
+                        ->get('https://api.hostaway.com/v1/conversations', [
+                            'reservationId' => $reservationId,
+                        ]);
 
-            $conversationResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-            ])->get(
-                'https://api.hostaway.com/v1/conversations',
-                [
-                    'reservationId' => $reservationId
-                ]
-            );
+                    if (!$conversationResponse->successful()) {
+                        Log::warning('Hostaway conversation lookup failed', [
+                            'reservation_id' => $reservationId,
+                            'status' => $conversationResponse->status(),
+                        ]);
+                        break;
+                    }
 
-            Log::info('Conversation response', [
-                'response' => $conversationResponse->json()
-            ]);
+                    $conversation = collect($conversationResponse->json('result', []))
+                        ->first(function ($item) use ($reservationId) {
+                            return is_array($item)
+                                && (string) ($item['reservationId'] ?? '') === (string) $reservationId
+                                && ($item['type'] ?? '') === 'host-guest-email'
+                                && filter_var($item['hostEmail'] ?? '', FILTER_VALIDATE_EMAIL);
+                        });
 
-            if (!$conversationResponse->successful()) {
+                    if ($conversation) {
+                        break;
+                    }
+                }
 
+                if (!$conversation) {
+                    return response()->json([
+                        'status' => true,
+                        'message' => 'Inquiry created, but message could not be forwarded: email conversation not ready',
+                        'message_status' => 'not_sent',
+                        'data' => $reservationData,
+                    ]);
+                }
+
+                Mail::raw($request->message, function ($mail) use ($conversation, $request) {
+                    $guestName = trim($request->first_name . ' ' . $request->last_name);
+                    $mail->to($conversation['hostEmail'])
+                        ->from(config('mail.from.address'), config('mail.from.name'))
+                        ->replyTo($request->email, $guestName)
+                        ->subject('Website inquiry from ' . $guestName);
+                });
+            } catch (\Exception $e) {
+                Log::error('Hostaway inquiry message forwarding failed', [
+                    'reservation_id' => $reservationId,
+                    'message' => $e->getMessage(),
+                ]);
+
+                // Creation succeeded: a retry of the whole request would duplicate it.
                 return response()->json([
                     'status' => true,
-                    'message' => 'Inquiry created but conversation not ready',
-                    'data' => $reservationData
+                    'message' => 'Inquiry created, but message could not be forwarded',
+                    'message_status' => 'not_sent',
+                    'data' => $reservationData,
                 ]);
             }
-
-            $conversation = $conversationResponse->json()['result'][0] ?? null;
-
-            if (!$conversation) {
-
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Inquiry created but no conversation found',
-                    'data' => $reservationData
-                ]);
-            }
-
-            /*
-        |--------------------------------------------------------------------------
-        | 9. IMPORTANT
-        |--------------------------------------------------------------------------
-        |
-        | Inspect Hostaway conversation payload carefully.
-        |
-        | You need the relay/proxy email field.
-        |
-        */
-
-            Log::info('Conversation payload', [
-                'conversation' => $conversation
-            ]);
-
-            /*
-        |--------------------------------------------------------------------------
-        | 10. Extract Proxy Email
-        |--------------------------------------------------------------------------
-        */
-
-            $proxyEmail =
-                $conversation['proxyEmail']
-                ?? $conversation['guestProxyEmail']
-                ?? $conversation['email']
-                ?? null;
-
-            if (!$proxyEmail) {
-
-                Log::warning('No proxy email found in conversation');
-
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Inquiry created but proxy email missing',
-                    'data' => $reservationData
-                ]);
-            }
-
-            /*
-        |--------------------------------------------------------------------------
-        | 11. Send REAL Email
-        |--------------------------------------------------------------------------
-        */
-
-            Mail::raw($request->message, function ($message)
-            use ($proxyEmail, $request) {
-
-                $message->to($proxyEmail)
-
-                    ->from(
-                        env('MAIL_FROM_ADDRESS'),
-                        'Group Retreats'
-                    )
-
-                    ->replyTo(
-                        $request->email,
-                        trim(
-                            $request->first_name
-                                . ' '
-                                . $request->last_name
-                        )
-                    )
-
-                    ->subject(
-                        'Inquiry from '
-                            . $request->first_name
-                            . ' '
-                            . $request->last_name
-                    );
-            });
-
-            Log::info('Guest-originated email sent', [
-                'proxy_email' => $proxyEmail
-            ]);
-
-            /*
-        |--------------------------------------------------------------------------
-        | 12. Done
-        |--------------------------------------------------------------------------
-        */
 
             return response()->json([
                 'status' => true,
-                'message' => 'Inquiry created successfully',
-                'data' => $reservationData
+                'message' => 'Inquiry created successfully; message forwarded to Hostaway',
+                'message_status' => 'forwarded',
+                'conversation_id' => $conversation['id'],
+                'data' => $reservationData,
             ]);
         } catch (\Exception $e) {
 
