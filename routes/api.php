@@ -140,6 +140,7 @@ Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 Route::get('/homepage', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
 Route::post('/admin/collections', [AdminCollectionController::class, 'createCollection']);
+Route::patch('/admin/collections/{id}/navigation', [CollectionController::class, 'updateNavigation']);
 Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
 Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
 Route::post('/upload-image', [ImageUploadController::class, 'upload']);

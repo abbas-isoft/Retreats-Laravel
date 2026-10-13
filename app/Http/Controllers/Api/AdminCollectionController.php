@@ -85,6 +85,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->id,
                 'name'        => $collection->title,
                 'description' => $collection->description,
+                'show_in_navigation' => $collection->show_in_navigation,
                 'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
                 'properties'  => $properties,
             ]
@@ -133,6 +134,7 @@ class AdminCollectionController extends Controller
                     'id'          => $collection->id,
                     'name'        => $collection->title,
                     'description' => $collection->description,
+                'show_in_navigation' => $collection->show_in_navigation,
                     'image'       => $collection->image,
                     'properties'  => [],
                 ]
@@ -200,6 +202,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->id,
                 'name'        => $collection->title,
                 'description' => $collection->description,
+                'show_in_navigation' => $collection->show_in_navigation,
                 'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
                 'properties'  => $properties,
             ]
@@ -216,6 +219,7 @@ class AdminCollectionController extends Controller
                 'id'          => $collection->getKey(),
                 'title'       => $collection->title,
                 'description' => $collection->description,
+                'show_in_navigation' => $collection->show_in_navigation,
                 'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
             ];
         });

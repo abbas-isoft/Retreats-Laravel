@@ -18,7 +18,7 @@ class NavbarController extends Controller
             ['id' => 5, 'title' => 'Contact Us', 'slug' => 'contact-us'],
         ];
 
-        $collections = Collection::select('id', 'title')->get();
+        $collections = Collection::select('id', 'title', 'show_in_navigation')->get();
 
         return response()->json([
             'status' => true,

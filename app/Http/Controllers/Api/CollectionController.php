@@ -23,6 +23,30 @@ class CollectionController extends Controller
         ]);
     }
 
+    public function updateNavigation(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'show_in_navigation' => 'required|boolean',
+        ]);
+
+        $collection = Collection::find($id);
+        if (!$collection) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        $collection->show_in_navigation = $validated['show_in_navigation'];
+        $collection->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Collection navigation visibility updated successfully',
+            'data' => new CollectionResource($collection),
+        ]);
+    }
+
     /**
      * POST API: Update existing collection by title
      */

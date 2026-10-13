@@ -10,6 +10,10 @@ class Collection extends Model
 {
     protected $fillable = ['title', 'description', 'image'];
 
+    protected $attributes = ['show_in_navigation' => true];
+
+    protected $casts = ['show_in_navigation' => 'boolean'];
+
     public function getImageAttribute($value)
     {
         if (!$value) {

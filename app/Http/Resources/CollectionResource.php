@@ -12,6 +12,7 @@ class CollectionResource extends JsonResource
             'title' => $this->title,
             'description' => $this->description,
             'image' => $this->image,
+            'show_in_navigation' => $this->show_in_navigation,
         ];
     }
 }
