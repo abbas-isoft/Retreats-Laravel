@@ -155,6 +155,7 @@ Route::prefix('admin')->group(function () {
 
   // Update existing region
   Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
+  Route::patch('/regions/{id}/navigation', [AdminCollectionController::class, 'updateRegionNavigation']);
 
   // List all regions
   Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);

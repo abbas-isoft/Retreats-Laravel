@@ -9,6 +9,8 @@ class Region extends Model
     protected $table = 'regions';
     protected $fillable = ['name', 'description', 'image' , 'active'];
     public $timestamps = true;
+    protected $attributes = ['show_in_navigation' => true];
+    protected $casts = ['show_in_navigation' => 'boolean'];
 
     public function getImageAttribute($value)
     {

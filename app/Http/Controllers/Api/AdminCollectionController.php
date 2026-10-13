@@ -299,6 +299,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
+                'show_in_navigation' => $region->show_in_navigation,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
@@ -366,6 +367,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
+                'show_in_navigation' => $region->show_in_navigation,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
@@ -385,10 +387,36 @@ class AdminCollectionController extends Controller
 
         return response()->json(['status' => true, 'message' => 'Region deleted successfully']);
     }
+    public function updateRegionNavigation(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'show_in_navigation' => 'required|boolean',
+        ]);
+
+        $region = Region::find($id);
+        if (!$region) {
+            return response()->json(['status' => false, 'message' => 'Region not found'], 404);
+        }
+
+        $region->show_in_navigation = $validated['show_in_navigation'];
+        $region->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Region navigation visibility updated successfully',
+            'data' => [
+                'id' => $region->id,
+                'name' => $region->name,
+                'description' => $region->description,
+                'image' => $region->image,
+                'show_in_navigation' => $region->show_in_navigation,
+            ],
+        ]);
+    }
     //  Get all regions
     public function getAllRegions()
     {
-        $regions = Region::select('id', 'name', 'description', 'image')->get()->map(function ($region) {
+        $regions = Region::select('id', 'name', 'description', 'image', 'show_in_navigation')->get()->map(function ($region) {
             $region->image = $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image;
             return $region;
         });
@@ -418,6 +446,7 @@ class AdminCollectionController extends Controller
                 'id'          => $region->id,
                 'name'        => $region->name,
                 'description' => $region->description,
+                'show_in_navigation' => $region->show_in_navigation,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
