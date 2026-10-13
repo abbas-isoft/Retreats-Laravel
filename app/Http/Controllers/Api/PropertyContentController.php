@@ -39,7 +39,7 @@ class PropertyContentController extends Controller
             //     ]);
             // }
 
-            $contents = PropertyContent::with(['listing', 'images', 'rooms.beds'])->where('property_id', $propertyId)
+            $contents = PropertyContent::with(['listing', 'images', 'rooms.beds', 'seoSettings'])->where('property_id', $propertyId)
                 ->latest()
                 ->get();
 
@@ -251,7 +251,7 @@ class PropertyContentController extends Controller
                 $propertyAmenities = json_decode($property->amenities, true) ?? [];
             }
 
-            $similarProperties = PropertyContent::with(['images', 'listing', 'rooms.beds'])
+            $similarProperties = PropertyContent::with(['images', 'listing', 'rooms.beds', 'seoSettings'])
                 ->where('id', '!=', $property->id)
                 ->where('active', 1)
                 ->where('property_type', $property->property_type)

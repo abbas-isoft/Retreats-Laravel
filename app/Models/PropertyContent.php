@@ -45,6 +45,11 @@ class PropertyContent extends Model
     {
         return $this->hasMany(\App\Models\PropertyContentImage::class, 'property_content_id', 'id')->orderBy('sort_order', 'asc');
     }
+
+    public function seoSettings()
+    {
+        return $this->hasOne(PropertySeoSetting::class, 'property_id', 'property_id');
+    }
     public function propertyContents()
     {
         return $this->hasMany(PropertyContent::class);
