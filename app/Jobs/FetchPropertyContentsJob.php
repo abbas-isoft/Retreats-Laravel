@@ -133,13 +133,17 @@ class FetchPropertyContentsJob implements ShouldQueue
                     $newImageIds = [];
                     foreach ($images as $index => $img) {
                         $photoId = $img['id'] ?? null;
+                        $bookingCaption = $img['bookingEngineCaption'] ?? null;
+                        $caption = is_string($bookingCaption) && trim($bookingCaption) !== ''
+                            ? $bookingCaption
+                            : ($img['caption'] ?? null);
 
                         // Refresh metadata without downloading an existing photo again.
                         $existingImage = $content->images()->where('photo_id', $photoId)->first();
                         if ($existingImage) {
                             $existingImage->update([
                                 'sort_order' => $index,
-                                'caption' => $img['caption'] ?? null,
+                                'caption' => $caption,
                             ]);
                             $newImageIds[] = $existingImage->id;
                             continue;
@@ -216,7 +220,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                             'photo_id' => $photoId,
                             'url'      => $finalUrl,
                             'sort_order' => $index,
-                            'caption' => $img['caption'] ?? null,
+                            'caption' => $caption,
                         ]);
                         $newImageIds[] = $newImage->id;
                     }

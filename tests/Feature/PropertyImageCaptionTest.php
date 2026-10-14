@@ -78,4 +78,22 @@ class PropertyImageCaptionTest extends TestCase
         $this->assertArrayHasKey('caption', (new PropertyContentImageResource($image))->resolve());
         $this->assertNull($image->caption);
     }
+
+    public function test_booking_engine_caption_is_preferred_and_blank_values_fall_back(): void
+    {
+        $property = PropertyContent::create(['property_id' => 452891]);
+        $image = $property->images()->create(['photo_id' => '339921602', 'url' => 'storage/images/existing.webp']);
+        $description = 'Saham Grove Hall front elevation at Norfolk - holiday home perfect for group getaway';
+        $this->sync([
+            ['id' => 339921602, 'caption' => '211015-SahamGroveHall-026.jpg', 'bookingEngineCaption' => $description],
+            ['id' => 102, 'caption' => 'Bedroom', 'bookingEngineCaption' => 'Booking engine bedroom'],
+            ['id' => 103, 'caption' => 'Kitchen', 'bookingEngineCaption' => '   '],
+            ['id' => 104, 'caption' => 'Garden', 'bookingEngineCaption' => null],
+        ]);
+        $this->assertSame($description, $image->fresh()->caption);
+        $this->assertSame('storage/images/existing.webp', $image->fresh()->getRawOriginal('url'));
+        $this->assertSame('Booking engine bedroom', PropertyContentImage::where('photo_id', '102')->firstOrFail()->caption);
+        $this->assertSame('Kitchen', PropertyContentImage::where('photo_id', '103')->firstOrFail()->caption);
+        $this->assertSame('Garden', PropertyContentImage::where('photo_id', '104')->firstOrFail()->caption);
+    }
 }
