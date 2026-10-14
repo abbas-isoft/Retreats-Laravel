@@ -58,6 +58,8 @@ class PropertyContentResource extends JsonResource
                 is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities
             ),
             'admin_amenities' => is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities,
+            'property_page_amenities' => $this->property_page_amenities,
+            'property_page_amenity_details' => $this->resource->propertyPageAmenityDetails(),
             'images' => PropertyContentImageResource::collection($this->images),
             'rooms' => PropertyRoomResource::collection($this->rooms),
             // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,

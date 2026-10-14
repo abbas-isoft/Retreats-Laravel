@@ -35,10 +35,12 @@ class PropertyContent extends Model
         'area_unit',
         'amenities',
         'admin_amenities',
+        'property_page_amenities',
     ];
 
     protected $casts = [
         'amenities' => 'array',
+        'property_page_amenities' => 'array',
     ];
 
     public function images()
@@ -49,6 +51,22 @@ class PropertyContent extends Model
     public function seoSettings()
     {
         return $this->hasOne(PropertySeoSetting::class, 'property_id', 'property_id');
+    }
+
+    public function propertyPageAmenityDetails(): ?array
+    {
+        $ids = $this->property_page_amenities;
+        if ($ids === null) {
+            return null;
+        }
+        if (!$ids) {
+            return [];
+        }
+
+        $amenities = Amenity::select('id', 'name')->whereIn('id', $ids)->get()->keyBy('id');
+        return collect($ids)->map(fn ($id) => $amenities->get($id))
+            ->filter()->map(fn ($amenity) => ['id' => $amenity->id, 'name' => $amenity->name])
+            ->values()->all();
     }
     public function propertyContents()
     {

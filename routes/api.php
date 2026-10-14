@@ -100,6 +100,8 @@ Route::get('/properties/{propertyId}/calculate-price', [PriceCalculationControll
 Route::get('/property-content/{propertyId}', [PropertyContentController::class, 'index']);
 Route::get('/admin/properties/{propertyId}/seo', [\App\Http\Controllers\Api\PropertySeoController::class, 'show']);
 Route::put('/admin/properties/{propertyId}/seo', [\App\Http\Controllers\Api\PropertySeoController::class, 'update']);
+Route::get('/admin/properties/{propertyId}/page-amenities', [\App\Http\Controllers\Api\PropertyPageAmenitiesController::class, 'show']);
+Route::put('/admin/properties/{propertyId}/page-amenities', [\App\Http\Controllers\Api\PropertyPageAmenitiesController::class, 'update']);
 
 Route::get('/property-grid', [PropertyGridController::class, 'index']);
 // Route::get('/property-grid-test', [PropertyGridController::class, 'grid']);
