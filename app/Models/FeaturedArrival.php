@@ -20,6 +20,6 @@ class FeaturedArrival extends Model
             'property_id',
             'id',        
             'property_id'   
-        );
+        )->withPivot('sort_order')->orderByPivot('sort_order')->orderByPivot('id');
     }
 }

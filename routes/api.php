@@ -170,6 +170,7 @@ Route::prefix('admin')->group(function () {
 
 
 Route::prefix('admin/featured-arrivals')->group(function () {
+  Route::patch('/{id}/order', [AdminFeaturedArrivalController::class, 'reorder']);
   Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
   Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
   Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all

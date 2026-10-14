@@ -16,8 +16,8 @@ class AdminFeaturedArrivalController extends Controller
         $request->validate([
             'title'        => 'required|string|max:255',
             'description'  => 'nullable|string',
-            'property_ids' => 'required|array',
-            'property_ids.*' => 'exists:property_contents,property_id',
+            'property_ids' => 'required|array|list',
+            'property_ids.*' => 'required|integer|distinct|exists:property_contents,property_id',
         ]);
 
         $featured = FeaturedArrival::create([
@@ -25,10 +25,11 @@ class AdminFeaturedArrivalController extends Controller
             'description' => $request->description,
         ]);
 
-        foreach ($request->property_ids as $pid) {
+        foreach ($request->property_ids as $position => $pid) {
             DB::table('featured_arrival_property')->insert([
                 'featured_arrival_id' => $featured->id,
                 'property_id' => $pid,
+                'sort_order' => $position + 1,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -41,8 +42,8 @@ class AdminFeaturedArrivalController extends Controller
         $request->validate([
             'title'        => 'required|string|max:255',
             'description'  => 'nullable|string',
-            'property_ids' => 'required|array',
-            'property_ids.*' => 'exists:property_contents,property_id',
+            'property_ids' => 'required|array|list',
+            'property_ids.*' => 'required|integer|distinct|exists:property_contents,property_id',
         ]);
 
         $featured = FeaturedArrival::find($id);
@@ -57,10 +58,11 @@ class AdminFeaturedArrivalController extends Controller
 
         DB::table('featured_arrival_property')->where('featured_arrival_id', $featured->id)->delete();
 
-        foreach ($request->property_ids as $pid) {
+        foreach ($request->property_ids as $position => $pid) {
             DB::table('featured_arrival_property')->insert([
                 'featured_arrival_id' => $featured->id,
                 'property_id' => $pid,
+                'sort_order' => $position + 1,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -72,6 +74,42 @@ class AdminFeaturedArrivalController extends Controller
     {
         $list = FeaturedArrival::orderBy('id', 'desc')->get();
         return response()->json(['status' => true, 'data' => $list]);
+    }
+    public function reorder(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'property_ids' => 'present|array|list',
+            'property_ids.*' => 'required|integer|distinct',
+        ]);
+
+        $result = DB::transaction(function () use ($id, $validated) {
+            $featured = FeaturedArrival::whereKey($id)->lockForUpdate()->first();
+            if (!$featured) {
+                return response()->json(['status' => false, 'message' => 'Not found'], 404);
+            }
+            $rows = DB::table('featured_arrival_property')
+                ->where('featured_arrival_id', $id)->lockForUpdate()->get();
+            $requested = collect($validated['property_ids'])->map(fn ($value) => (string) $value);
+            $existing = $rows->pluck('property_id')->map(fn ($value) => (string) $value)->unique();
+            if ($requested->count() !== $existing->count()
+                || $requested->diff($existing)->isNotEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Provide all currently selected property IDs exactly once',
+                ], 422);
+            }
+
+            foreach ($requested->values() as $position => $propertyId) {
+                DB::table('featured_arrival_property')
+                    ->where('featured_arrival_id', $id)->where('property_id', $propertyId)
+                    ->update(['sort_order' => $position + 1, 'updated_at' => now()]);
+            }
+            return $featured;
+        });
+
+        return $result instanceof FeaturedArrival
+            ? $this->formatFeaturedResponse($result, 'Featured property order updated successfully.')
+            : $result;
     }
     public function get($id)
     {
@@ -96,14 +134,20 @@ class AdminFeaturedArrivalController extends Controller
     }
     private function formatFeaturedResponse($featured, $message = 'Featured section created successfully.')
     {
-        $propertyIds = DB::table('featured_arrival_property')
+        $selected = DB::table('featured_arrival_property')
             ->where('featured_arrival_id', $featured->id)
-            ->pluck('property_id');
+            ->orderBy('sort_order')->orderBy('id')->get();
+        $propertyIds = $selected->pluck('property_id');
+        $positions = $propertyIds->flip();
+        $sortOrders = $selected->pluck('sort_order', 'property_id');
 
         $properties = DB::table('property_contents')
             ->whereIn('property_id', $propertyIds)
             ->get()
-            ->map(function ($property) {
+            ->sortBy(fn ($property) => $positions->get($property->property_id))
+            ->values()
+            ->map(function ($property) use ($sortOrders) {
+                $property->sort_order = (int) $sortOrders->get($property->property_id);
                 $images = DB::table('property_content_images')
                     ->where('property_content_id', $property->id)
                     ->select('id', 'property_content_id', 'photo_id', 'url', 'sort_order', 'created_at', 'updated_at')
