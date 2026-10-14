@@ -300,6 +300,7 @@ class AdminCollectionController extends Controller
                 'name'        => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
+                'sort_order' => $region->sort_order,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
@@ -368,6 +369,7 @@ class AdminCollectionController extends Controller
                 'name'        => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
+                'sort_order' => $region->sort_order,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]
@@ -410,13 +412,47 @@ class AdminCollectionController extends Controller
                 'description' => $region->description,
                 'image' => $region->image,
                 'show_in_navigation' => $region->show_in_navigation,
+                'sort_order' => $region->sort_order,
             ],
         ]);
     }
     //  Get all regions
+    public function reorderRegions(Request $request)
+    {
+        $validated = $request->validate([
+            'region_ids' => 'present|array|list',
+            'region_ids.*' => 'required|integer|distinct',
+        ]);
+
+        $error = DB::transaction(function () use ($validated) {
+            $existing = DB::table('regions')->orderBy('id')->lockForUpdate()->get(['id']);
+            $expected = $existing->pluck('id')->map(fn ($id) => (string) (int) $id);
+            $requested = collect($validated['region_ids'])->map(fn ($id) => (string) (int) $id);
+
+            if ($requested->unique()->count() !== $requested->count()
+                || $requested->count() !== $expected->count()
+                || $requested->diff($expected)->isNotEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Provide all region IDs exactly once, including hidden regions',
+                    'expected_region_ids' => $expected->values(),
+                ], 422);
+            }
+
+            foreach ($requested->values() as $position => $id) {
+                DB::table('regions')->where('id', $id)
+                    ->update(['sort_order' => $position + 1, 'updated_at' => now()]);
+            }
+            return null;
+        });
+
+        return $error ?? $this->getAllRegions();
+    }
+
     public function getAllRegions()
     {
-        $regions = Region::select('id', 'name', 'description', 'image', 'show_in_navigation')->get()->map(function ($region) {
+        $regions = Region::select('id', 'name', 'description', 'image', 'show_in_navigation', 'sort_order')
+            ->orderBy('sort_order')->orderBy('id')->get()->map(function ($region) {
             $region->image = $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image;
             return $region;
         });
@@ -447,6 +483,7 @@ class AdminCollectionController extends Controller
                 'name'        => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
+                'sort_order' => $region->sort_order,
                 'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
                 'properties'  => $properties,
             ]

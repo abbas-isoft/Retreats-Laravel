@@ -10,7 +10,14 @@ class Region extends Model
     protected $fillable = ['name', 'description', 'image' , 'active'];
     public $timestamps = true;
     protected $attributes = ['show_in_navigation' => true];
-    protected $casts = ['show_in_navigation' => 'boolean'];
+    protected $casts = ['show_in_navigation' => 'boolean', 'sort_order' => 'integer'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Region $region) {
+            $region->sort_order = (int) static::max('sort_order') + 1;
+        });
+    }
 
     public function getImageAttribute($value)
     {

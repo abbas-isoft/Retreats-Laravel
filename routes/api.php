@@ -163,6 +163,7 @@ Route::prefix('admin')->group(function () {
 
   // List all regions
   Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
+  Route::patch('/regions/order', [AdminCollectionController::class, 'reorderRegions']);
 
   //For Delete Region
   Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']);

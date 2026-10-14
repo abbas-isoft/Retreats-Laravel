@@ -24,6 +24,7 @@ class RegionNavigationTest extends TestCase
         DB::table('regions')->insert(['id' => 7, 'name' => 'South East', 'description' => 'Original']);
         $migration = require database_path('migrations/2026_10_13_000002_add_show_in_navigation_to_regions_table.php');
         $migration->up();
+        (require database_path('migrations/2026_10_14_000003_add_sort_order_to_regions_table.php'))->up();
     }
 
     public function test_existing_and_new_regions_default_to_visible(): void
