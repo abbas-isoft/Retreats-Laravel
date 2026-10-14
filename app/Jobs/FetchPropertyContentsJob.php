@@ -134,10 +134,13 @@ class FetchPropertyContentsJob implements ShouldQueue
                     foreach ($images as $index => $img) {
                         $photoId = $img['id'] ?? null;
 
-                        // Skip if already processed
+                        // Refresh metadata without downloading an existing photo again.
                         $existingImage = $content->images()->where('photo_id', $photoId)->first();
                         if ($existingImage) {
-                            $existingImage->update(['sort_order' => $index]);
+                            $existingImage->update([
+                                'sort_order' => $index,
+                                'caption' => $img['caption'] ?? null,
+                            ]);
                             $newImageIds[] = $existingImage->id;
                             continue;
                         }
@@ -213,6 +216,7 @@ class FetchPropertyContentsJob implements ShouldQueue
                             'photo_id' => $photoId,
                             'url'      => $finalUrl,
                             'sort_order' => $index,
+                            'caption' => $img['caption'] ?? null,
                         ]);
                         $newImageIds[] = $newImage->id;
                     }

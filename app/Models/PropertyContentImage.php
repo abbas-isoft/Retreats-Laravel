@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PropertyContentImage extends Model
 {
     protected $table = 'property_content_images';
-    protected $fillable = ['property_content_id', 'photo_id', 'url', 'sort_order'];
+    protected $fillable = ['property_content_id', 'photo_id', 'url', 'sort_order', 'caption'];
 
     public function getUrlAttribute($value)
     {

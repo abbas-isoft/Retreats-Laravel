@@ -17,6 +17,7 @@ class PropertyContentImageResource extends JsonResource
         return [
             'property_content_id' => $this->property_content_id,
             'photo_id' => $this->photo_id,
+            'caption' => $this->caption,
             'url' => $this->url && !str_starts_with($this->url, 'http') ? env('APP_URL') . '/' . $this->url : $this->url,
         ];
     }

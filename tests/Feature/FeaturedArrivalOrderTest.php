@@ -26,6 +26,7 @@ class FeaturedArrivalOrderTest extends TestCase
             $table->unsignedBigInteger('property_content_id');
             $table->unsignedBigInteger('photo_id')->nullable();
             $table->string('url')->nullable();
+            $table->text('caption')->nullable();
             $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
