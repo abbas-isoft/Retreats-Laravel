@@ -89,19 +89,26 @@ class AdminFeaturedArrivalController extends Controller
             }
             $rows = DB::table('featured_arrival_property')
                 ->where('featured_arrival_id', $id)->lockForUpdate()->get();
-            $requested = collect($validated['property_ids'])->map(fn ($value) => (string) $value);
-            $existing = $rows->pluck('property_id')->map(fn ($value) => (string) $value)->unique();
-            if ($requested->count() !== $existing->count()
+            $requested = collect($validated['property_ids'])->map(fn ($value) => (string) (int) $value);
+            // Match the properties GET can actually return. Sync may leave old
+            // pivot references whose property_contents rows no longer exist.
+            $existing = DB::table('property_contents')
+                ->whereIn('property_id', $rows->pluck('property_id'))
+                ->pluck('property_id')->map(fn ($value) => (string) (int) $value)->unique();
+            if ($requested->unique()->count() !== $requested->count()
+                || $requested->count() !== $existing->count()
                 || $requested->diff($existing)->isNotEmpty()) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Provide all currently selected property IDs exactly once',
+                    'expected_property_ids' => $existing->values(),
                 ], 422);
             }
 
             foreach ($requested->values() as $position => $propertyId) {
+                $pivotIds = $rows->filter(fn ($row) => (string) (int) $row->property_id === $propertyId)->pluck('id');
                 DB::table('featured_arrival_property')
-                    ->where('featured_arrival_id', $id)->where('property_id', $propertyId)
+                    ->where('featured_arrival_id', $id)->whereIn('id', $pivotIds)
                     ->update(['sort_order' => $position + 1, 'updated_at' => now()]);
             }
             return $featured;

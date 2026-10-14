@@ -82,4 +82,37 @@ class FeaturedArrivalOrderTest extends TestCase
             ->assertJsonPath('data.properties.0.property_id', 101);
         $this->patchJson('/api/admin/featured-arrivals/999/order', ['property_ids' => [101]])->assertNotFound();
     }
+
+    public function test_exact_section_eight_payload_matches_get_despite_stale_pivot_rows(): void
+    {
+        DB::table('featured_arrivals')->insert(['id' => 8, 'title' => 'Latest Arrivals']);
+        $mapping = [86 => 457567, 89 => 457750, 97 => 470518, 117 => 514914, 96 => 466952];
+        foreach ($mapping as $localId => $hostawayId) {
+            DB::table('property_contents')->insert([
+                'id' => $localId, 'property_id' => $hostawayId,
+                'property_name' => 'House ' . $hostawayId, 'amenities' => '[]',
+            ]);
+            DB::table('featured_arrival_property')->insert([
+                'featured_arrival_id' => 8, 'property_id' => (string) $hostawayId, 'sort_order' => 0,
+            ]);
+        }
+        // Old selection points to a property no longer present after a sync.
+        $staleId = DB::table('featured_arrival_property')->insertGetId([
+            'featured_arrival_id' => 8, 'property_id' => '575651', 'sort_order' => 0,
+        ]);
+        $url = '/api/admin/featured-arrivals/8';
+        $order = [457750, 457567, 470518, 514914, 466952];
+        $this->getJson($url)->assertOk()->assertJsonCount(5, 'data.properties');
+        $response = $this->patchJson($url . '/order', ['property_ids' => $order])->assertOk();
+        $this->assertSame($order, array_column($response->json('data.properties'), 'property_id'));
+        $this->assertSame([1, 2, 3, 4, 5], array_column($response->json('data.properties'), 'sort_order'));
+        $this->assertSame($order, array_column($this->getJson($url)->json('data.properties'), 'property_id'));
+        $this->patchJson($url . '/order', ['property_ids' => array_map('strval', $order)])->assertOk();
+        foreach ([array_slice($order, 1), [...$order, 575651], [...$order, $order[0]],
+            ['0457750', ...$order], array_keys($mapping)] as $ids) {
+            $this->patchJson($url . '/order', ['property_ids' => $ids])->assertUnprocessable();
+        }
+        $this->assertSame(6, DB::table('featured_arrival_property')->where('featured_arrival_id', 8)->count());
+        $this->assertSame(0, DB::table('featured_arrival_property')->where('id', $staleId)->value('sort_order'));
+    }
 }
