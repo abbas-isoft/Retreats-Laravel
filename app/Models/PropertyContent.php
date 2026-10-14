@@ -36,11 +36,15 @@ class PropertyContent extends Model
         'amenities',
         'admin_amenities',
         'property_page_amenities',
+        'hero_video_url',
+        'hero_video_thumbnail_url',
+        'hero_video_enabled',
     ];
 
     protected $casts = [
         'amenities' => 'array',
         'property_page_amenities' => 'array',
+        'hero_video_enabled' => 'boolean',
     ];
 
     public function images()
@@ -51,6 +55,17 @@ class PropertyContent extends Model
     public function seoSettings()
     {
         return $this->hasOne(PropertySeoSetting::class, 'property_id', 'property_id');
+    }
+
+    public function heroVideoData(): array
+    {
+        $video = $this->hero_video_url;
+        $thumbnail = $this->hero_video_thumbnail_url;
+        return [
+            'enabled' => (bool) $this->hero_video_enabled,
+            'url' => $video ? \Illuminate\Support\Facades\Storage::disk('public')->url(substr($video, 8)) : null,
+            'thumbnail_url' => $thumbnail ? \Illuminate\Support\Facades\Storage::disk('public')->url(substr($thumbnail, 8)) : null,
+        ];
     }
 
     public function propertyPageAmenityDetails(): ?array

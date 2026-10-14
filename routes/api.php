@@ -102,6 +102,9 @@ Route::get('/admin/properties/{propertyId}/seo', [\App\Http\Controllers\Api\Prop
 Route::put('/admin/properties/{propertyId}/seo', [\App\Http\Controllers\Api\PropertySeoController::class, 'update']);
 Route::get('/admin/properties/{propertyId}/page-amenities', [\App\Http\Controllers\Api\PropertyPageAmenitiesController::class, 'show']);
 Route::put('/admin/properties/{propertyId}/page-amenities', [\App\Http\Controllers\Api\PropertyPageAmenitiesController::class, 'update']);
+Route::get('/admin/properties/{propertyId}/hero-video', [\App\Http\Controllers\Api\PropertyHeroVideoController::class, 'show']);
+Route::put('/admin/properties/{propertyId}/hero-video', [\App\Http\Controllers\Api\PropertyHeroVideoController::class, 'update']);
+Route::post('/admin/properties/{propertyId}/hero-video/upload', [\App\Http\Controllers\Api\PropertyHeroVideoController::class, 'upload']);
 
 Route::get('/property-grid', [PropertyGridController::class, 'index']);
 // Route::get('/property-grid-test', [PropertyGridController::class, 'grid']);

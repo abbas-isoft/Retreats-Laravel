@@ -65,6 +65,7 @@ class PropertyContentResource extends JsonResource
             // 'beds' => $this->beds ? PropertyRoomBedsResource::collection($this->beds) : null,
             // 'beds' => PropertyRoomBedsResource::collection($this->beds),
             'beds' => PropertyRoomBedsResource::collection($this->beds ?? collect()),
+            'hero_video' => $this->resource->heroVideoData(),
             'seo' => $this->when($this->resource->relationLoaded('seoSettings'), function () {
                 return ($this->seoSettings ?? new \App\Models\PropertySeoSetting())->toSeoArray();
             }),
