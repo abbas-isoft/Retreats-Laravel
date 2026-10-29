@@ -1,56 +1,56 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\Api\PricesController;
+use App\Http\Controllers\AboutSectionController;
+use App\Http\Controllers\Api\AboutUsController;
 use App\Http\Controllers\Api\AccountController;
-use App\Http\Controllers\Api\PropertyController;
-use App\Http\Controllers\Api\PricesApiController;
-use App\Http\Controllers\Api\AvailabilityController;
-use App\Http\Controllers\Api\ConfigurationController;
-use App\Http\Controllers\Api\ContentListingController;
-use App\Http\Controllers\Api\PropertyContentController;
+use App\Http\Controllers\Api\AdminCollectionController;
+use App\Http\Controllers\Api\AdminFeaturedArrivalController;
 use App\Http\Controllers\Api\AvailabilityCalendarController;
-use App\Http\Controllers\Api\SinglePropertyListingController;
-use App\Http\Controllers\Api\HomepageContentController;
-use App\Http\Controllers\Api\RetreatSearchController;
+use App\Http\Controllers\Api\AvailabilityController;
+use App\Http\Controllers\Api\BookingGuideController;
+use App\Http\Controllers\Api\BookingStepController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\CollectionSectionController;
+use App\Http\Controllers\Api\ConfigurationController;
+use App\Http\Controllers\Api\ContentListingController;
+use App\Http\Controllers\Api\ContentSeoController;
 use App\Http\Controllers\Api\FeatureBoxController;
-use App\Http\Controllers\Api\HeroSectionController;
-use App\Http\Controllers\Api\ReviewController;
-use App\Http\Controllers\Api\LatestArrivalController;
 use App\Http\Controllers\Api\GroupContactFormController;
-use App\Http\Controllers\Api\AboutUsController;
-use App\Http\Controllers\Api\BookingGuideController;
-use App\Http\Controllers\Api\PageSectionController;
-use App\Http\Controllers\Api\TestBookingController;
-use App\Http\Controllers\Api\NavbarController;
-use App\Http\Controllers\AboutSectionController;
-use App\Http\Controllers\FAQSectionController;
-use App\Http\Controllers\Api\PropertyGridController;
-use App\Http\Controllers\Api\PropertySearchController;
-use App\Http\Controllers\Api\BookingStepController;
-use App\Http\Controllers\Api\ListYourPropertyController;
+use App\Http\Controllers\Api\HeroSectionController;
+use App\Http\Controllers\Api\HomepageContentController;
 use App\Http\Controllers\Api\HospitalitySectionController;
-use App\Http\Controllers\Api\ListPropertyController;
-use App\Http\Controllers\Api\WhyPartnerBoxController;
-use App\Http\Controllers\Api\OwnerSaySectionController;
-use App\Http\Controllers\Api\SearchDropdownController;
-use App\Http\Controllers\Api\PropertyPriceController;
-use App\Http\Controllers\Api\PropertyApiController;
-use App\Http\Controllers\Api\PriceCalculationController;
-use App\Http\Controllers\Api\StripeWebhookController;
-use App\Http\Controllers\Api\PropertyExtraController;
-use App\Http\Controllers\Api\AdminCollectionController;
-use App\Http\Controllers\Api\NewsletterController;
-use App\Http\Controllers\Api\ImageUploadController;
-use App\Http\Controllers\Api\AdminRegionController;
-use App\Http\Controllers\Api\VideoUploadController;
 use App\Http\Controllers\Api\IconUploadController;
-use App\Http\Controllers\Api\AdminFeaturedArrivalController;
+use App\Http\Controllers\Api\ImageUploadController;
 use App\Http\Controllers\Api\InquiryController;
+use App\Http\Controllers\Api\LatestArrivalController;
+use App\Http\Controllers\Api\ListPropertyController;
+use App\Http\Controllers\Api\ListYourPropertyController;
+use App\Http\Controllers\Api\NavbarController;
+use App\Http\Controllers\Api\NewsletterController;
+use App\Http\Controllers\Api\OwnerSaySectionController;
+use App\Http\Controllers\Api\PageSectionController;
+use App\Http\Controllers\Api\PriceCalculationController;
+use App\Http\Controllers\Api\PricesApiController;
+use App\Http\Controllers\Api\PricesController;
+use App\Http\Controllers\Api\PropertyApiController;
+use App\Http\Controllers\Api\PropertyContentController;
+use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\PropertyExtraController;
+use App\Http\Controllers\Api\PropertyGridController;
+use App\Http\Controllers\Api\PropertyPriceController;
+use App\Http\Controllers\Api\PropertySearchController;
+use App\Http\Controllers\Api\RetreatSearchController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\SearchDropdownController;
+use App\Http\Controllers\Api\SinglePropertyListingController;
+use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\TestBookingController;
+use App\Http\Controllers\Api\VideoUploadController;
+use App\Http\Controllers\Api\WhyPartnerBoxController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\FAQSectionController;
+use Illuminate\Support\Facades\Route;
 
 // Accounts
 Route::get('accounts', [AccountController::class, 'index']);
@@ -109,7 +109,6 @@ Route::post('/admin/properties/{propertyId}/hero-video/upload', [\App\Http\Contr
 Route::get('/property-grid', [PropertyGridController::class, 'index']);
 // Route::get('/property-grid-test', [PropertyGridController::class, 'grid']);
 
-
 Route::get('filter-by-collection/{id}', [PropertyContentController::class, 'getCollection']);
 // Availability Calendar
 Route::get('availability-calendars/{propertyId}', [AvailabilityCalendarController::class, 'index']);
@@ -130,12 +129,10 @@ Route::post('/book-property', [BookingController::class, 'bookProperty']);
 // Test Booking
 Route::post('/test-book-property', [TestBookingController::class, 'bookTestProperty']);
 
-
 // Cancel Booking
 Route::post('/sync-availability/{propertyId}', [BookingController::class, 'syncAvailability']);
 Route::post('/cancel-booking', [BookingController::class, 'cancelBooking']);
 Route::get('/collections', [CollectionController::class, 'getAllCollections']);
-
 
 Route::get('/homepage-content', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
@@ -147,6 +144,8 @@ Route::post('/retreats/search', [RetreatSearchController::class, 'index']);
 Route::get('/homepage', [HomepageContentController::class, 'index']);
 Route::post('/homepage', [HomepageContentController::class, 'store']);
 Route::post('/admin/collections', [AdminCollectionController::class, 'createCollection']);
+Route::put('/admin/collections/{collection}/seo', [ContentSeoController::class, 'updateCollection'])
+    ->middleware(['auth', 'can:manage-content-seo']);
 Route::patch('/admin/collections/{id}/navigation', [CollectionController::class, 'updateNavigation']);
 Route::get('/admin/collections/{id}', [AdminCollectionController::class, 'getCollection']);
 Route::delete('/admin/collections/{id}', [AdminCollectionController::class, 'deleteCollection']);
@@ -157,33 +156,36 @@ Route::post('/upload-icon', [IconUploadController::class, 'upload']);
 // Route::post('/admin/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
 // REGION MANAGEMENT (Admin)
 Route::prefix('admin')->group(function () {
-  // Create new region
-  Route::post('/region', [AdminCollectionController::class, 'createRegion']);
+    // Create new region
+    Route::post('/region', [AdminCollectionController::class, 'createRegion']);
 
-  // Update existing region
-  Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
-  Route::patch('/regions/{id}/navigation', [AdminCollectionController::class, 'updateRegionNavigation']);
+    // Update existing region
+    Route::get('/region/{id}', [AdminCollectionController::class, 'getRegion']);
+    Route::put('/region/{id}', [AdminCollectionController::class, 'updateRegion']);
+    Route::patch('/regions/{id}/navigation', [AdminCollectionController::class, 'updateRegionNavigation']);
 
-  // List all regions
-  Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
-  Route::patch('/regions/order', [AdminCollectionController::class, 'reorderRegions']);
+    // List all regions
+    Route::get('/regions', [AdminCollectionController::class, 'getAllRegions']);
+    Route::put('/regions/{region}/seo', [ContentSeoController::class, 'updateRegion'])
+        ->middleware(['auth', 'can:manage-content-seo']);
+    Route::patch('/regions/order', [AdminCollectionController::class, 'reorderRegions'])
+        ->middleware(['auth', 'can:manage-content-order']);
 
-  //For Delete Region
-  Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']);
+    // For Delete Region
+    Route::delete('/region/{id}', [AdminCollectionController::class, 'deleteRegion']);
 });
 
-
 Route::prefix('admin/featured-arrivals')->group(function () {
-  Route::patch('/{id}/order', [AdminFeaturedArrivalController::class, 'reorder']);
-  Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
-  Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
-  Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all
-  Route::get('/{id}', [AdminFeaturedArrivalController::class, 'get']);      // Get single
-  Route::delete('/{id}', [AdminFeaturedArrivalController::class, 'delete']); // Delete
+    Route::patch('/{id}/order', [AdminFeaturedArrivalController::class, 'reorder'])
+        ->middleware(['auth', 'can:manage-content-order']);
+    Route::post('/', [AdminFeaturedArrivalController::class, 'store']);       // Create
+    Route::put('/{id}', [AdminFeaturedArrivalController::class, 'update']);   // Update
+    Route::get('/', [AdminFeaturedArrivalController::class, 'getAll']);       // List all
+    Route::get('/{id}', [AdminFeaturedArrivalController::class, 'get']);      // Get single
+    Route::delete('/{id}', [AdminFeaturedArrivalController::class, 'delete']); // Delete
 });
 
 Route::post('/get-region-destinations', [AdminCollectionController::class, 'getRegionDestinations']);
-
 
 Route::get('/search-properties', [PropertySearchController::class, 'GetPropertiessearch']);
 
@@ -193,16 +195,13 @@ Route::post('/collections', [CollectionController::class, 'store']);
 Route::get('/collection-section/{key}', [CollectionSectionController::class, 'show']);
 Route::post('/collection-section/{key}', [CollectionSectionController::class, 'storeOrUpdate']);
 
-
 Route::get('/sections/{key}', [CollectionSectionController::class, 'show']);
 Route::post('/sections/{key}', [CollectionSectionController::class, 'storeOrUpdate']);
-
 
 Route::get('/feature-boxes', [FeatureBoxController::class, 'index']);
 Route::post('/feature-boxes', [FeatureBoxController::class, 'storeOrUpdate']); // create
 Route::put('/feature-boxes/{id}', [FeatureBoxController::class, 'storeOrUpdate']); // update
 Route::delete('/feature-boxes/{id}', [FeatureBoxController::class, 'destroy']);   // delete
-
 
 Route::get('/about-detail', [HospitalitySectionController::class, 'index']);
 Route::post('/heading', [HospitalitySectionController::class, 'update']);
@@ -221,19 +220,18 @@ Route::get('/navbar', [NavbarController::class, 'getNavbarData']);
 
 Route::post('/group-contact', [GroupContactFormController::class, 'store']);
 
-
 Route::get('/about-us', [AboutUsController::class, 'GetAboutPage']);
 Route::post('/about-us', [AboutUsController::class, 'storeOrUpdate']);
 
-//Building the future of Hospitality
+// Building the future of Hospitality
 Route::get('/booking-guide', [BookingGuideController::class, 'index']);
 Route::post('/booking-guide', [BookingGuideController::class, 'store']);
 
-//Route::prefix('v1')->group(function () {
+// Route::prefix('v1')->group(function () {
 Route::post('/section', [PageSectionController::class, 'store']);
 Route::get('/section/{section_name}', [PageSectionController::class, 'show']);
 Route::put('/section/{section_name}', [PageSectionController::class, 'update']);
-//});
+// });
 
 // Route::get('/booking-steps', [BookingStepController::class, 'show']);
 // Route::post('/booking-steps', [BookingStepController::class, 'store']);
@@ -244,13 +242,11 @@ Route::post('/how-to-make-booking', [BookingStepController::class, 'store']);
 Route::post('faqs-tab', [AboutSectionController::class, 'storeAboutSection']);
 Route::get('faqs-tab', [AboutSectionController::class, 'GetFaqsPage']);
 
-
 Route::post('faq-section', [FAQSectionController::class, 'storeFAQSection']);
 Route::get('faq-section', [FAQSectionController::class, 'getFAQSection']);
 
 // Route::get('/list-your-property-content', [ListYourPropertyController::class, 'index']);
 // Route::post('/list-your-property-content', [ListYourPropertyController::class, 'store']);
-
 
 Route::get('/list-property', [ListPropertyController::class, 'GetListProperty']);
 Route::post('/list-property', [ListPropertyController::class, 'PostListProperty']);
@@ -260,6 +256,5 @@ Route::post('/why-partner', [WhyPartnerBoxController::class, 'store']);
 
 Route::get('/owner-say', [OwnerSaySectionController::class, 'index']);
 Route::post('/owner-say', [OwnerSaySectionController::class, 'store']);
-
 
 Route::get('/search-filters', [SearchDropdownController::class, 'index']);

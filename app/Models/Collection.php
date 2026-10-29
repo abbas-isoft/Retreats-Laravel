@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +15,7 @@ class Collection extends Model
 
     public function getImageAttribute($value)
     {
-        if (!$value) {
+        if (! $value) {
             return $value;
         }
 
@@ -24,7 +23,7 @@ class Collection extends Model
         $path = ltrim($value, '/');
 
         // Repair old admin-domain URLs only when the file exists on this backend.
-        if ($adminUrl && str_starts_with($value, $adminUrl . '/storage/')) {
+        if ($adminUrl && str_starts_with($value, $adminUrl.'/storage/')) {
             $path = substr($value, strlen($adminUrl) + 1);
         }
 
@@ -36,16 +35,21 @@ class Collection extends Model
         }
 
         // Keep existing CMS-hosted and external images working.
-        return str_starts_with($value, 'http') ? $value : $adminUrl . '/' . $path;
+        return str_starts_with($value, 'http') ? $value : $adminUrl.'/'.$path;
     }
 
     public function properties()
-{
-    return $this->belongsToMany(
-        \App\Models\PropertyContent::class,
-        'collection_property',
-        'collection_id',
-        'property_id'
-    );
-}
+    {
+        return $this->belongsToMany(
+            \App\Models\PropertyContent::class,
+            'collection_property',
+            'collection_id',
+            'property_id'
+        );
+    }
+
+    public function seoSetting()
+    {
+        return $this->hasOne(PropertySeoSetting::class, 'collection_id');
+    }
 }

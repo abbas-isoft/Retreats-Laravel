@@ -18,8 +18,8 @@ class FeaturedArrival extends Model
             'featured_arrival_property',
             'featured_arrival_id',
             'property_id',
-            'id',        
-            'property_id'   
-        )->withPivot('sort_order')->orderByPivot('sort_order')->orderByPivot('id');
+            'id',
+            'property_id'
+        )->withPivot('sort_order')->orderByPivot('sort_order')->orderBy('property_contents.property_id');
     }
 }

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Collection;
+use App\Http\Requests\UpdateCollectionRequest;
 use App\Http\Resources\CollectionResource;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Collection;
+use App\Services\SeoSettingsService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class CollectionController extends Controller
 {
@@ -15,7 +18,7 @@ class CollectionController extends Controller
      */
     public function index()
     {
-        $collections = Collection::all();
+        $collections = Collection::with('seoSetting')->get();
 
         return response()->json([
             'status' => true,
@@ -30,7 +33,7 @@ class CollectionController extends Controller
         ]);
 
         $collection = Collection::find($id);
-        if (!$collection) {
+        if (! $collection) {
             return response()->json([
                 'status' => false,
                 'message' => 'Collection not found',
@@ -39,6 +42,7 @@ class CollectionController extends Controller
 
         $collection->show_in_navigation = $validated['show_in_navigation'];
         $collection->save();
+        $collection->load('seoSetting');
 
         return response()->json([
             'status' => true,
@@ -50,38 +54,42 @@ class CollectionController extends Controller
     /**
      * POST API: Update existing collection by title
      */
-    public function store(Request $request)
+    public function store(UpdateCollectionRequest $request, SeoSettingsService $seoService)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
-        ]);
-
-      
+        $validated = $request->validated();
         $collection = Collection::where('title', $validated['title'])->first();
 
-        
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('images', 'public');
-            $validated['image'] = 'storage/' . $imagePath;
+            $validated['image'] = 'storage/'.$imagePath;
         }
 
         if ($collection) {
-            
-            $collection->update($validated);
+            $seo = $validated['seo'] ?? null;
+            unset($validated['seo']);
+
+            DB::transaction(function () use ($collection, $validated, $seo, $seoService) {
+                $collection->update($validated);
+                if (is_array($seo)) {
+                    $seoService->update($collection, $seo);
+                }
+            });
+
+            Cache::forget('collections');
+            Cache::forget('collection.'.$collection->getKey());
+            $collection->load('seoSetting');
 
             return response()->json([
                 'status' => true,
                 'message' => 'Collection updated successfully',
                 'data' => new CollectionResource($collection),
             ]);
-        } else {
-            return response()->json([
-                'status' => false,
-                'message' => 'Collection with this title does not exist. Cannot create new.',
-            ], 404);
         }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Collection with this title does not exist. Cannot create new.',
+        ], 404);
     }
 
     /**
@@ -91,7 +99,7 @@ class CollectionController extends Controller
     {
         $collection = Collection::with(['properties.images'])->find($id);
 
-        if (!$collection) {
+        if (! $collection) {
             return response()->json([
                 'status' => false,
                 'message' => 'Collection not found',
@@ -108,7 +116,7 @@ class CollectionController extends Controller
                     'images' => $property->images->map(function ($image) {
                         return [
                             'photo_id' => $image->photo_id,
-                            'url' => $image->url && !str_starts_with($image->url, 'http') ? env('APP_URL') . '/' . $image->url : $image->url,
+                            'url' => $image->url && ! str_starts_with($image->url, 'http') ? env('APP_URL').'/'.$image->url : $image->url,
                         ];
                     }),
                 ];

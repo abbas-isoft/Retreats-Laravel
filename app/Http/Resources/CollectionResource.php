@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -13,6 +14,9 @@ class CollectionResource extends JsonResource
             'description' => $this->description,
             'image' => $this->image,
             'show_in_navigation' => $this->show_in_navigation,
+            'seo' => $this->resource->relationLoaded('seoSetting')
+                ? $this->seoSetting?->toSeoArray()
+                : null,
         ];
     }
 }

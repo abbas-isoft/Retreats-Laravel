@@ -25,6 +25,10 @@ class RegionNavigationTest extends TestCase
         $migration = require database_path('migrations/2026_10_13_000002_add_show_in_navigation_to_regions_table.php');
         $migration->up();
         (require database_path('migrations/2026_10_14_000003_add_sort_order_to_regions_table.php'))->up();
+        Schema::create('property_seo_settings', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('region_id')->nullable();
+        });
     }
 
     public function test_existing_and_new_regions_default_to_visible(): void

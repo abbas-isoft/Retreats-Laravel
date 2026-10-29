@@ -31,6 +31,10 @@ class CollectionNavigationTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('property_content_id');
         });
+        Schema::create('property_seo_settings', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('collection_id')->nullable();
+        });
     }
 
     public function test_existing_and_new_collections_default_to_visible(): void

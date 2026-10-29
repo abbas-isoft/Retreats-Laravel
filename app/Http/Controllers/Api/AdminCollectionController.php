@@ -3,64 +3,74 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SaveCollectionRequest;
+use App\Http\Requests\SaveRegionRequest;
 use App\Models\Collection;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Region;
-use App\Models\PropertyContentImage;
+use App\Services\SeoSettingsService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class AdminCollectionController extends Controller
 {
-    public function createCollection(Request $request)
+    public function createCollection(SaveCollectionRequest $request, SeoSettingsService $seoService)
     {
-        $request->validate([
-            'title'        => 'required|string|max:255',
-            'description'  => 'nullable|string',
-            'image'        => 'nullable|image|mimes:jpg,jpeg,png',
-            'property_ids' => 'required|array',
-            'property_ids.*' => 'exists:property_contents,property_id',
-        ]);
+        $validated = $request->validated();
 
         $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = 'storage/' . $path;
+            $imageUrl = 'storage/'.$path;
         }
 
-        $collection = Collection::where('title', $request->title)->first();
+        $collection = DB::transaction(function () use ($validated, $imageUrl, $seoService) {
+            $collection = Collection::where('title', $validated['title'])->lockForUpdate()->first();
 
-        if ($collection) {
-            $collection->update([
-                'description' => $request->description,
-                'image'       => $imageUrl ?? $collection->image,
-            ]);
+            if ($collection) {
+                $attributes = ['description' => $validated['description'] ?? null];
+                if ($imageUrl !== null) {
+                    $attributes['image'] = $imageUrl;
+                }
+                $collection->update($attributes);
+                DB::table('collection_property')->where('collection_id', $collection->id)->delete();
+            } else {
+                $collection = Collection::create([
+                    'title' => $validated['title'],
+                    'description' => $validated['description'] ?? null,
+                    'image' => $imageUrl,
+                ]);
+            }
 
-            DB::table('collection_property')->where('collection_id', $collection->id)->delete();
-        } else {
-            $collection = Collection::create([
-                'title'       => $request->title,
-                'description' => $request->description,
-                'image'       => $imageUrl,
-            ]);
-        }
-        if (strtolower($request->title) === 'late escapes') {
-            if (!empty($request->property_ids)) {
-                foreach ($request->property_ids as $propertyId) {
+            if (strtolower($validated['title']) === 'late escapes') {
+                if (! empty($validated['property_ids'])) {
+                    foreach ($validated['property_ids'] as $propertyId) {
+                        DB::table('collection_property')->insert([
+                            'collection_id' => $collection->id,
+                            'property_id' => $propertyId,
+                        ]);
+                    }
+                }
+            } else {
+                foreach ($validated['property_ids'] as $propertyId) {
                     DB::table('collection_property')->insert([
                         'collection_id' => $collection->id,
-                        'property_id'   => $propertyId,
+                        'property_id' => $propertyId,
                     ]);
                 }
             }
-        } else {
-            foreach ($request->property_ids as $propertyId) {
-                DB::table('collection_property')->insert([
-                    'collection_id' => $collection->id,
-                    'property_id'   => $propertyId,
-                ]);
+
+            if (isset($validated['seo']) && is_array($validated['seo'])) {
+                $seoService->update($collection, $validated['seo']);
             }
-        }
+
+            return $collection;
+        });
+
+        Cache::forget('collections');
+        Cache::forget('collection.'.$collection->getKey());
+        $collection->load('seoSetting');
+
         $properties = DB::table('property_contents')
             ->select(
                 'property_id',
@@ -73,7 +83,7 @@ class AdminCollectionController extends Controller
                 'city',
                 'country'
             )
-            ->whereIn('property_id', $request->property_ids)
+            ->whereIn('property_id', $validated['property_ids'])
             ->get();
 
         return response()->json([
@@ -82,45 +92,49 @@ class AdminCollectionController extends Controller
                 ? 'Collection created successfully'
                 : 'Collection updated successfully',
             'data' => [
-                'id'          => $collection->id,
-                'name'        => $collection->title,
+                'id' => $collection->id,
+                'name' => $collection->title,
                 'description' => $collection->description,
                 'show_in_navigation' => $collection->show_in_navigation,
-                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
-                'properties'  => $properties,
-            ]
+                'image' => $collection->image && ! str_starts_with($collection->image, 'http') ? env('ADMIN_URL').'/'.$collection->image : $collection->image,
+                'properties' => $properties,
+                'seo' => $collection->seoSetting?->toSeoArray(),
+            ],
         ]);
     }
+
     public function deleteCollection($id)
     {
         $collection = Collection::find($id);
 
-        if (!$collection) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Collection not found',
-            ], 404);
-        }
-
-        DB::table('collection_property')->where('collection_id', $id)->delete();
-        $collection->delete();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Collection deleted successfully',
-        ]);
-    }
-    public function getCollection($id)
-    {
-        $collection = Collection::find($id);
-
-        if (!$collection) {
+        if (! $collection) {
             return response()->json([
                 'status' => false,
                 'message' => 'Collection not found',
             ], 404);
         }
 
+        DB::table('collection_property')->where('collection_id', $id)->delete();
+        $collection->delete();
+        Cache::forget('collections');
+        Cache::forget('collection.'.$id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Collection deleted successfully',
+        ]);
+    }
+
+    public function getCollection($id)
+    {
+        $collection = Collection::with('seoSetting')->find($id);
+
+        if (! $collection) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Collection not found',
+            ], 404);
+        }
 
         $propertyIds = DB::table('collection_property')
             ->where('collection_id', $collection->id)
@@ -131,13 +145,14 @@ class AdminCollectionController extends Controller
                 'status' => true,
                 'message' => 'No properties linked to this collection yet.',
                 'data' => [
-                    'id'          => $collection->id,
-                    'name'        => $collection->title,
+                    'id' => $collection->id,
+                    'name' => $collection->title,
                     'description' => $collection->description,
-                'show_in_navigation' => $collection->show_in_navigation,
-                    'image'       => $collection->image,
-                    'properties'  => [],
-                ]
+                    'show_in_navigation' => $collection->show_in_navigation,
+                    'image' => $collection->image,
+                    'properties' => [],
+                    'seo' => $collection->seoSetting?->toSeoArray(),
+                ],
             ]);
         }
 
@@ -181,7 +196,8 @@ class AdminCollectionController extends Controller
                     ->select('id', 'property_content_id', 'photo_id', 'url', 'caption', 'created_at', 'updated_at')
                     ->get()
                     ->map(function ($img) {
-                        $img->url = $img->url && !str_starts_with($img->url, 'http') ? env('APP_URL') . '/' . $img->url : $img->url;
+                        $img->url = $img->url && ! str_starts_with($img->url, 'http') ? env('APP_URL').'/'.$img->url : $img->url;
+
                         return $img;
                     });
                 if (isset($property->admin_amenities)) {
@@ -199,13 +215,14 @@ class AdminCollectionController extends Controller
             'status' => true,
             'message' => 'Filtered properties fetched successfully.',
             'data' => [
-                'id'          => $collection->id,
-                'name'        => $collection->title,
+                'id' => $collection->id,
+                'name' => $collection->title,
                 'description' => $collection->description,
                 'show_in_navigation' => $collection->show_in_navigation,
-                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
-                'properties'  => $properties,
-            ]
+                'image' => $collection->image && ! str_starts_with($collection->image, 'http') ? env('ADMIN_URL').'/'.$collection->image : $collection->image,
+                'properties' => $properties,
+                'seo' => $collection->seoSetting?->toSeoArray(),
+            ],
         ]);
     }
 
@@ -214,66 +231,69 @@ class AdminCollectionController extends Controller
      */
     public function getAllCollections()
     {
-        $collections = Collection::all()->map(function ($collection) {
+        $collections = Collection::with('seoSetting')->get()->map(function ($collection) {
             return [
-                'id'          => $collection->getKey(),
-                'title'       => $collection->title,
+                'id' => $collection->getKey(),
+                'title' => $collection->title,
                 'description' => $collection->description,
                 'show_in_navigation' => $collection->show_in_navigation,
-                'image'       => $collection->image && !str_starts_with($collection->image, 'http') ? env('ADMIN_URL') . '/' . $collection->image : $collection->image,
+                'image' => $collection->image && ! str_starts_with($collection->image, 'http') ? env('ADMIN_URL').'/'.$collection->image : $collection->image,
+                'seo' => $collection->seoSetting?->toSeoArray(),
             ];
         });
 
         return response()->json([
             'status' => true,
-            'data'   => $collections
+            'data' => $collections,
         ]);
     }
 
-    public function createRegion(Request $request)
+    public function createRegion(SaveRegionRequest $request, SeoSettingsService $seoService)
     {
-        $request->validate([
-            'name'          => 'required|string|max:255',
-            'description'   => 'nullable|string',
-            'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'property_ids'  => 'required|array',
-            'property_ids.*' => 'exists:property_contents,property_id',
-        ]);
+        $validated = $request->validated();
 
-        // Handle image upload
         $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = 'storage/' . $path;
+            $imageUrl = 'storage/'.$path;
         }
 
-        $region = Region::where('name', $request->name)->first();
+        $region = DB::transaction(function () use ($validated, $imageUrl, $seoService) {
+            $region = Region::where('name', $validated['name'])->lockForUpdate()->first();
 
-        if ($region) {
+            if ($region) {
+                $attributes = ['description' => $validated['description'] ?? null];
+                if ($imageUrl !== null) {
+                    $attributes['image'] = $imageUrl;
+                }
+                $region->update($attributes);
+                DB::table('region_property')->where('region_id', $region->id)->delete();
+            } else {
+                $region = Region::create([
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'image' => $imageUrl,
+                ]);
+            }
 
-            $region->update([
-                'description' => $request->description,
-                'image'       => $imageUrl ?? $region->image,
-            ]);
+            foreach ($validated['property_ids'] as $propertyId) {
+                DB::table('region_property')->insert([
+                    'region_id' => $region->id,
+                    'property_id' => $propertyId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
+            if (isset($validated['seo']) && is_array($validated['seo'])) {
+                $seoService->update($region, $validated['seo']);
+            }
 
-            DB::table('region_property')->where('region_id', $region->id)->delete();
-        } else {
-            $region = Region::create([
-                'name'        => $request->name,
-                'description' => $request->description,
-                'image'       => $imageUrl,
-            ]);
-        }
+            return $region;
+        });
 
-        foreach ($request->property_ids as $propertyId) {
-            DB::table('region_property')->insert([
-                'region_id'   => $region->id,
-                'property_id' => $propertyId,
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
-        }
+        $this->clearRegionsCache($region->id);
+        $region->load('seoSetting');
 
         $properties = DB::table('property_contents')
             ->select(
@@ -287,7 +307,7 @@ class AdminCollectionController extends Controller
                 'city',
                 'country'
             )
-            ->whereIn('property_id', $request->property_ids)
+            ->whereIn('property_id', $validated['property_ids'])
             ->get();
 
         return response()->json([
@@ -296,56 +316,64 @@ class AdminCollectionController extends Controller
                 ? 'Region created successfully'
                 : 'Region updated successfully',
             'data' => [
-                'id'          => $region->id,
-                'name'        => $region->name,
+                'id' => $region->id,
+                'name' => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
                 'sort_order' => $region->sort_order,
-                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
-                'properties'  => $properties,
-            ]
+                'image' => $region->image && ! str_starts_with($region->image, 'http') ? env('ADMIN_URL').'/'.$region->image : $region->image,
+                'properties' => $properties,
+                'seo' => $region->seoSetting?->toSeoArray(),
+            ],
         ]);
     }
 
-    public function updateRegion(Request $request, $id)
+    public function updateRegion(SaveRegionRequest $request, SeoSettingsService $seoService, $id)
     {
         $region = Region::find($id);
-        if (!$region) {
+        if (! $region) {
             return response()->json(['status' => false, 'message' => 'Region not found'], 404);
         }
 
-        $request->validate([
-            'name'          => 'required|string|max:255|unique:regions,name,' . $id,
-            'description'   => 'nullable|string',
-            'image'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'property_ids'  => 'nullable|array',
-            'property_ids.*' => 'exists:property_contents,property_id',
-        ]);
+        $validated = $request->validated();
 
-        $imageUrl = $region->image;
+        $imageUrl = null;
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('images', 'public');
-            $imageUrl = 'storage/' . $path;
+            $imageUrl = 'storage/'.$path;
         }
 
-        $region->update([
-            'name'        => $request->name,
-            'description' => $request->description,
-            'image'       => $imageUrl,
-        ]);
-
-        if (!empty($request->property_ids)) {
-            DB::table('region_property')->where('region_id', $region->id)->delete();
-
-            foreach ($request->property_ids as $propertyId) {
-                DB::table('region_property')->insert([
-                    'region_id'   => $region->id,
-                    'property_id' => $propertyId,
-                    'created_at'  => now(),
-                    'updated_at'  => now(),
-                ]);
+        DB::transaction(function () use ($region, $validated, $imageUrl, $seoService) {
+            $attributes = [
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+            ];
+            if ($imageUrl !== null) {
+                $attributes['image'] = $imageUrl;
             }
-        }
+            $region->update($attributes);
+
+            if (! empty($validated['property_ids'])) {
+                DB::table('region_property')->where('region_id', $region->id)->delete();
+
+                foreach ($validated['property_ids'] as $propertyId) {
+                    DB::table('region_property')->insert([
+                        'region_id' => $region->id,
+                        'property_id' => $propertyId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            if (isset($validated['seo']) && is_array($validated['seo'])) {
+                $seoService->update($region, $validated['seo']);
+            }
+        });
+
+        $this->clearRegionsCache($region->id);
+        $region->load('seoSetting');
+
         $properties = DB::table('property_contents')
             ->select(
                 'property_id',
@@ -358,21 +386,22 @@ class AdminCollectionController extends Controller
                 'city',
                 'country'
             )
-            ->whereIn('property_id', $request->property_ids ?? [])
+            ->whereIn('property_id', $validated['property_ids'] ?? [])
             ->get();
 
         return response()->json([
             'status' => true,
             'message' => 'Region updated successfully',
             'data' => [
-                'id'          => $region->id,
-                'name'        => $region->name,
+                'id' => $region->id,
+                'name' => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
                 'sort_order' => $region->sort_order,
-                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
-                'properties'  => $properties,
-            ]
+                'image' => $region->image && ! str_starts_with($region->image, 'http') ? env('ADMIN_URL').'/'.$region->image : $region->image,
+                'properties' => $properties,
+                'seo' => $region->seoSetting?->toSeoArray(),
+            ],
         ]);
     }
 
@@ -380,15 +409,17 @@ class AdminCollectionController extends Controller
     {
         $region = Region::find($id);
 
-        if (!$region) {
+        if (! $region) {
             return response()->json(['status' => false, 'message' => 'Region not found'], 404);
         }
 
         DB::table('region_property')->where('region_id', $region->id)->delete();
         $region->delete();
+        $this->clearRegionsCache($region->id);
 
         return response()->json(['status' => true, 'message' => 'Region deleted successfully']);
     }
+
     public function updateRegionNavigation(Request $request, $id)
     {
         $validated = $request->validate([
@@ -396,12 +427,14 @@ class AdminCollectionController extends Controller
         ]);
 
         $region = Region::find($id);
-        if (!$region) {
+        if (! $region) {
             return response()->json(['status' => false, 'message' => 'Region not found'], 404);
         }
 
         $region->show_in_navigation = $validated['show_in_navigation'];
         $region->save();
+        $this->clearRegionsCache($region->id);
+        $region->load('seoSetting');
 
         return response()->json([
             'status' => true,
@@ -413,18 +446,20 @@ class AdminCollectionController extends Controller
                 'image' => $region->image,
                 'show_in_navigation' => $region->show_in_navigation,
                 'sort_order' => $region->sort_order,
+                'seo' => $region->seoSetting?->toSeoArray(),
             ],
         ]);
     }
+
     //  Get all regions
     public function reorderRegions(Request $request)
     {
-        $validated = $request->validate([
-            'region_ids' => 'present|array|list',
-            'region_ids.*' => 'required|integer|distinct',
-        ]);
+        $error = DB::transaction(function () use ($request) {
+            $validated = $request->validate([
+                'region_ids' => 'present|array|list',
+                'region_ids.*' => 'required|integer|distinct|exists:regions,id',
+            ]);
 
-        $error = DB::transaction(function () use ($validated) {
             $existing = DB::table('regions')->orderBy('id')->lockForUpdate()->get(['id']);
             $expected = $existing->pluck('id')->map(fn ($id) => (string) (int) $id);
             $requested = collect($validated['region_ids'])->map(fn ($id) => (string) (int) $id);
@@ -443,28 +478,43 @@ class AdminCollectionController extends Controller
                 DB::table('regions')->where('id', $id)
                     ->update(['sort_order' => $position + 1, 'updated_at' => now()]);
             }
+
             return null;
         });
 
-        return $error ?? $this->getAllRegions();
+        if ($error) {
+            return $error;
+        }
+
+        $this->clearRegionsCache();
+
+        return $this->getAllRegions();
     }
 
     public function getAllRegions()
     {
-        $regions = Region::select('id', 'name', 'description', 'image', 'show_in_navigation', 'sort_order')
+        $regions = Region::with('seoSetting')
+            ->select('id', 'name', 'description', 'image', 'show_in_navigation', 'sort_order')
             ->orderBy('sort_order')->orderBy('id')->get()->map(function ($region) {
-            $region->image = $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image;
-            return $region;
-        });
+                return [
+                    'id' => $region->id,
+                    'name' => $region->name,
+                    'description' => $region->description,
+                    'image' => $region->image,
+                    'show_in_navigation' => $region->show_in_navigation,
+                    'sort_order' => $region->sort_order,
+                    'seo' => $region->seoSetting?->toSeoArray(),
+                ];
+            });
 
         return response()->json(['status' => true, 'data' => $regions]);
     }
 
     public function getRegion($id)
     {
-        $region = Region::find($id);
+        $region = Region::with('seoSetting')->find($id);
 
-        if (!$region) {
+        if (! $region) {
             return response()->json(['status' => false, 'message' => 'Region not found'], 404);
         }
 
@@ -479,14 +529,15 @@ class AdminCollectionController extends Controller
             'status' => true,
             'message' => 'Region fetched successfully',
             'data' => [
-                'id'          => $region->id,
-                'name'        => $region->name,
+                'id' => $region->id,
+                'name' => $region->name,
                 'description' => $region->description,
                 'show_in_navigation' => $region->show_in_navigation,
                 'sort_order' => $region->sort_order,
-                'image'       => $region->image && !str_starts_with($region->image, 'http') ? env('ADMIN_URL') . '/' . $region->image : $region->image,
-                'properties'  => $properties,
-            ]
+                'image' => $region->image && ! str_starts_with($region->image, 'http') ? env('ADMIN_URL').'/'.$region->image : $region->image,
+                'properties' => $properties,
+                'seo' => $region->seoSetting?->toSeoArray(),
+            ],
         ]);
     }
 
@@ -565,7 +616,6 @@ class AdminCollectionController extends Controller
     //     ]);
     // }
 
-
     public function getRegionDestinations(Request $request)
     {
         $request->validate([
@@ -577,7 +627,7 @@ class AdminCollectionController extends Controller
             ->where('id', $request->region_id)
             ->first();
 
-        if (!$regionRecord) {
+        if (! $regionRecord) {
             return response()->json([
                 'status' => false,
                 'message' => 'Region not found in database',
@@ -594,7 +644,7 @@ class AdminCollectionController extends Controller
                 'region' => $regionRecord->name,
                 'message' => 'No properties linked to this region yet.',
                 'properties' => [],
-                'total_properties' => 0
+                'total_properties' => 0,
             ]);
         }
         $properties = DB::table('property_contents')
@@ -649,5 +699,13 @@ class AdminCollectionController extends Controller
             'properties' => $propertiesWithImages,
             'message' => 'Properties fetched successfully',
         ]);
+    }
+
+    private function clearRegionsCache(int|string|null $id = null): void
+    {
+        Cache::forget('regions');
+        if ($id !== null) {
+            Cache::forget('region.'.$id);
+        }
     }
 }
