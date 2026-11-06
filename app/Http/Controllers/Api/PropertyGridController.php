@@ -264,7 +264,7 @@ class PropertyGridController extends Controller
                         $orderedProperty['maximum_guests'] = $maxGuests;
                     }
 
-                    // Pricing keys hamesha show honi chahiye jab dates searched hon
+                    // Always include pricing keys when dates are supplied.
                     if ($hasDates) {
                         $hostawayListing = $priceMap[$property->property_id] ?? null;
                         $rawNightly = $hostawayListing['averageNightlyPrice'] ?? null;

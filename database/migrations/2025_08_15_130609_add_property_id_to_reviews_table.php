@@ -12,7 +12,7 @@ return new class extends Migration
     public function up()
 {
     Schema::table('reviews', function (Blueprint $table) {
-        $table->unsignedBigInteger('property_id')->nullable()->after('id'); // ya kisi aur column ke baad
+        $table->unsignedBigInteger('property_id')->nullable()->after('id'); // Place it after another column if needed.
     });
 }
 

@@ -47,14 +47,14 @@ class PropertyContentResource extends JsonResource
             'amenities' => $this->when(
                 isset($this->filter),
                 function () {
-                    // JSON string ko array/collection me convert karo
+                    // Convert a JSON string to an array or collection.
                     $amenities = is_string($this->amenities) ? collect(json_decode($this->amenities, true)) : $this->amenities;
 
                     return $amenities->filter(function ($amenity) {
                         return strtoupper($amenity['name'] ?? $amenity) === strtoupper($this->filter);
                     })->values();
                 },
-                // Agar filter nahi hai, pura amenities array/collection return karo
+                // Return all amenities when no filter is supplied.
                 is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities
             ),
             'admin_amenities' => is_string($this->amenities) ? json_decode($this->amenities, true) : $this->amenities,

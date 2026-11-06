@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('newsletter_subscriptions', function (Blueprint $table) {
             $table->id();
-            $table->string('email')->unique(); // duplicate email nahi hoga
+            $table->string('email')->unique(); // Prevent duplicate email addresses.
             $table->timestamps();
         });
     }
